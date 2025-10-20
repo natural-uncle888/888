@@ -404,6 +404,7 @@ durationMinutes: +$('durationMinutes').value,
       const tbody=$('ordersTable').querySelector('tbody'); tbody.innerHTML='';
       const q = ($('searchInput')?.value || '').trim();
       const tokens = q ? q.split(/\s+/).map(t=>t.toLowerCase().replace(/\s|-/g,'')) : [];
+  const phoneTokens = tokens.map(function(t) { return t.replace(/\D+/g, ''); });
       searchTokens = (q ? q.split(/\s+/) : []).filter(Boolean); // for highlight (not normalized)
       const hay = (o) => [
   (o.customer || '').toLowerCase(),

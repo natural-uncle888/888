@@ -406,20 +406,20 @@ durationMinutes: +$('durationMinutes').value,
       const tokens = q ? q.split(/\s+/).map(t=>t.toLowerCase().replace(/\s|-/g,'')) : [];
       searchTokens = (q ? q.split(/\s+/) : []).filter(Boolean); // for highlight (not normalized)
       const hay = (o) => [
-            (o.customer || '').toLowerCase(),
-            normalizePhone(o.phone || ''),
-            (o.address || '').toLowerCase()
-     ].join(' ');
+  (o.customer || '').toLowerCase(),
+  normalizePhone(o.phone || ''),
+  (o.address || '').toLowerCase()
+].join(' ');
       const range=$('completedRange').value;
       const now=Date.now();
       const filtered=orders.filter(o=>{
-      const s1=!staffF || o.staff===staffF; const s2=!statusF || o.status===statusF;
-      const condQuery = tokens.length === 0 || tokens.every(t => {
-        const customer = (o.customer || '').toLowerCase();
-        const address = (o.address || '').toLowerCase();
-        const phone = normalizePhone(o.phone || '');
-        return customer.includes(t) || address.includes(t) || phone.includes(t);
-       });
+        const s1=!staffF || o.staff===staffF; const s2=!statusF || o.status===statusF;
+        const condQuery = tokens.length === 0 || tokens.every((t, i) => {
+    const customer = (o.customer || '').toLowerCase();
+    const address = (o.address || '').toLowerCase();
+    const phone = normalizePhone(o.phone || '');
+    return customer.includes(t) || address.includes(t) || phone.includes(phoneTokens[i]);
+  });
         const condRange = !range || (o.completedAt && (now - new Date(o.completedAt).getTime()) <= (+range)*24*60*60*1000);
         if(!o.date){ return showUndated && s1 && s2 && condQuery && condRange; }
         const d=new Date(o.date); const ym=(d.getFullYear()===y && (d.getMonth()+1)===m);

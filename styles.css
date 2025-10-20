@@ -1,0 +1,533 @@
+:root {
+  --bg: #e0e7ef;
+  --card: #ffffff;
+  --muted: #374151;
+  --text: #111827;
+  --primary: #2563eb;
+  --primary-weak: #bfdbfe;
+  --accent: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --border: #94a3b8;
+  --radius: 16px;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+}
+
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:system-ui, -apple-system, "Noto Sans TC", Segoe UI, Roboto, Helvetica, Arial;
+      background:linear-gradient(180deg,var(--bg),#eef2ff);
+      color:var(--text);
+    }
+    header{
+      position:sticky;top:0;z-index:10;
+      background:rgba(255,255,255,.8);backdrop-filter:saturate(1.2) blur(8px);
+      border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    .stack{display:flex;flex-direction:column;gap:16px}
+    .card{
+      background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
+    }
+    .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--border);font-size:18px}
+    .card .body{padding:16px}
+    .row{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-bottom:12px}
+    @media (max-width:900px){.row{grid-template-columns:repeat(6,1fr)}}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select,textarea,button{font:inherit}
+    input[type="text"],input[type="date"],input[type="time"],input[type="number"],select,textarea{
+      width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;outline:none;
+    }
+    textarea{min-height:72px;resize:vertical}
+    .muted{color:var(--muted)}
+    .pill{
+      border-radius:999px;padding:8px 12px;border:1px solid var(--border);background:#fff;display:inline-flex;gap:8px;align-items:center
+    }
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px}
+    .toolbar button, .toolbar .right button{
+      padding:10px 14px;border-radius:999px;border:1px solid var(--border);
+      background:#fff;color:var(--text);cursor:pointer
+    }
+    .toolbar .primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .toolbar .accent{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .toolbar .warn{background:var(--warn);color:#111}
+    .toolbar .danger{background:var(--danger);color:#fff}
+    .toolbar .right{margin-left:auto;display:flex;gap:8px}
+    table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border-radius:12px;border:1px solid var(--border)}
+    thead th{background:#f3f4f6;color:#374151;font-weight:600;text-align:left;font-size:12px;padding:10px;border-bottom:1px solid var(--border)}
+    tbody td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
+    tbody tr:hover{background:#fafafa}
+    .status{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid;cursor:pointer;user-select:none}
+    .status.P排定{color:#2563eb;border-color:#93c5fd;background:#eff6ff}
+    .status.C完成{color:#10b981;border-color:#a7f3d0;background:#ecfdf5}
+    .status.N未完成{color:#ef4444;border-color:#fecaca;background:#fef2f2}
+    .sum{display:flex;gap:12px;flex-wrap:wrap}
+    .sum .box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:170px;box-shadow:var(--shadow)}
+    .number{font-size:18px;font-weight:700}
+    .small{font-size:12px}
+    .hr{height:1px;background:var(--border);margin:8px 0 16px}
+    .inline-btn{padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fff;color:var(--text);cursor:pointer;margin-left:8px}
+    .right-align{text-align:right}
+    .editable{cursor:pointer}
+    .editable:hover{background:#f9fafb}
+    .checkpill{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);background:#fff;cursor:pointer;user-select:none}
+    .checkpill.on{background:#ecfdf5;border-color:#a7f3d0;color:#059669}
+    .checkpill.off{background:#f9fafb;color:#6b7280}
+    .icon-btn{padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:#fff;cursor:pointer}
+    .icon-btn.danger{background:#fee2e2;border-color:#fecaca;color:#b91c1c}
+    .hidden{display:none !important}
+    .checkbox-group{display:flex;gap:8px;flex-wrap:wrap}
+    .checkbox{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);padding:6px 10px;border-radius:999px;background:#fff}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width:900px){.two-col{grid-template-columns:1fr}}
+    mark{background:#fde68a;padding:0 .15em;border-radius:3px}
+    .badge-soft{display:inline-block;padding:2px 8px;border-radius:999px;background:#f3f4f6;color:#374151;font-size:12px}
+    .lock-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#6b7280}
+    .tiny{font-size:11px;color:#6b7280}
+    /* Accordion */
+    details.accordion{border:1px solid var(--border);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow)}
+    details.accordion > summary{list-style:none;cursor:pointer;padding:14px 16px;border-radius:var(--radius);font-weight:600}
+    details.accordion[open] > summary{border-bottom:1px solid var(--border)}
+    details.accordion .content{padding:16px}
+  
+/* 增強按鈕視覺 */
+button, .toolbar button {
+  transition: background 0.2s ease, color 0.2s ease;
+}
+button:hover, .toolbar button:hover {
+  filter: brightness(1.1);
+}
+
+/* 主要按鈕強化 */
+.toolbar .primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.toolbar .primary:hover {
+  background: #1e40af;
+}
+
+/* 強調按鈕（如 Google/新增） */
+.toolbar .accent {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.toolbar .accent:hover {
+  background: #047857;
+}
+
+/* 危險按鈕 hover 強化 */
+.toolbar .danger:hover {
+  background: #b91c1c;
+}
+
+/* 清晰的狀態圓角標籤 */
+.status {
+  font-weight: bold;
+  border-width: 2px;
+}
+
+/* 表格行 hover 高亮 */
+tbody tr:hover {
+  background: #f0f9ff;
+}
+
+/* 搜尋高亮 mark 顏色加深 */
+mark {
+  background: #facc15;
+  color: #000;
+}
+
+/* 強化輸入欄位與卡片對比 */
+input[type="text"],
+input[type="date"],
+input[type="time"],
+input[type="number"],
+select,
+textarea {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* hover 狀態加強 */
+button:hover,
+.toolbar button:hover {
+  filter: brightness(1.12);
+}
+
+/* 表格 hover 更明顯 */
+tbody tr:hover {
+  background: #dbeafe;
+}
+
+/* 強化表格標頭對比 */
+thead th {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* 搜尋 mark 強化 */
+mark {
+  background: #facc15;
+  padding: 0 0.2em;
+  border-radius: 2px;
+}
+
+/* === Mobile Enhancements === */
+@media (max-width: 768px) {
+  .wrap { padding: 12px; }
+  .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .toolbar .right { margin-left: 0; width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .toolbar button, .toolbar .right button { width: 100%; min-height: 44px; font-size: 16px; }
+  .pill { width: 100%; }
+  .pill input, .pill select { width: 100% !important; }
+  .row { grid-template-columns: 1fr !important; }
+  .two-col { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 600px) {
+  /* Turn the big table into stacked cards */
+  table { border: 0; }
+  table thead { display: none; }
+  table tr { display: block; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 8px; box-shadow: var(--shadow); }
+  table td { display: block; border: none; padding: 8px; text-align: left; }
+  table td.right-align { text-align: left; }
+  table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  /* Make pills/buttons comfortable to tap */
+  button, .toolbar button { min-height: 44px; }
+  input, select, textarea { font-size: 16px; } /* avoid iOS zoom */
+}
+
+
+/* === Prune columns & mobile keep-list (injected) === */
+th.col-slot, td.col-slot,
+th.col-total, td.col-total {
+  display: none !important;
+}
+
+@media (max-width: 600px) {
+  table td { display: none !important; }
+  table td.keep-mobile { display: block !important; }
+}
+
+
+@media (max-width: 768px) {
+  .toolbar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    width: 100%;
+  }
+  .toolbar > * {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+  .toolbar .pill,
+  .toolbar label.pill {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    height: 44px;
+    padding: 0 16px !important;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 15px;
+    gap: 0;
+    margin: 0;
+    width: 100% !important;
+  }
+  .toolbar label.pill input[type="checkbox"] {
+    margin-right: 8px;
+    width: 22px;
+    height: 22px;
+    accent-color: #2563eb;
+    flex-shrink: 0;
+  }
+  .toolbar label.pill span {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0;
+    margin: 0;
+    display: block;
+  }
+  /* 所有按鈕都維持同寬同高 */
+  .toolbar .right {
+    display: contents !important;
+    width: 100%;
+    margin-left: 0;
+    gap: 0 !important;
+  }
+  .toolbar .right button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px;
+    font-size: 15px;
+    margin: 0 !important;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* === Desktop vertical character display for 客戶/狀況/確認/報價單 === */
+@media (min-width: 768px) {
+  td.vtext {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    line-height: 1.1;
+  }
+}
+
+
+/* === Above-5F manual input === */
+#acFloorAboveWrap, #washerFloorAboveWrap {
+  margin-top: 6px;
+}
+#acFloorAbove, #washerFloorAbove {
+  width: 180px;
+  max-width: 100%;
+}
+
+/* === Floor info note appended to 地址 cell === */
+.floor-note {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 2px;
+  white-space: normal;
+}
+
+
+/* === Reminder badges === */
+.due-badge, .due-soon {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+.due-badge { background: #ffe5e5; color: #b00020; }
+.due-soon   { background: #fff7e0; color: #8a6d00; }
+
+
+/* === Due Soon Panel === */
+.card.due-panel {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.card.due-panel .card-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.due-list .row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr auto;
+  gap: 8px;
+  padding: 8px 6px;
+  border-bottom: 1px dashed #eee;
+  align-items: center;
+}
+.due-list .row:last-child { border-bottom: none; }
+.due-list .name { font-weight: 600; }
+.due-list .muted { opacity: .65; font-size: 12px; }
+.due-list .badge { font-size: 12px; padding: 2px 6px; border-radius: 999px; display: inline-block; }
+.due-list .badge.due { background: #ffe5e5; color: #b00020; }
+.due-list .badge.soon { background: #fff7e0; color: #8a6d00; }
+.due-list .row button { padding: 4px 8px; border-radius: 8px; }
+.due-list.empty { color: #666; font-size: 14px; padding: 8px; }
+@media (max-width: 768px) {
+  .card.due-panel { display: none; } /* 手機隱藏，避免擠版；如需手機也顯示可移除此行 */
+}
+
+
+/* === Reminder inline toolbar (under 居住地型態) === */
+#reminderToolbar input.compact { width: 100px; }
+#reminderToolbar input[disabled] { width: 140px; }
+#reminderToolbar .muted { opacity: .75; font-size: 12px; }
+
+
+/* === Reminder flags styling === */
+.pill.danger { border-color: #ef4444; color: #b91c1c; }
+.badge.muted { background:#f3f4f6; color:#6b7280; }
+
+
+/* === Improve contrast for red '不再提醒' control === */
+.pill.danger,
+.icon-btn.danger {
+  background: #ef4444;
+  color: #fff !important;
+  border-color: #ef4444;
+}
+.pill.danger span { color: #fff !important; }
+
+/* === Staff icon styles (v2) === */
+.staff-cell { text-align: center; }
+.staff-icon { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
+
+
+/* === Multi-phone UI === */
+#phoneContainer { display:flex; flex-direction:column; gap:8px; }
+.phone-input { width:100%; }
+#addPhoneBtn { margin-top:4px; background: var(--primary); color:#fff; border:none; border-radius:8px; padding:6px 12px; cursor:pointer; }
+
+/* === Multi-phone rows with remove button === */
+#phoneContainer { display: flex; flex-direction: column; gap: 8px; }
+.phone-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.phone-input { width: 100%; }
+.phone-remove {
+  border: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  line-height: 1;
+}
+.phone-remove:hover { background: #f3f4f6; }
+
+/* === Force no-wrap for date/time cells (strong override) === */
+#ordersTable [data-label="日期"],
+#ordersTable [data-label="時間"],
+#ordersTable th[data-label="日期"],
+#ordersTable th[data-label="時間"] {
+  white-space: nowrap !important;
+  word-break: keep-all !important;    /* don't break at hyphens or anywhere */
+  overflow-wrap: normal !important;    /* cancel 'anywhere' if set elsewhere */
+  hyphens: none !important;
+  min-width: 7.5rem;                   /* give a bit of room so it fits */
+}
+
+/* === Copy buttons only on mobile === */
+.copy-btn {
+  display: none;
+  margin-left: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #6b7280;
+}
+.copy-btn:active { transform: scale(0.92); }
+@media (max-width: 768px) {
+  .copy-btn { display: inline; }
+}
+
+/* === Copy button stronger visibility (mobile/tablet) === */
+.copy-btn {
+  display: inline-block !important;
+  margin-left: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #6b7280;
+  vertical-align: middle;
+}
+.copy-btn:active { transform: scale(0.92); }
+
+@media (max-width: 992px) {
+  .copy-btn {
+    display: inline-block !important;
+  }
+}
+
+/* === Copy buttons always visible (guaranteed version) === */
+.copy-btn {
+  display: inline-block !important;
+  margin-left: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #6b7280;
+  vertical-align: middle;
+}
+.copy-btn:active { transform: scale(0.92); }
+
+
+.ab-toolbar { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+.ab-toolbar input[type="search"]{ flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:var(--card); }
+
+/* 靜音名單：恢復提醒按鈕與表格微調 */
+#muteListSection .icon-btn { border:1px solid var(--border); }
+#muteListSection .icon-btn:hover { filter: brightness(0.95); }
+
+
+/* ===== 靜音名單：數量顯示與上方留白修正 ===== */
+#muteListSection.card { padding: 0; }              /* 外層卡片取消預設 padding，避免收合時變厚 */
+#muteListSection summary { padding: 8px 12px; cursor: pointer; }
+#muteListSection summary h2 { display: inline; margin: 0; font-size: 1.1rem; }
+#muteListSection .hint { font-size: 0.9rem; opacity: 0.75; margin-left: 6px; }
+#muteListSection .body { padding: 12px; }          /* 改由內容本身控管內距 */
+#muteListSection[open] summary { border-bottom: 1px solid var(--border); }
+
+/* ====== column resizer UI ====== */
+#ordersTable { /* table-layout 固定已在你檔案內，但確保存在 */
+  table-layout: fixed;
+}
+
+/* resizer 把手 */
+#ordersTable th {
+  position: relative;
+  /* 確保 padding-right 有空間給把手 */
+  padding-right: 18px;
+}
+
+/* 可拖拉的把手（靠右） */
+.orders-col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+  /* 顯示一個窄條方便抓取 */
+  background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 60%, transparent 100%);
+  opacity: 0.8;
+  z-index: 5;
+}
+
+/* 拖曳時可選擇狀態禁用文字選取 */
+.orders-col-resizing {
+  cursor: col-resize !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  user-select: none !important;
+}
+
+/* 小螢幕時把把手縮小或隱藏（避免遮擋） */
+@media (max-width: 600px) {
+  .orders-col-resizer { display: none; }
+}

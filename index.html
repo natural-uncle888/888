@@ -87,23 +87,21 @@
 <main class="wrap stack" style="margin-top:16px">
 <!-- 訂單列表（上） -->
 <section class="card">
-<div class="card-header">
-  <h2>訂單列表</h2>
-  <div class="header-actions">
-    <button id="toggleYearBtn" class="small-toggle" aria-expanded="false" aria-controls="yearSummary" title="切換年度統計 (預設收起)">
+<div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
+<h2>訂單列表</h2>
+<div class="header-actions" style="display:flex; align-items:center; gap:4px; flex-shrink:0;"><select aria-label="統計年份選擇" id="yearStatSelect" style="height:32px; margin-right:12px; padding:4px 8px; font-size:14px; max-width:120px;"></select>
+<button aria-controls="yearSummary" aria-expanded="false" class="small-toggle" id="toggleYearBtn" style=" min-width:80px; white-space:nowrap;" title="切換年度統計 (預設收起)">
       年度統計 ▾
     </button>
-  </div>
+</div>
 </div>
 <div class="body">
 <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
-  <div></div>
-  <div style="display:flex; gap:8px; align-items:center;">
-    
-  </div>
+<div></div>
+<div style="display:flex; gap:8px; align-items:center;">
 </div>
-<div class="sum" id="yearSummary" style="margin-top:8px"></div>
-
+</div>
+<div class="sum" id="yearSummary" style="padding-top: 4px; margin-bottom: 16px;"></div>
 <div class="sum" id="summary"></div>
 <div class="hr"></div>
 <div style="overflow:auto;margin-top:8px">

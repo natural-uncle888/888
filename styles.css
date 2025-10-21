@@ -590,3 +590,17 @@ th.col-total, td.col-total {
   background: #f5f7fa;
   border: 1px solid #d0d7df;
 }
+
+
+/* Year stat select styling */
+#yearStatSelect {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  min-width: 120px;
+}
+@media (max-width: 768px) {
+  #yearSummaryHeader { flex-direction: column; align-items: flex-start; gap:6px; }
+  #yearStatSelect { width: 100%; }
+}

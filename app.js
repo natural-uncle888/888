@@ -576,6 +576,7 @@ durationMinutes: +$('durationMinutes').value,
 
       if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
       // 保持年度區塊的收合狀態（若有）
+      if (typeof refreshYearStatSelect === 'function') refreshYearStatSelect();
       if (typeof applyYearStateKeep === 'function') applyYearStateKeep();
 
     }
@@ -2319,3 +2320,90 @@ function enablePhotoUrlEdit() {
 
 // Ensure year toggle is initialized
 document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearToggle === 'function') initYearToggle(); });
+
+
+
+// === 年度統計：獨立年份下拉選單 (可選單一年或全部) ===
+(function(){
+  // Wait until core variables (orders, expenses) are available
+  function initYearStat(){
+    const sel = document.getElementById('yearStatSelect');
+    const summaryEl = document.getElementById('yearSummary');
+    if(!sel || !summaryEl) return;
+
+    function getYearsFromOrders(){
+      try {
+        const yrs = Array.from(new Set((orders || []).map(o=> o.date ? new Date(o.date).getFullYear() : null).filter(Boolean)));
+        yrs.sort((a,b)=>b-a); // desc
+        return yrs;
+      } catch(e){ return []; }
+    }
+
+    function populateYearOptions(){
+      const years = getYearsFromOrders();
+      const opts = ['<option value="all">全部年份</option>'].concat(years.map(y=>`<option value="${y}">${y}</option>`));
+      sel.innerHTML = opts.join('');
+      // default: latest year (most recent) if exists, otherwise 'all'
+      if(years.length>0){
+        sel.value = String(years[0]);
+      } else {
+        sel.value = 'all';
+      }
+    }
+
+    function renderYearStats(targetYear){
+      const ord = orders || [];
+      const exp = expenses || [];
+      const filtered = ord.filter(o=> {
+        if(!o.date) return false;
+        const y = new Date(o.date).getFullYear();
+        return targetYear === 'all' ? true : (y == targetYear);
+      });
+      const totalCount = filtered.length;
+      const totalAmount = filtered.reduce((s,o)=> s + (+o.total||0), 0);
+      const netAmount = filtered.reduce((s,o)=> s + (+o.netTotal||0), 0);
+      const expenseTotal = exp.filter(e => {
+        if(!e.date) return false;
+        const y = new Date(e.date).getFullYear();
+        return targetYear === 'all' ? true : (y == targetYear);
+      }).reduce((s,e)=> s + (+e.amount||0), 0);
+      const completed = filtered.filter(o=> o.status === '完成').length;
+      const doneRate = totalCount ? ((completed/totalCount*100).toFixed(1) + '%') : '—';
+      const netIncome = netAmount - expenseTotal;
+
+      summaryEl.innerHTML = `
+        <div class="box"><div class="small">年份</div><div class="number">${targetYear === 'all' ? '全部' : targetYear}</div></div>
+        <div class="box"><div class="small">筆數</div><div class="number">${totalCount}</div></div>
+        <div class="box"><div class="small">總金額</div><div class="number">${fmtCurrency(totalAmount)}</div></div>
+        <div class="box"><div class="small">折後總金額</div><div class="number">${fmtCurrency(netAmount)}</div></div>
+        <div class="box"><div class="small">花費</div><div class="number">${fmtCurrency(expenseTotal)}</div></div>
+        <div class="box"><div class="small">淨收入</div><div class="number">${fmtCurrency(netIncome)}</div></div>
+        <div class="box"><div class="small">完成率</div><div class="number">${doneRate}</div></div>
+      `;
+    }
+
+    // expose a refresh function so other code can call it (e.g. after import)
+    window.refreshYearStatSelect = function(){
+      const prev = sel.value;
+      populateYearOptions();
+      // if previous still exists, restore it; else keep default (latest)
+      const foundPrev = Array.from(sel.options).some(o=>o.value === prev);
+      sel.value = foundPrev ? prev : sel.value;
+      renderYearStats(sel.value);
+    };
+
+    // initial populate & render
+    populateYearOptions();
+    renderYearStats(sel.value);
+
+    // when user changes selection
+    sel.addEventListener('change', function(){ renderYearStats(this.value); });
+  }
+
+  // run init on DOMContentLoaded so elements exist; if DOM already loaded try immediately
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initYearStat);
+  } else {
+    initYearStat();
+  }
+})();

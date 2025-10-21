@@ -87,14 +87,19 @@
 <main class="wrap stack" style="margin-top:16px">
 <!-- 訂單列表（上） -->
 <section class="card">
-<h2>訂單列表</h2>
+<div class="card-header">
+  <h2>訂單列表</h2>
+  <div class="header-actions">
+    <button id="toggleYearBtn" class="small-toggle" aria-expanded="false" aria-controls="yearSummary" title="切換年度統計 (預設收起)">
+      年度統計 ▾
+    </button>
+  </div>
+</div>
 <div class="body">
 <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
   <div></div>
   <div style="display:flex; gap:8px; align-items:center;">
-    <button id="toggleYearBtn" class="small-toggle" aria-expanded="false" aria-controls="yearSummary" title="切換年度統計 (預設收起)">
-      年度統計 ▾
-    </button>
+    
   </div>
 </div>
 <div class="sum" id="yearSummary" style="margin-top:8px"></div>

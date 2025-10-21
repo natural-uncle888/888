@@ -548,7 +548,36 @@ durationMinutes: +$('durationMinutes').value,
       sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense)));
       sumEl.appendChild(mk('本月淨收入', fmtCurrency(Math.max(0, net - monthExpense))));
       sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
+      // --- 年度 summary (自動產生) ---
+      (function(){
+        try {
+          const yearEl = document.getElementById('yearSummary');
+          if (!yearEl) return;
+          yearEl.innerHTML = '';
+          const ySel = +$('yearSel').value;
+          const yearly = orders.filter(o => o.date && (new Date(o.date).getFullYear() === ySel));
+          const yearCount = yearly.length;
+          const yearTotal = yearly.reduce((a,b)=>a + (+b.total||0), 0);
+          const yearNet = yearly.reduce((a,b)=>a + (+b.netTotal||0), 0);
+          const yearDone = yearly.filter(o=>o.status==='完成').length;
+          const yearPending = yearly.filter(o=>o.status!=='完成').length;
+          const yearExpense = expenses
+            .filter(e => e.date && (new Date(e.date).getFullYear() === ySel))
+            .reduce((a,b)=>a + (+b.amount||0), 0);
+          const mkY = (t,v,h='')=>{ const box=document.createElement('div'); box.className='box'; box.innerHTML=`<div class="small muted">${t}</div><div class="number">${v}</div>${h?`<div class="small muted">${h}</div>`:''}`; return box; };
+          yearEl.appendChild(mkY('年度訂單數', yearCount));
+          yearEl.appendChild(mkY('年度總金額', fmtCurrency(yearTotal)));
+          yearEl.appendChild(mkY('年度折後總金額', fmtCurrency(yearNet)));
+          yearEl.appendChild(mkY('年度花費', fmtCurrency(yearExpense)));
+          yearEl.appendChild(mkY('年度淨收入', fmtCurrency(Math.max(0, yearNet - yearExpense))));
+          yearEl.appendChild(mkY('完成 / 未完成 (年)', `${yearDone} / ${yearPending}`));
+        } catch(err) { console.error('Yearly summary render error', err); }
+      })();
+
       if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
+      // 保持年度區塊的收合狀態（若有）
+      if (typeof applyYearStateKeep === 'function') applyYearStateKeep();
+
     }
 
     
@@ -2209,3 +2238,84 @@ function enablePhotoUrlEdit() {
   });
 
 })();
+
+
+// --- 年度區塊收合 / 切換功能 (預設：收起) ---
+(function(){
+  const STORAGE_KEY = (typeof KEY !== 'undefined' ? KEY + '_year_expanded' : 'year_expanded');
+
+  function setYearExpanded(expanded){
+    const el = document.getElementById('yearSummary');
+    const btn = document.getElementById('toggleYearBtn');
+    if(!el || !btn) return;
+    if(expanded){
+      el.classList.remove('collapsed');
+      btn.setAttribute('aria-expanded','true');
+      btn.innerText = '年度統計 ▴';
+    } else {
+      el.classList.add('collapsed');
+      btn.setAttribute('aria-expanded','false');
+      btn.innerText = '年度統計 ▾';
+    }
+    try { localStorage.setItem(STORAGE_KEY, expanded ? '1' : '0'); } catch(e){ /* ignore */ }
+  }
+
+  function toggleYear(){
+    const el = document.getElementById('yearSummary');
+    if(!el) return;
+    const currentlyExpanded = !el.classList.contains('collapsed');
+    setYearExpanded(!currentlyExpanded);
+  }
+
+  window.initYearToggle = function initYearToggle(){
+    const btn = document.getElementById('toggleYearBtn');
+    const el = document.getElementById('yearSummary');
+
+    if(!el) {
+      if(btn) btn.style.display = 'none';
+      return;
+    }
+    if(!btn) {
+      el.classList.add('collapsed');
+      return;
+    }
+
+    if(btn.dataset.init === '1') {
+      applyYearStateKeep();
+      return;
+    }
+
+    let pref = null;
+    try { pref = localStorage.getItem(STORAGE_KEY); } catch(e){ pref = null; }
+
+    let shouldExpand = false;
+    if(pref === '1') shouldExpand = true;
+    else shouldExpand = false; // default collapsed
+
+    if(shouldExpand) el.classList.remove('collapsed'); else el.classList.add('collapsed');
+
+    btn.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+    btn.innerText = shouldExpand ? '年度統計 ▴' : '年度統計 ▾';
+    btn.addEventListener('click', toggleYear);
+    btn.dataset.init = '1';
+  };
+
+  window.applyYearStateKeep = function applyYearStateKeep(){
+    const el = document.getElementById('yearSummary');
+    const btn = document.getElementById('toggleYearBtn');
+    if(!el) return;
+    let pref = null;
+    try { pref = localStorage.getItem(STORAGE_KEY); } catch(e){ pref = null; }
+    if(pref === '1') el.classList.remove('collapsed');
+    else el.classList.add('collapsed'); // include null => collapsed
+
+    if(btn) {
+      btn.setAttribute('aria-expanded', el.classList.contains('collapsed') ? 'false' : 'true');
+      btn.innerText = el.classList.contains('collapsed') ? '年度統計 ▾' : '年度統計 ▴';
+    }
+  };
+
+})();
+
+// Ensure year toggle is initialized
+document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearToggle === 'function') initYearToggle(); });

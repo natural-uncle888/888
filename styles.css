@@ -531,3 +531,30 @@ th.col-total, td.col-total {
 @media (max-width: 600px) {
   .orders-col-resizer { display: none; }
 }
+
+
+/* 年度區塊收合樣式 */
+#yearSummary {
+  overflow: hidden;
+  max-height: 1000px; /* 展開時的最大高度（確保足夠） */
+  transition: max-height 300ms ease, padding 200ms ease;
+  padding-top: 8px;
+}
+
+/* collapsed 狀態：收起 */
+#yearSummary.collapsed {
+  max-height: 0;
+  padding-top: 0;
+}
+
+/* 小按鈕樣式（可依專案風格微調） */
+.small-toggle{
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+.small-toggle:focus{ outline: 2px solid rgba(0, 120, 210, 0.2); }

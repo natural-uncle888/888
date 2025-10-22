@@ -605,6 +605,7 @@ durationMinutes: +$('durationMinutes').value,
       addrTd.innerHTML = `${escapeHtml(o.address||'')}${note}`;
     } catch(err) { /* noop */ }
 
+    tr.dataset.orderId = o.id || o._id || '';
     tbody.appendChild(tr);
   });
 
@@ -2460,3 +2461,292 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     initYearStat();
   }
 })();
+
+
+
+/* Customer history feature (added by assistant) */
+
+function normalizePhone(p) {
+  if (!p) return '';
+  return String(p).replace(/[^\d+]/g, '');
+}
+
+function getCustomerKeyFromOrder(order) {
+  if (!order) return '';
+  if (order.lineId) return 'line:' + String(order.lineId).trim();
+  if (Array.isArray(order.phones) && order.phones.length && order.phones[0]) {
+    return 'phone:' + normalizePhone(order.phones[0]);
+  }
+  if (order.phone) return 'phone:' + normalizePhone(order.phone);
+  if (order.customer) return 'name:' + String(order.customer).trim().toLowerCase();
+  return '';
+}
+
+function getCustomerKeyFromRow(tr) {
+  // prefer phone if present
+  try {
+    const phoneTd = tr.querySelector('[data-label="電話"]');
+    const custTd = tr.querySelector('[data-label="客戶"]');
+    let phone = '';
+    if (phoneTd) {
+      const pt = phoneTd.querySelector('.copy-target') || phoneTd;
+      phone = (pt.textContent || '').trim();
+    }
+    if (phone && phone.replace(/\D/g,'').length >= 3) {
+      return 'phone:' + normalizePhone(phone);
+    }
+    if (custTd) {
+      const ct = custTd.querySelector('.copy-target') || custTd;
+      const name = (ct.textContent || '').trim();
+      if (name) return 'name:' + name.toLowerCase();
+    }
+  } catch(e) { /* noop */ }
+  return '';
+}
+
+function getHistoryByCustomerKey(customerKey) {
+  if (!customerKey) return [];
+  const all = (typeof orders !== 'undefined') ? orders : [];
+  const out = all.filter(o => getCustomerKeyFromOrder(o) === customerKey)
+    .map(o => {
+      let ts = null;
+      if (o.datetimeISO) ts = new Date(o.datetimeISO);
+      else if (o.date && o.time) ts = new Date(`${o.date} ${o.time}`);
+      else if (o.date) ts = new Date(o.date);
+      else ts = new Date(o.createdAt || Date.now());
+      return Object.assign({}, o, { _ts: ts });
+    });
+  out.sort((a,b) => b._ts - a._ts);
+  return out;
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderHistoryModal(customerKey, titleText) {
+  const modal = document.getElementById('historyModal');
+  const body = document.getElementById('historyTableBody');
+  const empty = document.getElementById('historyEmpty');
+  const title = document.getElementById('historyModalTitle');
+
+  title.textContent = titleText || '客戶歷史紀錄';
+  body.innerHTML = '';
+
+  const list = getHistoryByCustomerKey(customerKey);
+  if (!list.length) {
+    empty.style.display = 'block';
+    modal.setAttribute('aria-hidden', 'false');
+    modal.dataset.customerKey = customerKey;
+    modal.dataset.title = titleText || '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const sortSel = document.getElementById('historySort');
+  const sortDir = (sortSel && sortSel.value === 'asc') ? 1 : -1;
+  if (sortDir === 1) list.sort((a,b)=> a._ts - b._ts);
+  else list.sort((a,b)=> b._ts - a._ts);
+
+  const searchTerm = (document.getElementById('historySearch')||{}).value?.toLowerCase?.() || '';
+
+  list.forEach(o => {
+    const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+    const items = Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '-');
+    const status = o.status || '-';
+    const notes = o.notes || '';
+
+    const searchable = (items + ' ' + notes + ' ' + status).toLowerCase();
+    if (searchTerm && !searchable.includes(searchTerm)) return;
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${dateStr}</td>
+      <td>${escapeHtml(items)}</td>
+      <td>${escapeHtml(status)}</td>
+      <td>${escapeHtml(notes)}</td>
+      <td>
+        <button class="btn-small history-open-order" data-order-id="${o.id || o._id || ''}">開啟</button>
+        <button class="btn-small history-export-row" data-order-id="${o.id || o._id || ''}">匯出</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+
+  modal.setAttribute('aria-hidden', 'false');
+  modal.dataset.customerKey = customerKey;
+  modal.dataset.title = titleText || '';
+}
+
+function exportHistoryToCsv(list, filename) {
+  if (!list || !list.length) return alert('沒有資料可匯出');
+  const rows = [];
+  rows.push(['清洗時間','清洗項目','狀態','備註','id']);
+  list.forEach(o=>{
+    const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW') : '';
+    const items = Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '');
+    rows.push([dateStr, items, o.status || '', (o.notes || ''), (o.id||o._id||'')]);
+  });
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename || 'history.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function initHistoryModalBindings() {
+  const modal = document.getElementById('historyModal');
+  if (!modal) return;
+  document.getElementById('historyCloseBtn').addEventListener('click', ()=> modal.setAttribute('aria-hidden','true'));
+  const backdrop = modal.querySelector('.modal-backdrop');
+  if (backdrop) backdrop.addEventListener('click', ()=> modal.setAttribute('aria-hidden','true'));
+
+  document.getElementById('historySort').addEventListener('change', ()=> {
+    const key = modal.dataset.customerKey;
+    if (key) renderHistoryModal(key, modal.dataset.title || '客戶歷史紀錄');
+  });
+  document.getElementById('historySearch').addEventListener('input', ()=> {
+    const key = modal.dataset.customerKey;
+    if (key) renderHistoryModal(key, modal.dataset.title || '客戶歷史紀錄');
+  });
+
+  document.getElementById('historyExportCsv').addEventListener('click', ()=> {
+    const key = modal.dataset.customerKey;
+    if (!key) return alert('沒有可匯出的客戶');
+    const list = getHistoryByCustomerKey(key);
+    exportHistoryToCsv(list, `${(modal.dataset.title||'history')}.csv`);
+  });
+
+  document.getElementById('historyTableBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('.history-open-order');
+    if (btn) {
+      const orderId = btn.dataset.orderId;
+      modal.setAttribute('aria-hidden','true');
+      if (typeof openOrder === 'function') openOrder(orderId);
+      else console.warn('openOrder not found, orderId:', orderId);
+    }
+    const exp = e.target.closest('.history-export-row');
+    if (exp) {
+      const orderId = exp.dataset.orderId;
+      const all = typeof orders !== 'undefined' ? orders : [];
+      const o = all.find(x => (x.id||x._id) == orderId);
+      if (o) exportHistoryToCsv([o], `order-${orderId}.csv`);
+    }
+  });
+}
+
+function transformCustomerCells() {
+  const table = document.getElementById('ordersTable');
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.forEach(tr => {
+    try {
+      const custTd = tr.querySelector('[data-label="客戶"]');
+      if (!custTd) return;
+      if (custTd.querySelector('.customer-link')) return; // already transformed
+      const orig = custTd.querySelector('.copy-target') || custTd;
+      const nameText = (orig.textContent || '').trim();
+      const key = getCustomerKeyFromRow(tr);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'customer-link';
+      btn.textContent = nameText || '(未命名)';
+      btn.addEventListener('click', (e)=>{
+        const modal = document.getElementById('historyModal');
+        modal.dataset.customerKey = key;
+        modal.dataset.title = nameText || key;
+        renderHistoryModal(key, nameText || key);
+      });
+      // Clear custTd but keep copy button if present
+      // find copy button if exists
+      const copyBtn = custTd.querySelector('.copy-btn');
+      custTd.innerHTML = '';
+      custTd.appendChild(btn);
+      if (copyBtn) custTd.appendChild(copyBtn);
+    } catch(e){ /* ignore row errors */ }
+  });
+}
+
+// Monkey-patch refreshTable so transformation runs after table render
+function patchRefreshTable() {
+  if (typeof refreshTable !== 'function') return;
+  if (refreshTable.__patched_for_history) return;
+  const original = refreshTable;
+  window.refreshTable = function(...args){
+    const ret = original.apply(this, args);
+    try { transformCustomerCells(); } catch(e){ console.error('transformCustomerCells failed', e); }
+    return ret;
+  };
+  window.refreshTable.__patched_for_history = true;
+}
+
+// Init bindings on DOMContentLoaded
+
+
+/* openOrder: fills the form with the specified order id and highlights the row */
+function openOrder(orderId) {
+  if (!orderId) return alert('找不到 orderId');
+  const all = typeof orders !== 'undefined' ? orders : [];
+  const o = all.find(x => (x.id || x._id || '') == orderId);
+  if (!o) {
+    console.warn('order not found for openOrder:', orderId);
+    return alert('找不到對應的訂單');
+  }
+  // Fill the form
+  if (typeof fillForm === 'function') {
+    fillForm(o);
+  } else {
+    console.warn('fillForm not found; cannot populate form');
+  }
+
+  // Close history modal if open
+  const modal = document.getElementById('historyModal');
+  if (modal) modal.setAttribute('aria-hidden', 'true');
+
+  // Refresh table and highlight the corresponding row
+  try { refreshTable(); } catch(e){ /* ignore */ }
+
+  // Find the row with matching data-order-id
+  setTimeout(()=> {
+    const table = document.getElementById('ordersTable');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    const tr = tbody.querySelector(`tr[data-order-id="${orderId}"]`);
+    // Fallback: try to match by customer + date + time if no data-order-id
+    let target = tr;
+    if (!target) {
+      const matches = Array.from(tbody.querySelectorAll('tr')).filter(r => {
+        const idx = r.querySelector('td[data-label="#"]');
+        // try comparing dataset or cells
+        return r.dataset && (r.dataset.orderId === orderId);
+      });
+      if (matches.length) target = matches[0];
+    }
+    if (target) {
+      // remove existing highlight
+      tbody.querySelectorAll('.highlight-row').forEach(el => el.classList.remove('highlight-row'));
+      target.classList.add('highlight-row');
+      // scroll into view
+      target.scrollIntoView({behavior:'smooth', block:'center'});
+      // brief flash
+      target.animate([{backgroundColor:'#fff9c4'},{backgroundColor:'transparent'}], {duration:1200});
+    }
+  }, 150);
+}
+document.addEventListener('DOMContentLoaded', ()=> {
+  initHistoryModalBindings();
+  patchRefreshTable();
+  // Initial transform in case table already rendered
+  try { transformCustomerCells(); } catch(e){ /* ignore */ }
+});

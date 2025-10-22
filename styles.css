@@ -604,3 +604,22 @@ th.col-total, td.col-total {
   #yearSummaryHeader { flex-direction: column; align-items: flex-start; gap:6px; }
   #yearStatSelect { width: 100%; }
 }
+
+
+/* Customer history modal styles (added by assistant) */
+.modal { display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; }
+.modal[aria-hidden="false"] { display:flex; }
+.modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.45); }
+.modal-panel { position:relative; width:min(920px,95%); max-height:85vh; overflow:auto; background:#fff; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,0.25); padding:12px; }
+.modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:6px; border-bottom:1px solid #eee; }
+.modal-body { padding-top:8px; }
+.history-controls { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.history-controls input { padding:8px 10px; border-radius:8px; border:1px solid var(--border); }
+.history-table-wrap { overflow:auto; }
+#historyTable { width:100%; border-collapse:collapse; }
+#historyTable th, #historyTable td { padding:8px 10px; border-bottom:1px solid #f2f2f2; text-align:left; vertical-align:top; }
+.btn-small { padding:6px 8px; font-size:13px; border-radius:6px; cursor:pointer; border:1px solid var(--border); background:var(--card-bg, #fff); }
+.customer-link { background:none;border:0;padding:0;margin:0;color:var(--brand, #0b74de);cursor:pointer;text-decoration:underline; }
+
+/* highlight for opened order */
+.highlight-row { outline: 3px solid rgba(11,116,222,0.25); background: rgba(11,116,222,0.05); }

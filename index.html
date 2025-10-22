@@ -464,6 +464,46 @@
 <!-- ✅ gatherForm() 中補上 -->
 </div>
 <script defer="" src="app.js"></script>
+
+<!-- Customer History Modal (added by assistant) -->
+<div id="historyModal" class="modal" aria-hidden="true">
+  <div class="modal-backdrop" data-close="true"></div>
+  <div class="modal-panel">
+    <header class="modal-header">
+      <h3 id="historyModalTitle">客戶歷史紀錄</h3>
+      <button id="historyCloseBtn" class="btn-small" aria-label="關閉">✕</button>
+    </header>
+
+    <section class="modal-body">
+      <div class="history-controls">
+        <input id="historySearch" placeholder="搜尋清洗項目或備註..." />
+        <button id="historyExportCsv" class="btn-small">匯出 CSV</button>
+        <select id="historySort">
+          <option value="desc">依時間（新→舊）</option>
+          <option value="asc">依時間（舊→新）</option>
+        </select>
+      </div>
+
+      <div class="history-table-wrap">
+        <table id="historyTable" class="table">
+          <thead>
+            <tr>
+              <th>清洗時間</th>
+              <th>清洗項目</th>
+              <th>狀態</th>
+              <th>備註</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
+        <div id="historyEmpty" style="display:none">目前沒有歷史紀錄</div>
+      </div>
+    </section>
+  </div>
+</div>
+<!-- End Customer History Modal -->
+
 </body>
 </html>
 <!-- 加入 Google API SDK -->

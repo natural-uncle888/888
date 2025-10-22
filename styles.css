@@ -623,3 +623,24 @@ th.col-total, td.col-total {
 
 /* highlight for opened order */
 .highlight-row { outline: 3px solid rgba(11,116,222,0.25); background: rgba(11,116,222,0.05); }
+
+
+
+/* Customer name styling when no history exists */
+.customer-nohistory { color: var(--muted, #7b8794); cursor:default; text-decoration:none; }
+.customer-link { color: var(--brand, #0b74de); cursor: pointer; text-decoration: underline; background: none; border: 0; padding: 0; }
+
+
+/* customer badge style: name + count */
+.customer-badge { display:inline-flex; gap:8px; align-items:center; }
+.customer-badge .badge {
+  background:var(--brand, #0b74de);
+  color:#fff;
+  border-radius:999px;
+  padding:2px 8px;
+  font-size:12px;
+  font-weight:600;
+  margin-left:6px;
+  line-height:1;
+}
+.customer-badge .customer-link { background:none;border:0;color:var(--brand);text-decoration:underline;cursor:pointer;padding:0;font-weight:600; }

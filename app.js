@@ -2671,6 +2671,8 @@ function initHistoryModalBindings() {
   });
 }
 
+
+
 function transformCustomerCells() {
   const table = document.getElementById('ordersTable');
   if (!table) return;
@@ -2681,29 +2683,57 @@ function transformCustomerCells() {
     try {
       const custTd = tr.querySelector('[data-label="客戶"]');
       if (!custTd) return;
-      if (custTd.querySelector('.customer-link')) return; // already transformed
+      if (custTd.querySelector('.customer-link') || custTd.querySelector('.customer-nohistory') || custTd.querySelector('.customer-badge')) return; // already transformed
       const orig = custTd.querySelector('.copy-target') || custTd;
       const nameText = (orig.textContent || '').trim();
       const key = getCustomerKeyFromRow(tr);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'customer-link';
-      btn.textContent = nameText || '(未命名)';
-      btn.addEventListener('click', (e)=>{
-        const modal = document.getElementById('historyModal');
-        modal.dataset.customerKey = key;
-        modal.dataset.title = nameText || key;
-        renderHistoryModal(key, nameText || key);
-      });
-      // Clear custTd but keep copy button if present
-      // find copy button if exists
       const copyBtn = custTd.querySelector('.copy-btn');
-      custTd.innerHTML = '';
-      custTd.appendChild(btn);
-      if (copyBtn) custTd.appendChild(copyBtn);
+
+      // Determine history list and count for this customer
+      let histList = [];
+      try {
+        histList = getHistoryByCustomerKey(key) || [];
+      } catch(e) { histList = []; }
+
+      const hasHistory = Array.isArray(histList) && histList.length > 0;
+      if (hasHistory) {
+        // create container with button + badge
+        const container = document.createElement('span');
+        container.className = 'customer-badge';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'customer-link';
+        btn.textContent = nameText || '(未命名)';
+        btn.addEventListener('click', (e)=>{
+          const modal = document.getElementById('historyModal');
+          modal.dataset.customerKey = key;
+          modal.dataset.title = nameText || key;
+          renderHistoryModal(key, nameText || key);
+        });
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = String(histList.length);
+        container.appendChild(btn);
+        container.appendChild(badge);
+
+        custTd.innerHTML = '';
+        custTd.appendChild(container);
+        if (copyBtn) custTd.appendChild(copyBtn);
+      } else {
+        // no history: render as plain text (non-clickable) but keep copy button if any
+        const span = document.createElement('span');
+        span.className = 'customer-nohistory';
+        span.textContent = nameText || '(未命名)';
+        span.title = '此客戶目前沒有歷史紀錄';
+        custTd.innerHTML = '';
+        custTd.appendChild(span);
+        if (copyBtn) custTd.appendChild(copyBtn);
+      }
     } catch(e){ /* ignore row errors */ }
   });
 }
+
+
 
 // Monkey-patch refreshTable so transformation runs after table render
 function patchRefreshTable() {

@@ -2587,7 +2587,7 @@ function renderHistoryModal(customerKey, titleText) {
     const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
     const items = (Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '')) || getOrderItems(o) || '-';
     const status = o.status || '-';
-    const notes = o.notes || '';
+    const notes = o.notes || o.note || o.slotNote || '';
 
     const searchable = (items + ' ' + notes + ' ' + status).toLowerCase();
     if (searchTerm && !searchable.includes(searchTerm)) return;
@@ -2619,7 +2619,7 @@ function exportHistoryToCsv(list, filename) {
   list.forEach(o=>{
     const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW') : '';
     const items = (Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '')) || getOrderItems(o) || '';
-    rows.push([dateStr, items, o.status || '', (o.notes || ''), (o.id||o._id||'')]);
+    rows.push([dateStr, items, o.status || '', (o.notes || o.note || o.slotNote || ''), (o.id||o._id||'')]);
   });
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

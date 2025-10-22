@@ -896,7 +896,7 @@ durationMinutes: +$('durationMinutes').value,
 
     // ---------- Orders save/delete/export/import ----------
     function saveOrder(e){
-      e.preventDefault();
+e.preventDefault();
       
       
       // Contact validation: phone optional; LINE 可替代
@@ -912,7 +912,35 @@ durationMinutes: +$('durationMinutes').value,
         return;
       }
 recalcTotals();
-      const data=gatherForm(); // 日期可留空
+      const data=gatherForm();
+      // Ensure items snapshot is saved for history
+      try {
+        if (typeof getOrderItems === 'function') {
+          data.items = getOrderItems(data) || (data.items || []);
+        } else {
+          // fallback derive from known fields
+          data.items = (function(o2){
+            const arr = [];
+            try{
+              if (+o2.acSplit) arr.push('分離式冷氣 ' + o2.acSplit + ' 台');
+              if (+o2.acDuct) arr.push('管道式冷氣 ' + o2.acDuct + ' 台');
+              if (+o2.washerTop) arr.push('洗衣機 ' + o2.washerTop + ' 台');
+              if (+o2.waterTank) arr.push('水塔 ' + o2.waterTank + ' 個');
+              if (+o2.pipesAmount) arr.push('管線 ' + o2.pipesAmount);
+              if (+o2.antiMold) arr.push('防霉 ' + o2.antiMold);
+              if (+o2.ozone) arr.push('臭氧 ' + o2.ozone);
+              if (+o2.transformerCount) arr.push('變壓器 ' + o2.transformerCount);
+              if (+o2.longSplitCount) arr.push('長聯接 ' + o2.longSplitCount);
+              if (+o2.onePieceTray) arr.push('一件托盤 ' + o2.onePieceTray);
+              if (Array.isArray(o2.items) && o2.items.length) {
+                o2.items.forEach(function(it){ if (it && arr.indexOf(it) === -1) arr.push(it); });
+              }
+            } catch(e){}
+            return arr;
+          })(data);
+        }
+      } catch(e){}
+ // 日期可留空
       // validate duration
       const dm = Number(document.getElementById('durationMinutes').value);
       if (!dm || dm <= 0) {
@@ -2557,7 +2585,7 @@ function renderHistoryModal(customerKey, titleText) {
 
   list.forEach(o => {
     const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
-    const items = Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '-');
+    const items = (Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '')) || getOrderItems(o) || '-';
     const status = o.status || '-';
     const notes = o.notes || '';
 
@@ -2590,7 +2618,7 @@ function exportHistoryToCsv(list, filename) {
   rows.push(['清洗時間','清洗項目','狀態','備註','id']);
   list.forEach(o=>{
     const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW') : '';
-    const items = Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '');
+    const items = (Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '')) || getOrderItems(o) || '';
     rows.push([dateStr, items, o.status || '', (o.notes || ''), (o.id||o._id||'')]);
   });
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');

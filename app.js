@@ -2536,21 +2536,49 @@ function getCustomerKeyFromRow(tr) {
   return '';
 }
 
+
+function rebuildCustomerHistoryMap() {
+  // Rebuild a Map from customerKey -> sorted list of orders (desc by _ts)
+  try {
+    const all = (typeof orders !== 'undefined') ? orders : [];
+    const map = new Map();
+    all.forEach(o => {
+      try {
+        const key = getCustomerKeyFromOrder(o);
+        if (!key) return;
+        let ts = null;
+        if (o.datetimeISO) ts = new Date(o.datetimeISO);
+        else if (o.date && o.time) ts = new Date(`${o.date} ${o.time}`);
+        else if (o.date) ts = new Date(o.date);
+        else ts = new Date(o.createdAt || Date.now());
+        const copy = Object.assign({}, o, { _ts: ts });
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(copy);
+      } catch(e) { /* ignore single order errors */ }
+    });
+    // sort each list descending
+    for (const [k, arr] of map.entries()) {
+      arr.sort((a,b) => b._ts - a._ts);
+    }
+    window._customerHistoryMap = map;
+  } catch(e) {
+    console.error('rebuildCustomerHistoryMap failed', e);
+    window._customerHistoryMap = null;
+  }
+}
+
 function getHistoryByCustomerKey(customerKey) {
   if (!customerKey) return [];
-  const all = (typeof orders !== 'undefined') ? orders : [];
-  const out = all.filter(o => getCustomerKeyFromOrder(o) === customerKey)
-    .map(o => {
-      let ts = null;
-      if (o.datetimeISO) ts = new Date(o.datetimeISO);
-      else if (o.date && o.time) ts = new Date(`${o.date} ${o.time}`);
-      else if (o.date) ts = new Date(o.date);
-      else ts = new Date(o.createdAt || Date.now());
-      return Object.assign({}, o, { _ts: ts });
-    });
-  out.sort((a,b) => b._ts - a._ts);
-  return out;
+  // prefer using cache if available; otherwise build it
+  if (!window._customerHistoryMap) {
+    rebuildCustomerHistoryMap();
+  }
+  const map = window._customerHistoryMap || new Map();
+  const list = map.get(customerKey) || [];
+  // return a shallow copy to avoid external mutation
+  return Array.isArray(list) ? list.slice() : [];
 }
+
 
 function escapeHtml(s) {
   if (s == null) return '';
@@ -2677,29 +2705,34 @@ function initHistoryModalBindings() {
 
 
 
+
 function transformCustomerCells() {
   const table = document.getElementById('ordersTable');
   if (!table) return;
   const tbody = table.querySelector('tbody');
   if (!tbody) return;
+  // Rebuild cache once at transform time to ensure up-to-date history
+  try { rebuildCustomerHistoryMap(); } catch(e){ console.warn('rebuildCustomerHistoryMap failed', e); }
+
   const rows = Array.from(tbody.querySelectorAll('tr'));
   rows.forEach(tr => {
     try {
       const custTd = tr.querySelector('[data-label="客戶"]');
       if (!custTd) return;
-      if (custTd.querySelector('.customer-link') || custTd.querySelector('.customer-nohistory') || custTd.querySelector('.customer-badge')) return; // already transformed
+      if (custTd.querySelector('.customer-link') || custTd.querySelector('.customer-badge')) return; // already transformed
       const orig = custTd.querySelector('.copy-target') || custTd;
       const nameText = (orig.textContent || '').trim();
       const key = getCustomerKeyFromRow(tr);
       const copyBtn = custTd.querySelector('.copy-btn');
 
-      // Determine history list and count for this customer
+      // Determine history list and count for this customer (use cache)
       let histList = [];
       try {
         histList = getHistoryByCustomerKey(key) || [];
       } catch(e) { histList = []; }
 
-      const hasHistory = Array.isArray(histList) && histList.length > 0;
+      const count = Array.isArray(histList) ? histList.length : 0;
+      const hasHistory = count > 0;
       if (hasHistory) {
         // create container with button + badge
         const container = document.createElement('span');
@@ -2708,15 +2741,41 @@ function transformCustomerCells() {
         btn.type = 'button';
         btn.className = 'customer-link';
         btn.textContent = nameText || '(未命名)';
+        // ARIA label for better accessibility
+        try { btn.setAttribute('aria-label', `${nameText || '(未命名)'} 的歷史訂單 ${count} 筆`); } catch(e){}
+
         btn.addEventListener('click', (e)=>{
           const modal = document.getElementById('historyModal');
           modal.dataset.customerKey = key;
           modal.dataset.title = nameText || key;
           renderHistoryModal(key, nameText || key);
         });
+
         const badge = document.createElement('span');
         badge.className = 'badge';
-        badge.textContent = String(histList.length);
+        // Cap display at 99+ to avoid layout break
+        badge.textContent = (count > 99) ? '99+' : String(count);
+
+        // Build tooltip with full count and up to 3 recent summaries
+        try {
+          const parts = [];
+          parts.push(`歷史訂單：${count} 筆`);
+          if (count > 0) {
+            const recent = histList.slice(0,3);
+            parts.push('最近筆數：');
+            recent.forEach((o, idx) => {
+              const d = o._ts ? new Date(o._ts) : null;
+              const dateStr = d ? d.toLocaleString() : (o.date || '');
+              let summary = dateStr;
+              if (o.items) summary += ` • ${o.items}`;
+              else if (o.note) summary += ` • ${String(o.note).slice(0,30)}`;
+              parts.push(`${idx+1}. ${summary}`);
+            });
+            if (count > 3) parts.push(`...還有 ${count-3} 筆`);
+          }
+          badge.title = parts.join('\n');
+        } catch(e){ /* ignore tooltip errors */ }
+
         container.appendChild(btn);
         container.appendChild(badge);
 

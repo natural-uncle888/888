@@ -466,12 +466,16 @@ durationMinutes: +$('durationMinutes').value,
     const s2 = !statusF || o.status === statusF;
     const condRange = !range || (o.completedAt && (now - new Date(o.completedAt).getTime()) <= (+range)*24*60*60*1000);
     if(!s1 || !s2 || !condRange) return false;
+    // If there's a search query, search across ALL orders (respecting staff/status/range),
+    // otherwise only include orders in the selected year/month (or undated if showUndated).
+    if(tokens.length > 0){
+      return matchesFilter(o);
+    }
     if(!o.date) return showUndated && matchesFilter(o);
     const d = new Date(o.date);
     const ym = (d.getFullYear() === y && (d.getMonth()+1) === m);
     return ym && matchesFilter(o);
   }).map(o => ({ order: o, score: scoreForOrder(o) }));
-
   // Sorting: if there is a query, sort by score desc (tie-breaker by date/time desc)
   if(tokens.length === 0){
     filtered.sort((a,b) => {

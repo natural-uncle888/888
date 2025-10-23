@@ -137,9 +137,9 @@
 </section>
 <!-- 訂單表單（中） -->
 <details class="accordion" id="orderAccordion"><summary><span id="formTitle">新增 / 編輯訂單</span>
-&nbsp;&nbsp;<button id="toggleLayoutEditBtn" type="button" style="font-size:13px;padding:6px 8px;border-radius:6px;margin-left:8px;">編輯布局</button>
-<button id="saveLayoutBtn" type="button" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;">儲存布局</button>
-<button id="resetLayoutBtn" type="button" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;">還原預設</button>
+  <button id="toggleLayoutEditBtn" style="font-size:13px;padding:6px 8px;border-radius:6px;margin-left:8px;" type="button">編輯布局</button>
+<button id="saveLayoutBtn" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;" type="button">儲存布局</button>
+<button id="resetLayoutBtn" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;" type="button">還原預設</button>
 </summary><div class="content">
 <form id="orderForm">
 <input id="id" type="hidden"/>
@@ -182,15 +182,6 @@
 </div>
 <button id="addPhoneBtn" type="button">＋新增電話</button>
 </div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 5">
-<label>安排時段（可複選）</label>
-<div class="checkbox-group" id="slotGroup"></div>
-<input class="hidden tiny" id="slotNote" placeholder="請輸入指定日期／時段（如 10/10 上午 或 10/12 9:00–12:00）" type="text"/>
-</div>
-</div>
-<div class="row">
 <div class="col" style="grid-column:span 6">
 <label>居住地型態</label>
 <div class="toolbar" style="gap:8px">
@@ -204,38 +195,18 @@
 <input class="hidden" id="residenceOther" placeholder="請輸入其他型態" type="text"/>
 </div>
 </div>
+</div>
+<div class="row">
+<div class="col" style="grid-column:span 6">
+<label>安排時段（可複選）</label>
+<div class="checkbox-group" id="slotGroup"></div>
+<input class="hidden tiny" id="slotNote" placeholder="請輸入指定日期／時段（如 10/10 上午 或 10/12 9:00–12:00）" type="text"/>
+</div>
 <div class="col" style="grid-column:span 6">
 <label>方便聯繫時間（可複選）</label>
 <div class="checkbox-group" id="contactTimesGroup"></div>
 <input class="hidden tiny" id="contactTimeNote" placeholder="請輸入指定時間（如 9:00–12:00 或 週三晚上）" type="text"/>
 </div>
-</div>
-<div class="row" id="reminderRow">
-<div class="col" style="grid-column:span 6">
-<div class="toolbar" id="reminderToolbar" style="gap:8px; align-items:center; flex-wrap:wrap">
-<label class="pill"><input checked="" id="reminderEnabled" type="checkbox"/> <span>啟用提醒</span></label>
-<label class="muted">提醒週期（月）</label>
-<input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
-<label class="muted">下次提醒</label>
-<input class="tiny" disabled="" id="nextReminder" type="text"/>
-<label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
-<label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
-</div>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>冷氣位於樓層（可複選）</label>
-<div class="checkbox-group" id="acFloors"></div>
-<div class="hidden" id="acFloorAboveWrap"><input id="acFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>洗衣機位於樓層（可複選）</label>
-<div class="checkbox-group" id="washerFloors"></div>
-<div class="hidden" id="washerFloorAboveWrap"><input id="washerFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
-</div>
-</div>
-<div class="row">
 <div class="col" style="grid-column:span 8">
 <label>與我司聯繫方式</label>
 <div class="toolbar" style="gap:8px">
@@ -250,6 +221,29 @@
 <option value="完成">完成</option>
 <option value="未完成">未完成</option>
 </select>
+</div>
+</div>
+<div class="row">
+<div class="col" style="grid-column:span 6">
+<label>冷氣位於樓層（可複選）</label>
+<div class="checkbox-group" id="acFloors"></div>
+<div class="hidden" id="acFloorAboveWrap"><input id="acFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
+</div>
+<div class="col" style="grid-column:span 6">
+<label>洗衣機位於樓層（可複選）</label>
+<div class="checkbox-group" id="washerFloors"></div>
+<div class="hidden" id="washerFloorAboveWrap"><input id="washerFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
+</div>
+<div class="col" style="grid-column:span 6">
+<div class="toolbar" id="reminderToolbar" style="gap:8px; align-items:center; flex-wrap:wrap">
+<label class="pill"><input checked="" id="reminderEnabled" type="checkbox"/> <span>啟用提醒</span></label>
+<label class="muted">提醒週期（月）</label>
+<input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
+<label class="muted">下次提醒</label>
+<input class="tiny" disabled="" id="nextReminder" type="text"/>
+<label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
+<label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
+</div>
 </div>
 </div>
 <div class="hr"></div>
@@ -309,7 +303,8 @@
 <label>備註</label>
 <textarea id="note" placeholder="其他補充事項"></textarea>
 </div>
-</div><div class="row"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button><div class="tiny">貼入網址，完成後可點選開啟清洗前後照片頁面</div></div></div>
+</div>
+<div class="row"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button><div class="tiny">貼入網址，完成後可點選開啟清洗前後照片頁面</div></div></div>
 <div class="hr"></div>
 <div class="row">
 <div class="col" style="grid-column:span 4">
@@ -348,7 +343,7 @@
 <button id="copyFromHistoryBtn" type="button">從客戶舊單帶入</button>
 <div class="right">
 <span class="lock-badge" id="lockInfo"></span>
-<div style="display:inline-block; margin-right:8px;"><label style="margin-right:4px;">時長(分)</label><input id="durationMinutes" min="15" placeholder="請輸入工作時長（分鐘）" step="15" style="width:70px;" type="number"/></div><button class="btn" onclick="handleUploadWithAuth(gatherForm())">📅</button><button class="warn" id="toggleLock" type="button">解鎖金額編輯</button>
+<div style="display:inline-block; margin-right:8px;"><label style="margin-right:4px;">時長(分)</label><input id="durationMinutes" min="15" placeholder="分鐘" step="15" style="width:80px;" type="number"/></div><button class="btn" onclick="handleUploadWithAuth(gatherForm())">📅</button><button class="warn" id="toggleLock" type="button">解鎖金額編輯</button>
 <button class="danger" disabled="" id="deleteBtn" type="button">刪除此訂單</button>
 </div>
 </div>
@@ -468,46 +463,42 @@
 <!-- ✅ gatherForm() 中補上 -->
 </div>
 <script defer="" src="app.js"></script>
-
 <!-- Customer History Modal (added by assistant) -->
-<div id="historyModal" class="modal" aria-hidden="true">
-  <div class="modal-backdrop" data-close="true"></div>
-  <div class="modal-panel">
-    <header class="modal-header">
-      <h3 id="historyModalTitle">客戶歷史紀錄</h3>
-      <button id="historyCloseBtn" class="btn-small" aria-label="關閉">✕</button>
-    </header>
-
-    <section class="modal-body">
-      <div class="history-controls">
-        <input id="historySearch" placeholder="搜尋清洗項目或備註..." />
-        <button id="historyExportCsv" class="btn-small">匯出 CSV</button>
-        <select id="historySort">
-          <option value="desc">依時間（新→舊）</option>
-          <option value="asc">依時間（舊→新）</option>
-        </select>
-      </div>
-
-      <div class="history-table-wrap">
-        <table id="historyTable" class="table">
-          <thead>
-            <tr>
-              <th>清洗時間</th>
-              <th>清洗項目</th>
-              <th>狀態</th>
-              <th>備註</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="historyTableBody"></tbody>
-        </table>
-        <div id="historyEmpty" style="display:none">目前沒有歷史紀錄</div>
-      </div>
-    </section>
-  </div>
+<div aria-hidden="true" class="modal" id="historyModal">
+<div class="modal-backdrop" data-close="true"></div>
+<div class="modal-panel">
+<header class="modal-header">
+<h3 id="historyModalTitle">客戶歷史紀錄</h3>
+<button aria-label="關閉" class="btn-small" id="historyCloseBtn">✕</button>
+</header>
+<section class="modal-body">
+<div class="history-controls">
+<input id="historySearch" placeholder="搜尋清洗項目或備註..."/>
+<button class="btn-small" id="historyExportCsv">匯出 CSV</button>
+<select id="historySort">
+<option value="desc">依時間（新→舊）</option>
+<option value="asc">依時間（舊→新）</option>
+</select>
+</div>
+<div class="history-table-wrap">
+<table class="table" id="historyTable">
+<thead>
+<tr>
+<th>清洗時間</th>
+<th>清洗項目</th>
+<th>狀態</th>
+<th>備註</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody id="historyTableBody"></tbody>
+</table>
+<div id="historyEmpty" style="display:none">目前沒有歷史紀錄</div>
+</div>
+</section>
+</div>
 </div>
 <!-- End Customer History Modal -->
-
 </body>
 </html>
 <!-- 加入 Google API SDK -->

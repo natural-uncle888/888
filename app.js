@@ -3019,3 +3019,40 @@ document.addEventListener('DOMContentLoaded', ()=> {
     try { applyLayout(JSON.parse(stored)); } catch(e){ console.warn('apply layout failed', e); }
   }
 })(); 
+
+
+
+// === 儲存與還原表單布局寬度（全欄位 .col） ===
+
+const FORM_LAYOUT_KEY = 'yl_clean_form_layout_v1';
+
+function saveLayoutWidths() {
+  const cols = document.querySelectorAll('#orderForm .col');
+  const layout = Array.from(cols).map(col => col.style.gridColumn || '');
+  localStorage.setItem(FORM_LAYOUT_KEY, JSON.stringify(layout));
+  Swal.fire('✔️ 已儲存', '欄位寬度已成功儲存，下次開啟會自動套用', 'success');
+}
+
+function loadLayoutWidths() {
+  const saved = JSON.parse(localStorage.getItem(FORM_LAYOUT_KEY) || '[]');
+  const cols = document.querySelectorAll('#orderForm .col');
+  saved.forEach((val, idx) => {
+    if (cols[idx]) cols[idx].style.gridColumn = val || '';
+  });
+}
+
+function resetLayoutWidths() {
+  localStorage.removeItem(FORM_LAYOUT_KEY);
+  Swal.fire('↩️ 已還原', '已清除欄位寬度設定，將重新整理頁面', 'info').then(() => {
+    location.reload();
+  });
+}
+
+// 掛載到按鈕（在 DOM ready 或 init function 中執行）
+document.addEventListener('DOMContentLoaded', () => {
+  const saveBtn = document.getElementById('saveLayoutBtn');
+  const resetBtn = document.getElementById('resetLayoutBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveLayoutWidths);
+  if (resetBtn) resetBtn.addEventListener('click', resetLayoutWidths);
+  loadLayoutWidths(); // 初始載入
+});

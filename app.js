@@ -2871,3 +2871,151 @@ document.addEventListener('DOMContentLoaded', ()=> {
   // Initial transform in case table already rendered
   try { transformCustomerCells(); } catch(e){ /* ignore */ }
 });
+
+
+/* Layout editor JS for order form - allows width (span) and position edits */
+(function(){
+  const form = document.getElementById('orderForm');
+  const toggleBtn = document.getElementById('toggleLayoutEditBtn');
+  const saveBtn = document.getElementById('saveLayoutBtn');
+  const resetBtn = document.getElementById('resetLayoutBtn');
+  if (!form || !toggleBtn) return;
+  // capture default layout
+  function captureLayout(container) {
+    const cols = Array.from(container.querySelectorAll('.col'));
+    return cols.map((col, idx) => {
+      // parse existing inline grid-column style 'grid-column:span N' or style attribute
+      let span = 6;
+      const style = col.getAttribute('style') || '';
+      const m = style.match(/grid-column\s*:\s*span\s*([0-9]+)/i);
+      if (m) span = parseInt(m[1],10);
+      // fallback to computed -- not necessary
+      return { id: col.id || ('col-'+idx), span: span, order: idx, locked: !!col.dataset.locked };
+    });
+  }
+  const defaultLayout = captureLayout(form);
+
+  function getCurrentLayout() {
+    const cols = Array.from(form.querySelectorAll('.col'));
+    return cols.map((col, idx) => {
+      // try inline style first
+      let span = 6;
+      const style = col.getAttribute('style') || '';
+      const m = style.match(/grid-column\s*:\s*span\s*([0-9]+)/i);
+      if (m) span = parseInt(m[1],10);
+      return { id: col.id || ('col-'+idx), span: span, order: idx, locked: !!col.dataset.locked };
+    });
+  }
+
+  function applyLayout(layout) {
+    // sort by order and re-append to parent to reorder
+    layout.sort((a,b)=>a.order - b.order);
+    layout.forEach(item => {
+      const el = document.getElementById(item.id);
+      if (!el) return;
+      // append to form (will place at end in order) - to preserve original row grouping this is best-effort
+      form.appendChild(el);
+      // set inline style grid-column:span N while preserving other style properties
+      const old = el.getAttribute('style') || '';
+      // remove any existing grid-column span directive
+      const cleaned = old.replace(/grid-column\s*:\s*span\s*[0-9]+\s*;?/ig,'').trim();
+      const newStyle = (cleaned + '; grid-column: span ' + item.span + ';').trim();
+      el.setAttribute('style', newStyle);
+      if (item.locked) el.dataset.locked = "true"; else delete el.dataset.locked;
+    });
+  }
+
+  // control creation
+  function createControlsFor(col) {
+    if (col.querySelector('.layout-controls')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'layout-controls';
+    // left/right increase/decrease span, up/down move, lock
+    const btnDec = createBtn('-', ()=>changeSpan(col,-1));
+    const btnInc = createBtn('+', ()=>changeSpan(col,1));
+    const btnUp = createBtn('↑', ()=>moveUp(col));
+    const btnDown = createBtn('↓', ()=>moveDown(col));
+    const btnLock = createBtn('🔒', ()=>toggleLock(col));
+    wrap.appendChild(btnDec);
+    wrap.appendChild(btnInc);
+    wrap.appendChild(btnUp);
+    wrap.appendChild(btnDown);
+    wrap.appendChild(btnLock);
+    col.appendChild(wrap);
+  }
+  function createBtn(label, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerText = label;
+    b.addEventListener('click', function(e){ e.stopPropagation(); e.preventDefault(); onClick(); });
+    return b;
+  }
+
+  function changeSpan(col, delta) {
+    if (col.dataset.locked) return;
+    // parse current span
+    const style = col.getAttribute('style') || '';
+    const m = style.match(/grid-column\s*:\s*span\s*([0-9]+)/i);
+    let span = m ? parseInt(m[1],10) : 6;
+    span = Math.min(12, Math.max(1, span + delta));
+    const cleaned = style.replace(/grid-column\s*:\s*span\s*[0-9]+\s*;?/ig,'').trim();
+    const newStyle = (cleaned + '; grid-column: span ' + span + ';').trim();
+    col.setAttribute('style', newStyle);
+  }
+  function moveUp(col) {
+    if (col.dataset.locked) return;
+    const prev = col.previousElementSibling;
+    if (prev && prev.classList.contains('col')) {
+      form.insertBefore(col, prev);
+    }
+  }
+  function moveDown(col) {
+    if (col.dataset.locked) return;
+    const next = col.nextElementSibling;
+    if (next && next.classList.contains('col')) {
+      form.insertBefore(next, col);
+    }
+  }
+  function toggleLock(col) {
+    if (col.dataset.locked) delete col.dataset.locked;
+    else col.dataset.locked = "true";
+  }
+
+  function enterEditMode() {
+    form.classList.add('layout-edit-mode');
+    Array.from(form.querySelectorAll('.col')).forEach(col=> createControlsFor(col));
+    toggleBtn.innerText = '結束編輯';
+    saveBtn.style.display = '';
+    resetBtn.style.display = '';
+  }
+  function exitEditMode() {
+    form.classList.remove('layout-edit-mode');
+    Array.from(form.querySelectorAll('.layout-controls')).forEach(n=> n.remove());
+    toggleBtn.innerText = '編輯布局';
+    saveBtn.style.display = 'none';
+    resetBtn.style.display = 'none';
+  }
+  let editing = false;
+  toggleBtn.addEventListener('click', ()=>{
+    editing = !editing;
+    if (editing) enterEditMode(); else exitEditMode();
+  });
+
+  saveBtn.addEventListener('click', ()=>{
+    const layout = getCurrentLayout();
+    localStorage.setItem('orderFormLayout_v1', JSON.stringify(layout));
+    alert('布局已儲存');
+    exitEditMode();
+  });
+  resetBtn.addEventListener('click', ()=>{
+    if (!confirm('確定要還原為預設布局？')) return;
+    applyLayout(defaultLayout);
+    localStorage.removeItem('orderFormLayout_v1');
+  });
+
+  // on load apply saved layout if exists
+  const stored = localStorage.getItem('orderFormLayout_v1');
+  if (stored) {
+    try { applyLayout(JSON.parse(stored)); } catch(e){ console.warn('apply layout failed', e); }
+  }
+})(); 

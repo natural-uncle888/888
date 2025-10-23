@@ -644,3 +644,14 @@ th.col-total, td.col-total {
   line-height:1;
 }
 .customer-badge .customer-link { background:none;border:0;color:var(--brand);text-decoration:underline;cursor:pointer;padding:0;font-weight:600; }
+
+
+/* Layout editor styles (scoped to order form) */
+#orderForm.layout-edit-mode .col {
+  outline: 1px dashed rgba(0,0,0,0.12);
+  position: relative;
+}
+#orderForm .layout-controls { display: none; position: absolute; top:6px; right:6px; gap:6px; z-index:50; }
+#orderForm.layout-edit-mode .layout-controls { display: flex; }
+#orderForm .layout-controls button { font-size:12px; padding:4px 6px; border-radius:4px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+#orderForm .layout-controls button.locked { background:#f6f6f6; }

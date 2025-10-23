@@ -136,7 +136,11 @@
 </div>
 </section>
 <!-- 訂單表單（中） -->
-<details class="accordion" id="orderAccordion"><summary><span id="formTitle">新增 / 編輯訂單</span></summary><div class="content">
+<details class="accordion" id="orderAccordion"><summary><span id="formTitle">新增 / 編輯訂單</span>
+&nbsp;&nbsp;<button id="toggleLayoutEditBtn" type="button" style="font-size:13px;padding:6px 8px;border-radius:6px;margin-left:8px;">編輯布局</button>
+<button id="saveLayoutBtn" type="button" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;">儲存布局</button>
+<button id="resetLayoutBtn" type="button" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;">還原預設</button>
+</summary><div class="content">
 <form id="orderForm">
 <input id="id" type="hidden"/>
 <div class="row">
@@ -154,6 +158,10 @@
 <div class="col" style="grid-column:span 3">
 <label>時間</label>
 <input id="time" type="time"/>
+</div>
+<div class="col" style="grid-column:span 7">
+<label>清洗地址</label>
+<input id="address" placeholder="地址" type="text"/>
 </div>
 </div>
 <div class="row">
@@ -180,10 +188,6 @@
 <label>安排時段（可複選）</label>
 <div class="checkbox-group" id="slotGroup"></div>
 <input class="hidden tiny" id="slotNote" placeholder="請輸入指定日期／時段（如 10/10 上午 或 10/12 9:00–12:00）" type="text"/>
-</div>
-<div class="col" style="grid-column:span 7">
-<label>清洗地址</label>
-<input id="address" placeholder="地址" type="text"/>
 </div>
 </div>
 <div class="row">

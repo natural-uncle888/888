@@ -1817,19 +1817,33 @@ async function uploadEventToCalendar(o) {
   const orderItems = getOrderItems(o);
   const summary = `${city}${district} ${o.customer || ''} ${orderItems}`;
 
-  const event = {
-    summary,
-    location: o.address || '',
-    description: [
-      `姓名：${o.customer || ''}`,
-      `電話：${o.phone || ''}`,
-      (o.acFloors && o.acFloors.length > 0) ? `冷氣位於樓層：${o.acFloors.join('、')}${ (o.acFloors.includes('5F以上') && (o.acFloorAbove||'').trim() ? `（實際：${(o.acFloorAbove||'').trim()}）` : '') }` : '',
-      (o.washerFloors && o.washerFloors.length > 0) ? `洗衣機位於樓層：${o.washerFloors.join('、')}${ (o.washerFloors.includes('5F以上') && (o.washerFloorAbove||'').trim() ? `（實際：${(o.washerFloorAbove||'').trim()}）` : '') }` : '',`備註：${o.note || ''}`
-          (o.acBrands && o.acBrands.length) ? `品牌：${(o.acBrands||[]).join('、')}${o.acBrandOther ? '（'+o.acBrandOther+'）' : ''}` : '',
-].filter(Boolean).join('\n'),
-    start: { dateTime: start.toISOString() },
-    end: { dateTime: end.toISOString() }
-  };
+  const descArr = [];
+    descArr.push(`姓名：${o.customer || ''}`);
+    descArr.push(`電話：${o.phone || ''}`);
+    if (o.acFloors && o.acFloors.length > 0) {
+      let s = `冷氣位於樓層：${(o.acFloors||[]).join('、')}`;
+      if ((o.acFloorAbove||'').trim()) s += `（實際：${(o.acFloorAbove||'').trim()}）`;
+      descArr.push(s);
+    }
+    if (o.washerFloors && o.washerFloors.length > 0) {
+      let s2 = `洗衣機位於樓層：${(o.washerFloors||[]).join('、')}`;
+      if ((o.washerFloorAbove||'').trim()) s2 += `（實際：${(o.washerFloorAbove||'').trim()}）`;
+      descArr.push(s2);
+    }
+    const orderItemsDesc = getOrderItems(o);
+    if (orderItemsDesc) descArr.push(orderItemsDesc);
+    if (o.netTotal || o.total) descArr.push(`金額(折後)：${o.netTotal||o.total||0}`);
+    if (o.acBrands && o.acBrands.length) descArr.push(`品牌：${(o.acBrands||[]).join('、')}${o.acBrandOther ? '（'+o.acBrandOther+'）' : ''}`);
+    if (o.note) descArr.push(`備註：${o.note}`);
+    const description = descArr.join('\\n');
+
+    const event = {
+      summary,
+      location: o.address || '',
+      description: description,
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() }
+    };
 
   const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
     method: 'POST',

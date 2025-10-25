@@ -658,23 +658,75 @@ th.col-total, td.col-total {
 
 
 
-/* ADD: 預約冷氣品牌 樣式 */
-#brandOtherInput {
-  display: none;
-  padding: 6px 8px;
-  border: 1px solid var(--card, #ddd);
-  border-radius: 4px;
-  min-width: 180px;
-}
-#brandOptions label {
-  margin-right: 12px;
+
+
+/* Improved clickable area and subtle hover animation for checkbox labels */
+/* Applies to existing .checkbox and .checkbox-group used by renderChecks() */
+.checkbox {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-  white-space: nowrap;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 6px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+  cursor: pointer;
+  user-select: none;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease, border-color 140ms ease;
+  -webkit-tap-highlight-color: transparent;
 }
-[data-field="brands"] {
-  margin-top: 8px;
-  margin-bottom: 8px;
+
+/* Make the whole label area clearly interactive on hover/focus */
+.checkbox:hover,
+.checkbox:focus-within {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(20,24,40,0.06);
+  background-color: rgba(6, 95, 70, 0.03); /* subtle tint */
+  border-color: rgba(6,95,70,0.12);
+}
+
+/* Slightly different visual when the checkbox inside is checked */
+.checkbox input[type="checkbox"]:checked + span,
+.checkbox input[type="checkbox"]:checked {
+  /* no direct color change for input itself here; the .on class elsewhere handles color */
+}
+
+/* Ensure the input checkbox itself doesn't disrupt layout */
+.checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* The text label */
+.checkbox span {
+  display: inline-block;
+  line-height: 1;
+  font-size: 14px;
+  color: var(--text);
+  padding-right: 4px;
+}
+
+/* Improve accessibility focus ring for keyboard users */
+.checkbox:focus-within {
+  outline: 2px solid rgba(6,95,70,0.12);
+  outline-offset: 2px;
+}
+
+/* For very small screens, make them wrap nicely and occupy more width */
+@media (max-width: 520px) {
+  .checkbox { width: calc(50% - 12px); box-sizing: border-box; }
+  .checkbox span { font-size: 13px; }
+}
+/* 調整「其他品牌」輸入欄寬度與行為 */
+#acBrandOtherText{
+  width: 100%;          /* 滿版寬度（受容器寬度限制） */
+  max-width: 220px;     /* 最大寬度，可依需求改為 320 / 480 等 */
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: max-width .18s ease, box-shadow .12s ease;
 }

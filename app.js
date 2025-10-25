@@ -106,48 +106,11 @@ function hasAnyPhone(){
     const today = new Date();
     const pad2 = n => n.toString().padStart(2,'0');
     const SLOT_OPTS = ['平日','假日','上午','下午','皆可','日期指定'];
+    const BRAND_OPTS = ['HITACHI 日立','Panasonic 國際牌','DAIKIN 大金','MITSUBISHI 三菱','FUJITSU 富士通','國產貼牌','陸製品牌','其他'];
+
     const CONTACT_TIME_OPTS = ['平日','假日','上午','下午','晚上','皆可','時間指定'];
     const FLOOR_OPTS = ['1F','2F','3F','4F','5F','5F以上','大樓（同樓層）','透天（同樓層）'];
     const STATUS_FLOW = ['排定','完成','未完成'];
-
-
-// ---------- 新增：預約冷氣品牌支援 ----------
-const AC_BRAND_OPTS = ['HITACHI 日立','Panasonic 國際牌','DAIKIN 大金','MITSUBISHI 三菱','FUJITSU 富士通','國產貼牌','其他'];
-
-function renderBrandChecks(){
-  const el = document.getElementById('acBrandGroup');
-  if(!el) return;
-  el.innerHTML = AC_BRAND_OPTS.map(opt => `<label class="checkbox"><input type="checkbox" data-name="acBrand" value="${opt}"><span>${opt}</span></label>`).join('');
-  // attach change listener to toggle other input
-  el.addEventListener('change', (e)=>{
-    const otherChecked = Array.from(document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]')).some(x => x.checked && x.value === '其他');
-    document.getElementById('acBrandOtherInput').classList.toggle('hidden', !otherChecked);
-  });
-}
-
-function getSelectedBrands(){
-  return Array.from(document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]:checked')).map(x=>x.value);
-}
-function setSelectedBrands(values){
-  const set = new Set(values || []);
-  document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]').forEach(x=> x.checked = set.has(x.value));
-  const otherChecked = set.has('其他');
-  const otherInput = document.getElementById('acBrandOtherInput');
-  if(otherInput){
-    otherInput.classList.toggle('hidden', !otherChecked);
-    if(!otherChecked) otherInput.value = '';
-  }
-}
-function clearSelectedBrands(){
-  document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]').forEach(x=> x.checked = false);
-  const otherInput = document.getElementById('acBrandOtherInput');
-  if(otherInput){
-    otherInput.value = '';
-    otherInput.classList.add('hidden');
-  }
-}
-
-
 
     function renderChecks(containerId, options, name){
       const el = $(containerId);
@@ -257,8 +220,32 @@ function findContactByPhone(phone){
     }
     function initStaffSelects(){ $('staff').innerHTML = staffList.map(s=>`<option value="${s}">${s}</option>`).join(''); initFilters(); }
     function initContactSelect(){ $('contactMethod').innerHTML = contactList.map(c=>`<option value="${c}">${c}</option>`).join(''); }
-    function initCheckboxes(){ renderChecks('slotGroup', SLOT_OPTS, 'slot'); renderChecks('contactTimesGroup', CONTACT_TIME_OPTS, 'contactTime'); renderChecks('acFloors', FLOOR_OPTS, 'acFloor'); renderChecks('washerFloors', FLOOR_OPTS, 'washerFloor'); updateAbove5Visibility(); renderBrandChecks(); }
-    function initExpenseCats(){ $('expCategory').innerHTML = expCats.map(c=>`<option value="${c}">${c}</option>`).join(''); }
+    function initCheckboxes(){ renderChecks('slotGroup', SLOT_OPTS, 'slot');
+      renderChecks('acBrandGroup', BRAND_OPTS, 'acBrand');
+      try{ updateAcBrandOtherVisibility(); }catch(e){}
+ renderChecks('contactTimesGroup', CONTACT_TIME_OPTS, 'contactTime'); renderChecks('acFloors', FLOOR_OPTS, 'acFloor'); renderChecks('washerFloors', FLOOR_OPTS, 'washerFloor'); updateAbove5Visibility(); }
+    
+
+// --- AC brand other visibility handler ---
+// shows/hides the "其他" text input based on whether '其他' is checked
+function updateAcOtherVisibility(){
+  try{
+    const otherInput = $('acBrandOtherText');
+    if(!otherInput) return;
+    const checked = !!document.querySelector('input[type="checkbox"][data-name="acBrand"][value="其他"]:checked');
+    if(checked) otherInput.classList.remove('hidden');
+    else otherInput.classList.add('hidden');
+  }catch(e){ console.warn('updateAcOtherVisibility error', e); }
+}
+// listen for changes on acBrand checkboxes
+document.addEventListener('change', function(e){
+  if(e.target && e.target.matches && e.target.matches('input[type="checkbox"][data-name="acBrand"]')){
+    updateAcOtherVisibility();
+  }
+});
+// ensure correct visibility on initial load
+window.addEventListener('load', updateAcOtherVisibility);
+function initExpenseCats(){ $('expCategory').innerHTML = expCats.map(c=>`<option value="${c}">${c}</option>`).join(''); }
 
     
 
@@ -394,7 +381,9 @@ durationMinutes: +$('durationMinutes').value,
         acSplit:+$('acSplit').value||0, acDuct:+$('acDuct').value||0, washerTop:+$('washerTop').value||0, waterTank:+$('waterTank').value||0,
         pipesAmount:+$('pipesAmount').value||0, antiMold:+$('antiMold').value||0, ozone:+$('ozone').value||0,
         transformerCount:+$('transformerCount').value||0, longSplitCount:+$('longSplitCount').value||0, onePieceTray:+$('onePieceTray').value||0,
-        note:$('note').value.trim(), total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, netTotal:+$('netTotal').value||0,
+        note:$('note').value.trim(),
+        acBrands: getChecked('acBrand'),
+        acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, netTotal:+$('netTotal').value||0,
         createdAt:$('id').value ? undefined : new Date().toISOString()
       };
     }
@@ -420,10 +409,12 @@ durationMinutes: +$('durationMinutes').value,
       $('acSplit').value=o.acSplit||0; $('acDuct').value=o.acDuct||0; $('washerTop').value=o.washerTop||0; $('waterTank').value=o.waterTank||0;
       $('pipesAmount').value=o.pipesAmount||0; $('antiMold').value=o.antiMold||0; $('ozone').value=o.ozone||0;
       $('transformerCount').value=o.transformerCount||0; $('longSplitCount').value=o.longSplitCount||0; $('onePieceTray').value=o.onePieceTray||0;
-      $('note').value=o.note||''; // brand handling
-      clearSelectedBrands(); if(o.acBrands && Array.isArray(o.acBrands) && o.acBrands.length>0){ setSelectedBrands(o.acBrands); if(o.acBrandOther){ const ip=document.getElementById('acBrandOtherInput'); if(ip){ ip.value = o.acBrandOther || ''; ip.classList.toggle('hidden', !(o.acBrands.includes('其他'))); } } } else { clearSelectedBrands(); }
-      $('extraCharge').value = o.extraCharge || 0; $('discount').value=o.discount||0; $('total').value=o.total||0; $('netTotal').value=o.netTotal||0;
+      $('note').value=o.note||'';
+      // restore AC brand selections
+      try{ setChecked('acBrand', o.acBrands||[]); if(document.getElementById('acBrandOtherText')){ document.getElementById('acBrandOtherText').classList.toggle('hidden', !((o.acBrands||[]).includes && (o.acBrands||[]).includes('其他'))); $('acBrandOtherText').value = o.acBrandOther||''; } }catch(e){console.warn(e);}  $('extraCharge').value = o.extraCharge || 0; $('discount').value=o.discount||0; $('total').value=o.total||0; $('netTotal').value=o.netTotal||0;
       $('deleteBtn').disabled=!o.id; $('formTitle').textContent=o.id?'編輯訂單':'新增訂單';
+
+      try{ if(window.updateAcBrandOtherVisibility) window.updateAcBrandOtherVisibility(); }catch(e){}
       setFormLock(!!o.locked);
       document.getElementById('durationMinutes').value = (o.durationMinutes ?? '');
       if(o.completedAt){ $('lockInfo').textContent = '完成於 ' + new Date(o.completedAt).toLocaleString(); }
@@ -958,12 +949,6 @@ e.preventDefault();
       }
 recalcTotals();
       const data=gatherForm();
-  // ADD: ensure AC brand fields are present on saved order
-  try {
-    data.acBrands = data.acBrands || getSelectedBrands();
-    data.acBrandOther = (data.acBrandOther || document.getElementById('acBrandOtherInput')?.value || '').trim();
-  } catch(e){ }
-
       // Ensure items snapshot is saved for history
       try {
         if (typeof getOrderItems === 'function') {
@@ -1822,25 +1807,6 @@ function handleUploadWithAuth(orderData) {
 }
 
 async function uploadEventToCalendar(o) {
-
-  // ADD: 把預約冷氣品牌加入 description（如有），放在備註後面
-  
-  // ADD: 把預約冷氣品牌加入 description（如有），放在備註後面
-  try {
-    const brandsList = (o.brands && Array.isArray(o.brands) && o.brands.length>0) ? o.brands
-                     : (o.acBrands && Array.isArray(o.acBrands) && o.acBrands.length>0) ? o.acBrands
-                     : [];
-    if (brandsList && brandsList.length > 0) {
-      descriptionLines.push(`預約冷氣品牌：${brandsList.join(', ')}`);
-    }
-    const brandOther = (o.brandOther && String(o.brandOther).trim()) || (o.acBrandOther && String(o.acBrandOther).trim()) || '';
-    if (brandOther) {
-      if (!brandsList.includes(brandOther)) {
-        descriptionLines.push(`其他品牌備註：${brandOther}`);
-      }
-    }
-  } catch(e) { /* ignore */ }
-
   const start = new Date(`${o.date}T${o.time}:00`);
   const duration = +o.durationMinutes || 120;
   const end = new Date(start.getTime() + duration * 60 * 1000);
@@ -3121,4 +3087,41 @@ document.addEventListener('DOMContentLoaded', () => {
   if (saveBtn) saveBtn.addEventListener('click', saveLayoutWidths);
   if (resetBtn) resetBtn.addEventListener('click', resetLayoutWidths);
   loadLayoutWidths(); // 初始載入
+});
+
+
+
+// --- Ensure '其他' checkbox shows/hides the other-text input ---
+// This handler watches checkboxes with data-name="acBrand" and toggles #acBrandOtherText visibility.
+// It is safe to call multiple times.
+function updateAcBrandOtherVisibility(){
+  try{
+    const inputs = Array.from(document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]'));
+    const otherInput = document.getElementById('acBrandOtherText');
+    if(!otherInput) return;
+    const checked = inputs.filter(i=>i.checked).map(i=>i.value);
+    otherInput.classList.toggle('hidden', !checked.includes('其他'));
+    // also ensure display style fallback
+    otherInput.style.display = checked.includes('其他') ? '' : 'none';
+  }catch(e){
+    console.warn('updateAcBrandOtherVisibility error', e);
+  }
+}
+document.addEventListener('change', function(e){
+  if(e.target && e.target.matches && e.target.matches('input[type="checkbox"][data-name="acBrand"]')){
+    updateAcBrandOtherVisibility();
+  }
+});
+// Call on load to set initial visibility
+window.addEventListener('load', updateAcBrandOtherVisibility);
+// expose globally so other code can call it after programmatic setChecked
+window.updateAcBrandOtherVisibility = updateAcBrandOtherVisibility;
+
+
+document.addEventListener('click', function(e){
+  try{
+    if(e.target && e.target.closest && e.target.closest('#acBrandGroup')){
+      updateAcBrandOtherVisibility();
+    }
+  }catch(e){}
 });

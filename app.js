@@ -1835,7 +1835,7 @@ async function uploadEventToCalendar(o) {
     if (o.netTotal || o.total) descArr.push(`金額(折後)：${o.netTotal||o.total||0}`);
     if (o.acBrands && o.acBrands.length) descArr.push(`品牌：${(o.acBrands||[]).join('、')}${o.acBrandOther ? '（'+o.acBrandOther+'）' : ''}`);
     if (o.note) descArr.push(`備註：${o.note}`);
-    const description = descArr.join('\\n');
+    const description = descArr.join('\n');
 
     const event = {
       summary,

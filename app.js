@@ -1824,9 +1824,23 @@ function handleUploadWithAuth(orderData) {
 async function uploadEventToCalendar(o) {
 
   // ADD: 把預約冷氣品牌加入 description（如有），放在備註後面
-  if (o.brands && Array.isArray(o.brands) && o.brands.length > 0) {
-    descriptionLines.push(`預約冷氣品牌：${o.brands.join(', ')}`);
-  }
+  
+  // ADD: 把預約冷氣品牌加入 description（如有），放在備註後面
+  try {
+    const brandsList = (o.brands && Array.isArray(o.brands) && o.brands.length>0) ? o.brands
+                     : (o.acBrands && Array.isArray(o.acBrands) && o.acBrands.length>0) ? o.acBrands
+                     : [];
+    if (brandsList && brandsList.length > 0) {
+      descriptionLines.push(`預約冷氣品牌：${brandsList.join(', ')}`);
+    }
+    const brandOther = (o.brandOther && String(o.brandOther).trim()) || (o.acBrandOther && String(o.acBrandOther).trim()) || '';
+    if (brandOther) {
+      if (!brandsList.includes(brandOther)) {
+        descriptionLines.push(`其他品牌備註：${brandOther}`);
+      }
+    }
+  } catch(e) { /* ignore */ }
+
   const start = new Date(`${o.date}T${o.time}:00`);
   const duration = +o.durationMinutes || 120;
   const end = new Date(start.getTime() + duration * 60 * 1000);

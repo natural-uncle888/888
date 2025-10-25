@@ -331,6 +331,84 @@ function calcTotal(f){
   return Math.max(0, Math.round(total));
 }
 
+
+// ADD: 預約冷氣品牌 helpers & integration
+function getSelectedBrands() {
+  const checked = Array.from(document.querySelectorAll('.brand-checkbox:checked'))
+    .map(cb => cb.value);
+  const brands = [];
+  const otherInput = document.getElementById('brandOtherInput');
+  checked.forEach(v => {
+    if (v === 'OTHER') {
+      const otherVal = (otherInput?.value || '').trim();
+      if (otherVal) brands.push(otherVal);
+      else brands.push('其他');
+    } else {
+      brands.push(v);
+    }
+  });
+  return brands;
+}
+
+function renderBrandsFromOrder(order) {
+  document.querySelectorAll('.brand-checkbox').forEach(cb => cb.checked = false);
+  const otherInput = document.getElementById('brandOtherInput');
+  if (otherInput) { otherInput.style.display = 'none'; otherInput.value = ''; }
+
+  if (!order || !order.brands || !Array.isArray(order.brands)) return;
+
+  order.brands.forEach(b => {
+    if (!b) return;
+    const normalized = String(b).trim();
+    const match = Array.from(document.querySelectorAll('.brand-checkbox'))
+      .find(cb => cb.value === normalized);
+    if (match) {
+      match.checked = true;
+      if (match.value === 'OTHER' && otherInput) {
+        otherInput.style.display = 'inline-block';
+        otherInput.value = order.brandOther || '';
+      }
+    } else {
+      const otherCb = document.getElementById('brandOtherCheckbox');
+      if (otherCb) {
+        otherCb.checked = true;
+        if (otherInput) {
+          otherInput.style.display = 'inline-block';
+          otherInput.value = normalized;
+        }
+      }
+    }
+  });
+
+  if (order.brandOther && document.getElementById('brandOtherInput')) {
+    document.getElementById('brandOtherInput').value = order.brandOther;
+    document.getElementById('brandOtherInput').style.display = 'inline-block';
+    const otherCb = document.getElementById('brandOtherCheckbox');
+    if (otherCb) otherCb.checked = true;
+  }
+}
+
+function bindBrandEvents() {
+  const otherCb = document.getElementById('brandOtherCheckbox');
+  const otherInput = document.getElementById('brandOtherInput');
+  if (!otherCb || !otherInput) return;
+  otherCb.addEventListener('change', function () {
+    if (this.checked) {
+      otherInput.style.display = 'inline-block';
+      otherInput.focus();
+    } else {
+      otherInput.value = '';
+      otherInput.style.display = 'none';
+    }
+  });
+}
+
+// ensure bindBrandEvents runs on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function(){
+  try { bindBrandEvents(); } catch(e){ /* ignore */ }
+});
+
+
 function gatherForm() {
 return {
     
@@ -1775,6 +1853,9 @@ function handleUploadWithAuth(orderData) {
 }
 
 async function uploadEventToCalendar(o) {
+  // ADD: 將品牌資訊加入 event.description（若未在程式其他處處理）
+  // (請確認 descriptionLines 或 description 的組成位置，以確保此欄位被加入)
+
   const start = new Date(`${o.date}T${o.time}:00`);
   const duration = +o.durationMinutes || 120;
   const end = new Date(start.getTime() + duration * 60 * 1000);
@@ -3056,3 +3137,5 @@ document.addEventListener('DOMContentLoaded', () => {
   if (resetBtn) resetBtn.addEventListener('click', resetLayoutWidths);
   loadLayoutWidths(); // 初始載入
 });
+
+// NOTE: fillForm not found; ensure to call renderBrandsFromOrder(order) when filling form

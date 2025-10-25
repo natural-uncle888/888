@@ -699,7 +699,8 @@ durationMinutes: +$('durationMinutes').value,
         const slots = `時段：${(o.slots||[]).join('、')}`;
         const price = `金額(折後)：${o.netTotal||o.total||0}`;
         const note = o.note ? `備註：${o.note}` : '';
-        const desc = sanitizeText([staff, tel, slots, price, note].filter(Boolean).join('\\n'));
+        const brands = (o.acBrands && (o.acBrands.length>0)) ? `品牌：${(o.acBrands||[]).join('、')}${(o.acBrandOther?('（'+o.acBrandOther+'）'):(''))}` : '';
+        const desc = sanitizeText([staff, tel, slots, price, brands, note].filter(Boolean).join('\\n'));
         const loc = sanitizeText(o.address||'');
         const uid = o.id || (dtStart + '@yl-clean');
         lines.push('BEGIN:VEVENT');
@@ -1824,7 +1825,8 @@ async function uploadEventToCalendar(o) {
       `電話：${o.phone || ''}`,
       (o.acFloors && o.acFloors.length > 0) ? `冷氣位於樓層：${o.acFloors.join('、')}${ (o.acFloors.includes('5F以上') && (o.acFloorAbove||'').trim() ? `（實際：${(o.acFloorAbove||'').trim()}）` : '') }` : '',
       (o.washerFloors && o.washerFloors.length > 0) ? `洗衣機位於樓層：${o.washerFloors.join('、')}${ (o.washerFloors.includes('5F以上') && (o.washerFloorAbove||'').trim() ? `（實際：${(o.washerFloorAbove||'').trim()}）` : '') }` : '',`備註：${o.note || ''}`
-    ].filter(Boolean).join('\n'),
+          (o.acBrands && o.acBrands.length) ? `品牌：${(o.acBrands||[]).join('、')}${o.acBrandOther ? '（'+o.acBrandOther+'）' : ''}` : '',
+].filter(Boolean).join('\n'),
     start: { dateTime: start.toISOString() },
     end: { dateTime: end.toISOString() }
   };

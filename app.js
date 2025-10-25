@@ -1830,8 +1830,6 @@ async function uploadEventToCalendar(o) {
       if ((o.washerFloorAbove||'').trim()) s2 += `（實際：${(o.washerFloorAbove||'').trim()}）`;
       descArr.push(s2);
     }
-    const orderItemsDesc = getOrderItems(o);
-    if (orderItemsDesc) descArr.push(orderItemsDesc);
     if (o.netTotal || o.total) descArr.push(`金額(折後)：${o.netTotal||o.total||0}`);
     if (o.acBrands && o.acBrands.length) descArr.push(`品牌：${(o.acBrands||[]).join('、')}${o.acBrandOther ? '（'+o.acBrandOther+'）' : ''}`);
     if (o.note) descArr.push(`備註：${o.note}`);

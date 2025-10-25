@@ -299,30 +299,20 @@
 </div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-
-<!-- ADD: 預約冷氣品牌（放在 清洗項目與價格 之後、備註(note) 之前） -->
-<div class="form-group" id="brandSection" data-field="brands">
-  <label for="brandOptions"><strong>預約冷氣品牌</strong></label>
-  <div id="brandOptions" class="checkbox-group" style="margin-top:6px;">
-    <label><input type="checkbox" class="brand-checkbox" value="HITACHI"> HITACHI 日立</label>
-    <label><input type="checkbox" class="brand-checkbox" value="Panasonic"> Panasonic 國際牌</label>
-    <label><input type="checkbox" class="brand-checkbox" value="DAIKIN"> DAIKIN 大金</label>
-    <label><input type="checkbox" class="brand-checkbox" value="MITSUBISHI"> MITSUBISHI 三菱</label>
-    <label><input type="checkbox" class="brand-checkbox" value="FUJITSU"> FUJITSU 富士通</label>
-    <label><input type="checkbox" class="brand-checkbox" value="LOCAL"> 國產貼牌</label>
-    <label style="display:inline-flex; align-items:center; gap:6px;">
-      <input type="checkbox" class="brand-checkbox" value="OTHER" id="brandOtherCheckbox"> 其他
-      <input type="text" id="brandOtherInput" placeholder="請輸入其他品牌" aria-label="其他品牌" style="display:none; margin-left:8px;" />
-    </label>
-  </div>
-</div>
-<!-- END ADD -->
-<div class="row">
 <div class="col" style="grid-column:span 12">
 <label>備註</label>
 <textarea id="note" placeholder="其他補充事項"></textarea>
 </div>
+
+<div class="row">
+  <div class="col" style="grid-column:span 12">
+    <label>預約冷氣品牌（可複選）</label>
+    <div class="checkbox-group" id="acBrandGroup"></div>
+    <input class="hidden tiny" id="acBrandOtherInput" placeholder="請輸入其他品牌" type="text"/>
+    <div class="tiny">勾選「其他」會顯示輸入欄位</div>
+  </div>
+</div>
+
 </div>
 <div class="row"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button><div class="tiny">貼入網址，完成後可點選開啟清洗前後照片頁面</div></div></div>
 <div class="hr"></div>

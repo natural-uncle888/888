@@ -110,6 +110,45 @@ function hasAnyPhone(){
     const FLOOR_OPTS = ['1F','2F','3F','4F','5F','5F以上','大樓（同樓層）','透天（同樓層）'];
     const STATUS_FLOW = ['排定','完成','未完成'];
 
+
+// ---------- 新增：預約冷氣品牌支援 ----------
+const AC_BRAND_OPTS = ['HITACHI 日立','Panasonic 國際牌','DAIKIN 大金','MITSUBISHI 三菱','FUJITSU 富士通','國產貼牌','其他'];
+
+function renderBrandChecks(){
+  const el = document.getElementById('acBrandGroup');
+  if(!el) return;
+  el.innerHTML = AC_BRAND_OPTS.map(opt => `<label class="checkbox"><input type="checkbox" data-name="acBrand" value="${opt}"><span>${opt}</span></label>`).join('');
+  // attach change listener to toggle other input
+  el.addEventListener('change', (e)=>{
+    const otherChecked = Array.from(document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]')).some(x => x.checked && x.value === '其他');
+    document.getElementById('acBrandOtherInput').classList.toggle('hidden', !otherChecked);
+  });
+}
+
+function getSelectedBrands(){
+  return Array.from(document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]:checked')).map(x=>x.value);
+}
+function setSelectedBrands(values){
+  const set = new Set(values || []);
+  document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]').forEach(x=> x.checked = set.has(x.value));
+  const otherChecked = set.has('其他');
+  const otherInput = document.getElementById('acBrandOtherInput');
+  if(otherInput){
+    otherInput.classList.toggle('hidden', !otherChecked);
+    if(!otherChecked) otherInput.value = '';
+  }
+}
+function clearSelectedBrands(){
+  document.querySelectorAll('input[type="checkbox"][data-name="acBrand"]').forEach(x=> x.checked = false);
+  const otherInput = document.getElementById('acBrandOtherInput');
+  if(otherInput){
+    otherInput.value = '';
+    otherInput.classList.add('hidden');
+  }
+}
+
+
+
     function renderChecks(containerId, options, name){
       const el = $(containerId);
       el.innerHTML = options.map(opt => `<label class="checkbox"><input type="checkbox" data-name="${name}" value="${opt}"><span>${opt}</span></label>`).join('');
@@ -218,7 +257,7 @@ function findContactByPhone(phone){
     }
     function initStaffSelects(){ $('staff').innerHTML = staffList.map(s=>`<option value="${s}">${s}</option>`).join(''); initFilters(); }
     function initContactSelect(){ $('contactMethod').innerHTML = contactList.map(c=>`<option value="${c}">${c}</option>`).join(''); }
-    function initCheckboxes(){ renderChecks('slotGroup', SLOT_OPTS, 'slot'); renderChecks('contactTimesGroup', CONTACT_TIME_OPTS, 'contactTime'); renderChecks('acFloors', FLOOR_OPTS, 'acFloor'); renderChecks('washerFloors', FLOOR_OPTS, 'washerFloor'); updateAbove5Visibility(); }
+    function initCheckboxes(){ renderChecks('slotGroup', SLOT_OPTS, 'slot'); renderChecks('contactTimesGroup', CONTACT_TIME_OPTS, 'contactTime'); renderChecks('acFloors', FLOOR_OPTS, 'acFloor'); renderChecks('washerFloors', FLOOR_OPTS, 'washerFloor'); updateAbove5Visibility(); renderBrandChecks(); }
     function initExpenseCats(){ $('expCategory').innerHTML = expCats.map(c=>`<option value="${c}">${c}</option>`).join(''); }
 
     
@@ -381,7 +420,9 @@ durationMinutes: +$('durationMinutes').value,
       $('acSplit').value=o.acSplit||0; $('acDuct').value=o.acDuct||0; $('washerTop').value=o.washerTop||0; $('waterTank').value=o.waterTank||0;
       $('pipesAmount').value=o.pipesAmount||0; $('antiMold').value=o.antiMold||0; $('ozone').value=o.ozone||0;
       $('transformerCount').value=o.transformerCount||0; $('longSplitCount').value=o.longSplitCount||0; $('onePieceTray').value=o.onePieceTray||0;
-      $('note').value=o.note||''; $('extraCharge').value = o.extraCharge || 0; $('discount').value=o.discount||0; $('total').value=o.total||0; $('netTotal').value=o.netTotal||0;
+      $('note').value=o.note||''; // brand handling
+      clearSelectedBrands(); if(o.acBrands && Array.isArray(o.acBrands) && o.acBrands.length>0){ setSelectedBrands(o.acBrands); if(o.acBrandOther){ const ip=document.getElementById('acBrandOtherInput'); if(ip){ ip.value = o.acBrandOther || ''; ip.classList.toggle('hidden', !(o.acBrands.includes('其他'))); } } } else { clearSelectedBrands(); }
+      $('extraCharge').value = o.extraCharge || 0; $('discount').value=o.discount||0; $('total').value=o.total||0; $('netTotal').value=o.netTotal||0;
       $('deleteBtn').disabled=!o.id; $('formTitle').textContent=o.id?'編輯訂單':'新增訂單';
       setFormLock(!!o.locked);
       document.getElementById('durationMinutes').value = (o.durationMinutes ?? '');
@@ -917,6 +958,12 @@ e.preventDefault();
       }
 recalcTotals();
       const data=gatherForm();
+  // ADD: ensure AC brand fields are present on saved order
+  try {
+    data.acBrands = data.acBrands || getSelectedBrands();
+    data.acBrandOther = (data.acBrandOther || document.getElementById('acBrandOtherInput')?.value || '').trim();
+  } catch(e){ }
+
       // Ensure items snapshot is saved for history
       try {
         if (typeof getOrderItems === 'function') {

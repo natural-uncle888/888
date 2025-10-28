@@ -960,7 +960,8 @@ th.col-total, td.col-total {
 
 
 
-/* --- Mobile adjustments to prevent pill overflow and truncate selects --- */
+
+/* --- Mobile adjustments to prevent pill overflow and ensure both year+month selects are visible --- */
 @media (max-width: 700px) {
   .toolbar { gap:8px; align-items:flex-start; }
   /* Allow each pill to wrap to multiple lines and reduce padding */
@@ -974,6 +975,7 @@ th.col-total, td.col-total {
     box-sizing:border-box;
     flex: 1 1 48%; /* try to fit two pills per row on narrow screens */
     min-width:0;
+    gap:6px;
   }
   /* Put the label on its own line so the selects/buttons don't overflow */
   .toolbar .pill strong {
@@ -983,25 +985,41 @@ th.col-total, td.col-total {
     font-size:13px;
     line-height:1;
   }
-  /* Override the global width:100% for selects inside pills so they don't force the pill wider */
+  /* Make selects share available width so year+month both visible */
   .toolbar .pill select,
   .toolbar .pill input {
-    width:auto !important;
-    min-width:70px;
-    max-width:140px;
-    padding:6px 8px;
-    margin-right:6px;
+    display:inline-block;
     box-sizing:border-box;
+    padding:6px 8px;
+    margin:0;
+    min-width:56px;
+    max-width:100%;
   }
-  /* If there are two selects (year + month), allow them to sit side-by-side but still wrap if needed */
-  .toolbar .pill select + select { margin-left:6px; margin-right:0; }
+  /* If there are exactly two selects (year + month), make them each take ~48% */
+  .toolbar .pill select + select {
+    margin-left:6px;
+  }
+  .toolbar .pill.two-selects select {
+    width: calc(50% - 6px);
+  }
+  /* Fallback: if not using .two-selects, try to ensure selects don't exceed 48% */
+  .toolbar .pill select {
+    width: 48%;
+  }
 
   /* For very small screens prefer single-column pills */
   @media (max-width: 420px) {
     .toolbar .pill { flex: 1 1 100%; }
+    .toolbar .pill select { width: 48%; }
+    .toolbar .pill select + select { margin-left:6px; }
   }
 }
 
+/* Extra: reduce button/pill padding so more items fit on one line when possible */
+@media (max-width: 900px) {
+  .pill { padding:6px 8px; border-radius:12px; }
+  .toolbar button, .toolbar .right button { padding:8px 10px; }
+}
 /* Extra: reduce button/pill padding so more items fit on one line when possible */
 @media (max-width: 900px) {
   .pill { padding:6px 8px; border-radius:12px; }

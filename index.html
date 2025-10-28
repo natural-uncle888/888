@@ -142,12 +142,6 @@
 <button id="resetLayoutBtn" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;" type="button">還原預設</button>
 </summary><div class="content">
 <form id="orderForm">
-  <div class="pill-row">
-    <label class="pill"><input type="checkbox" id="reminderEnabled"><span>啟用提醒</span></label>
-    <label class="pill"><input type="checkbox" id="reminderNotified"><span>已通知</span></label>
-    <label class="pill danger"><input type="checkbox" id="reminderMuted"><span>不再提醒</span></label>
-  </div>
-
 <input id="id" type="hidden"/>
 <div class="row">
 <div class="col" style="grid-column:span 6">
@@ -248,7 +242,7 @@
 <label class="muted">下次提醒</label>
 <input class="tiny" disabled="" id="nextReminder" type="text"/>
 <label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
-<label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
+<label class="pill danger"><input type="checkbox" id="reminderMuted"><span>不再提醒</span></label>
 </div>
 </div>
 </div>

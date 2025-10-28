@@ -142,6 +142,12 @@
 <button id="resetLayoutBtn" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;" type="button">還原預設</button>
 </summary><div class="content">
 <form id="orderForm">
+  <div class="pill-row">
+    <label class="pill"><input type="checkbox" id="reminderEnabled"><span>啟用提醒</span></label>
+    <label class="pill"><input type="checkbox" id="reminderNotified"><span>已通知</span></label>
+    <label class="pill danger"><input type="checkbox" id="reminderMuted"><span>不再提醒</span></label>
+  </div>
+
 <input id="id" type="hidden"/>
 <div class="row">
 <div class="col" style="grid-column:span 6">
@@ -250,7 +256,7 @@
 <h3 style="margin:0 0 8px">清洗項目與價格</h3>
 <div class="row">
 <div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">分離式冷氣室內機（每台1800；滿3台每台1500）</span></b></label>
+<label><b><span >分離式冷氣室內機（每台1800；滿3台每台1500）</span></b></label>
 <input id="acSplit" min="0" step="1" type="number" value="0"/>
 </div>
 <div class="col" style="grid-column:span 6">
@@ -260,7 +266,7 @@
 </div>
 <div class="row">
 <div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">直立式洗衣機（每台2000；若同單含冷氣室內機則每台1800）</span></b></label>
+<label><b><span >直立式洗衣機（每台2000；若同單含冷氣室內機則每台1800）</span></b></label>
 <input id="washerTop" min="0" step="1" type="number" value="0"/>
 </div>
 <div class="col" style="grid-column:span 6">
@@ -274,7 +280,7 @@
 <input id="pipesAmount" min="0" step="1" type="number" value="0"/>
 </div>
 <div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">防霉噴劑（每台300；滿5台每台250）</span></b></label>
+<label><b><span >防霉噴劑（每台300；滿5台每台250）</span></b></label>
 <input id="antiMold" min="0" step="1" type="number" value="0"/>
 </div>
 </div>
@@ -312,14 +318,21 @@
     <input class="hidden tiny" id="acBrandOtherText" placeholder="請輸入其他品牌" type="text"/>
   </div>
 </div>
-<div class="row"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button><div class="tiny">貼入網址，完成後可點選開啟清洗前後照片頁面</div></div></div>
+<div class="row"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()"  type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button><div class="tiny">貼入網址，完成後可點選開啟清洗前後照片頁面</div></div></div>
 <div class="hr"></div>
 <div class="row">
 <div class="col" style="grid-column:span 4">
-<label><input id="confirmed" type="checkbox"/> 客人確認安排時間</label>
+<!-- 改為可點擊整區塊的 checkbox (big-toggle) -->
+<label class="big-toggle" for="confirmed">
+  <input id="confirmed" name="confirmed" type="checkbox" aria-label="客人確認安排時間" />
+  <span class="big-toggle-text">客人確認安排時間</span>
+</label>
 </div>
 <div class="col" style="grid-column:span 4">
-<label><input id="quotationOk" type="checkbox"/> 客人確認報價單</label>
+<label class="big-toggle" for="quotationOk">
+  <input id="quotationOk" name="quotationOk" type="checkbox" aria-label="客人確認報價單" />
+  <span class="big-toggle-text">客人確認報價單</span>
+</label>
 </div>
 <div class="col right-align" style="grid-column:span 4">
 <button class="inline-btn" id="recalc" type="button">重新計算金額</button>
@@ -507,7 +520,82 @@
 </div>
 </div>
 <!-- End Customer History Modal -->
+
+<!-- assistant-added: sync .checked class for big-toggle labels (fallback for browsers without :has) -->
+<script>
+(function(){
+  try {
+    const labels = document.querySelectorAll('.big-toggle');
+    labels.forEach(label => {
+      const input = label.querySelector('input[type="checkbox"]');
+      if (!input) return;
+      const sync = () => label.classList.toggle('checked', !!input.checked);
+      sync();
+      input.addEventListener('change', sync);
+      // also sync on any programmatic changes if needed
+      const observer = new MutationObserver(sync);
+      observer.observe(input, { attributes: true, attributeFilter: ['checked'] });
+    });
+  } catch(e){
+    console.warn('big-toggle sync failed', e);
+  }
+})();
+</script>
+<!-- /assistant-added -->
+
+
+<script>
+/* Inline fallback: ensure danger pill has click behavior and toggles .on class.
+   This runs immediately and is robust for file:// scenarios.
+*/
+(function(){
+  function attachAll(){
+    var pills = document.querySelectorAll('label.pill, .pill');
+    pills.forEach(function(lbl){
+      // normalize to label
+      if(lbl.tagName.toLowerCase() !== 'label'){
+        // wrap?
+      }
+      // ensure span exists
+      var span = lbl.querySelector('span');
+      if(!span) {
+        span = document.createElement('span');
+        span.textContent = lbl.innerText || '';
+        // clear text nodes
+        lbl.textContent = '';
+        lbl.appendChild(span);
+      }
+      // ensure input exists
+      var cb = lbl.querySelector('input[type=checkbox]');
+      if(!cb){
+        cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.style.position='absolute';
+        cb.style.opacity='0';
+        cb.style.pointerEvents='none';
+        lbl.insertBefore(cb, lbl.firstChild);
+      }
+      // initial state
+      if(cb.checked) lbl.classList.add('on'); else lbl.classList.remove('on');
+      // click behavior
+      if(!lbl.__pill_attached){
+        lbl.addEventListener('click', function(e){
+          if(e.target.tagName.toLowerCase() === 'input') return;
+          cb.checked = !cb.checked;
+          var ev = new Event('change',{bubbles:true});
+          cb.dispatchEvent(ev);
+          if(cb.checked) lbl.classList.add('on'); else lbl.classList.remove('on');
+        });
+        cb.addEventListener('change', function(){ if(cb.checked) lbl.classList.add('on'); else lbl.classList.remove('on'); });
+        lbl.__pill_attached = true;
+      }
+    });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachAll); else attachAll();
+})();
+</script>
 </body>
+
 </html>
 <!-- 加入 Google API SDK -->
 <script async="" defer="" src="https://accounts.google.com/gsi/client"></script>

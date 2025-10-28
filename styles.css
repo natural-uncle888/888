@@ -383,14 +383,34 @@ th.col-total, td.col-total {
 
 
 /* === Improve contrast for red '不再提醒' control === */
+/* Make the danger pill visible but do not force a red background so checked/active states can show */
 .pill.danger,
 .icon-btn.danger {
-  background: #ef4444;
-  color: #fff !important;
-  border-color: #ef4444;
+  background: transparent;
+  color: #ef4444 !important;
+  border-color: rgba(239,68,68,0.18);
 }
-.pill.danger span { color: #fff !important; }
-
+.pill.danger span {
+  background: #ffffff;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239,68,68,0.18);
+  font-weight: 700;
+}
+.pill.danger input[type="checkbox"] { pointer-events: none; }
+/* Checked state on label (handled by .on class) */
+.pill.danger.on span,
+label.pill.danger.on span {
+  background: #f3f4f6;
+  color: #ef4444 !important;
+  border-color: #f3f4f6;
+}
+/* Active press state shows red background */
+.pill.danger:active span,
+label.pill.danger:active span {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
 /* === Staff icon styles (v2) === */
 .staff-cell { text-align: center; }
 .staff-icon { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
@@ -729,4 +749,474 @@ th.col-total, td.col-total {
   border-radius: 6px;
   border: 1px solid var(--border);
   transition: max-width .18s ease, box-shadow .12s ease;
+}
+
+
+
+
+
+
+/* ==== big-toggle styles added by assistant (enhanced hover / lift / checked) ==== */
+.big-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  margin: 6px 0;
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+  transition: transform .18s cubic-bezier(.2,.9,.2,1), box-shadow .18s ease, background .14s ease, border-color .12s ease;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.0);
+  will-change: transform, box-shadow, background;
+}
+
+/* make pointer obvious on hover (in addition to cursor) */
+.big-toggle:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(16,24,40,0.12);
+  background: rgba(255,255,255,0.6);
+  border-color: rgba(0,0,0,0.06);
+}
+
+/* pressed state (mouse down) */
+.big-toggle:active {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16,24,40,0.09);
+}
+
+/* checkbox appearance */
+.big-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: 0 0 auto;
+  appearance: auto;
+}
+
+/* text area */
+.big-toggle .big-toggle-text {
+  flex: 1 1 auto;
+  line-height: 1.2;
+  font-size: 14px;
+  color: var(--text, #222);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* keyboard focus */
+.big-toggle:focus-within {
+  outline: 2px solid rgba(11,102,255,0.12);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+/* when the checkbox inside is focused, also show inner focus for accessibility */
+.big-toggle input[type="checkbox"]:focus {
+  box-shadow: 0 0 0 4px rgba(11,102,255,0.06);
+  border-radius: 6px;
+}
+
+/* checked text style */
+.big-toggle input[type="checkbox"]:focus + .big-toggle-text,
+.big-toggle input[type="checkbox"]:checked + .big-toggle-text {
+  font-weight: 700;
+  color: var(--accent, #0b66ff);
+}
+
+/* prefer modern :has() to style label when child is checked (works in modern browsers) */
+.big-toggle:has(input[type="checkbox"]:checked) {
+  background: linear-gradient(90deg, rgba(11,102,255,0.06), rgba(11,102,255,0.02));
+  border-color: rgba(11,102,255,0.14);
+  box-shadow: 0 12px 30px rgba(11,102,255,0.06);
+  transform: translateY(-4px);
+}
+
+/* JS fallback: when label has .checked (for broader browser support) */
+.big-toggle.checked {
+  background: linear-gradient(90deg, rgba(11,102,255,0.06), rgba(11,102,255,0.02));
+  border-color: rgba(11,102,255,0.14);
+  box-shadow: 0 12px 30px rgba(11,102,255,0.06);
+  transform: translateY(-4px);
+}
+
+/* subtle inner highlight for the checked text */
+.big-toggle.checked .big-toggle-text,
+.big-toggle:has(input[type="checkbox"]:checked) .big-toggle-text {
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+/* end enhanced big-toggle */
+
+.big-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px;
+  margin: 6px 0;
+  border-radius: 10px;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+  transition: background .14s ease, border-color .14s ease, transform .06s ease, box-shadow .12s ease;
+  box-sizing: border-box;
+  background: transparent;
+}
+.big-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex: 0 0 auto;
+  appearance: auto;
+}
+.big-toggle .big-toggle-text {
+  flex: 1 1 auto;
+  line-height: 1.2;
+  font-size: 14px;
+  color: var(--text, #222);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.big-toggle:hover {
+  background: rgba(0,0,0,0.03);
+  border-color: rgba(0,0,0,0.06);
+}
+.big-toggle:active {
+  transform: translateY(1px);
+}
+.big-toggle input[type="checkbox"]:focus + .big-toggle-text,
+.big-toggle input[type="checkbox"]:checked + .big-toggle-text {
+  font-weight: 600;
+  color: var(--accent, #0b66ff);
+}
+.big-toggle input[type="checkbox"]:checked + .big-toggle-text {
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02);
+}
+.big-toggle input[type="checkbox"]:focus {
+  outline: 2px solid rgba(11,102,255,0.16);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* end big-toggle */
+
+/* === Improved pill-button controls for reminder checkboxes === */
+/* Make the entire pill area act like a button and easier to tap/click */
+.toolbar label.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
+  position: relative;
+}
+
+/* Hide the native checkbox but keep it in the DOM for accessibility & JS */
+.toolbar label.pill input[type="checkbox"] {
+  position: absolute !important;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Style the visible label text area */
+.toolbar label.pill span {
+  display:inline-block;
+  padding:6px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Hover / pointer feedback */
+.toolbar label.pill:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16,24,40,0.08);
+}
+
+/* Checked state (uses sibling selector since input comes before span) */
+.toolbar label.pill input[type="checkbox"]:checked + span {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #059669;
+}
+
+/* Subtle focus style for keyboard users */
+.toolbar label.pill input[type="checkbox"]:focus + span,
+.toolbar label.pill:focus-within {
+  outline: 3px solid rgba(37,99,235,0.12);
+  outline-offset: 3px;
+}
+
+/* Danger (不再提醒) should be prominent: red background, white text */
+.pill.danger {
+  /* ensure visual prominence even when unchecked */
+  background: #ef4444;
+  color: #fff !important;
+  border-color: #ef4444;
+}
+.pill.danger span {
+  background: transparent;
+  color: #fff !important;
+  border-color: transparent;
+  font-weight: 700;
+}
+
+/* When danger is checked, slightly darker red to indicate active state */
+.pill.danger input[type="checkbox"]:checked + span {
+  background: rgba(0,0,0,0.06);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.06);
+}
+
+/* Mobile: make pills full width for easier tapping */
+@media (max-width: 768px) {
+  .toolbar label.pill { width: 100%; justify-content: flex-start; }
+  .toolbar label.pill span { width: auto; }
+}
+
+
+/* === Updated danger pill behavior per user request ===
+   - Default (unchecked): white background, red text with subtle red border (visible)
+   - Hover (any state): label floats (translateY) and casts shadow for affordance
+   - Checked (input:checked): GRAY background, red text (clearly different)
+   - Active (mouse down / :active): RED background, white text (momentary pressed state)
+*/
+label.pill.danger,
+.pill.danger {
+  /* keep container neutral so span controls visible area */
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* The visible pill surface is the span inside the label */
+label.pill.danger span,
+.pill.danger span {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #ffffff;            /* default unchecked surface: white */
+  color: #ef4444;                /* red text */
+  border: 1px solid rgba(239,68,68,0.18); /* subtle red border so it is visible */
+  font-weight: 700;
+  transition: transform .08s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
+}
+
+/* Hover: float the whole label (gives affordance) */
+label.pill.danger:hover,
+.pill.danger:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16,24,40,0.08);
+}
+
+/* Checked state: gray background, red text */
+label.pill.danger input[type="checkbox"]:checked + span,
+.pill.danger input[type="checkbox"]:checked + span {
+  background: #f3f4f6;  /* gray background when checked */
+  color: #ef4444;       /* still red text */
+  border-color: #f3f4f6;
+}
+
+/* Active (mouse down / pressed): red background, white text (momentary) */
+label.pill.danger:active span,
+.pill.danger:active span,
+label.pill.danger span:active,
+.pill.danger span:active {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+/* Focus ring for keyboard users */
+label.pill.danger:focus-within,
+.pill.danger:focus-within {
+  outline: 3px solid rgba(239,68,68,0.16);
+  outline-offset: 3px;
+}
+
+/* Mobile: full width for easy tapping */
+@media (max-width: 768px) {
+  label.pill.danger, .pill.danger { width: 100%; }
+  label.pill.danger span, .pill.danger span { width: auto; display:block; }
+}
+
+
+/* === Ensure general pill hover/active/checked behaviors apply regardless of container === */
+.pill, label.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform .08s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
+}
+
+/* Visible surface */
+.pill span, label.pill span {
+  display:inline-block;
+  padding:6px 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #ef4444;
+  border: 1px solid rgba(239,68,68,0.18);
+  font-weight: 700;
+  transition: transform .08s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
+}
+
+/* General hover (float up) */
+.pill:hover, label.pill:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16,24,40,0.08);
+}
+
+/* Checked state: gray background + red text */
+.pill input[type="checkbox"]:checked + span,
+label.pill input[type="checkbox"]:checked + span {
+  background: #f3f4f6;
+  color: #ef4444;
+  border-color: #f3f4f6;
+}
+
+/* Active (mouse down): red background + white text (momentary) */
+.pill:active span, label.pill:active span,
+.pill span:active, label.pill span:active {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+/* Ensure disabled-looking state if input is disabled/readonly (optional) */
+.pill input[disabled] + span,
+label.pill input[disabled] + span {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Make sure focus visible */
+.pill:focus-within, label.pill:focus-within {
+  outline: 3px solid rgba(239,68,68,0.12);
+  outline-offset: 3px;
+}
+
+/* Mobile layout */
+@media (max-width: 768px) {
+  .pill { width: 100%; margin-bottom:8px; justify-content:flex-start; }
+  .pill span { display:block; width:auto; }
+}
+
+
+/* Visual state when pill has .on class (synced with input.checked) */
+.pill.on span, label.pill.on span {
+  background: #f3f4f6;
+  color: #ef4444;
+  border-color: #f3f4f6;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.03);
+}
+
+/* Make danger pill .on slightly more pronounced */
+label.pill.danger.on span, .pill.danger.on span {
+  background: #f3f4f6;
+  color: #ef4444;
+  border-color: #f3f4f6;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+
+/* Ensure pills always have pointer & hover affordance */
+label.pill, .pill {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: transform .08s ease, box-shadow .12s ease;
+}
+
+/* Hover floating effect */
+label.pill:hover, .pill:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(16,24,40,0.12);
+}
+
+/* .on class indicates checked state — style the entire label, not just span */
+label.pill.on span, .pill.on span {
+  background: #f3f4f6; /* gray background when checked */
+  color: #ef4444;      /* red text when checked for danger pills */
+  border-color: #f3f4f6;
+  box-shadow: none;
+}
+
+/* Active (mouse down) visual feedback for immediate press */
+label.pill:active span, .pill:active span {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+/* Ensure the visible span has padding and looks like a pill by default */
+label.pill span, .pill span {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.06);
+  font-weight: 600;
+}
+
+
+
+
+/* --- Strong explicit rules for danger pill to ensure visibility --- */
+body .pill.danger span,
+body label.pill.danger span {
+  background: #ffffff !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239,68,68,0.22) !important;
+  padding: 8px 14px !important;
+  display: inline-block !important;
+  min-width: 80px !important;
+  text-align: center !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+/* Ensure label shows pointer and floats on hover */
+body label.pill.danger:hover,
+body .pill.danger:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 10px 24px rgba(16,24,40,0.12) !important;
+}
+
+/* Checked state using .on (applies to whole label) */
+body label.pill.danger.on span,
+body .pill.danger.on span {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #f3f4f6 !important;
+}
+
+/* Active press */
+body label.pill.danger:active span,
+body .pill.danger:active span {
+  background: #ef4444 !important;
+  color: #fff !important;
+  border-color: #ef4444 !important;
 }

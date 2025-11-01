@@ -2188,10 +2188,25 @@ function renderPhotoUrlsFromString(s){
   }
 }
 
-document.getElementById('addPhotoUrlBtn')?.addEventListener('click', ()=>{
-  const c = document.getElementById('photoUrlContainer');
-  if (!c) return;
-  c.appendChild(createPhotoUrlRow('', true));
+document.getElementById('addPhotoUrlBtn')?.addEventListener('click', () => {
+  const container = document.getElementById('photoUrlContainer');
+  if (!container) return;
+
+  // 這一步很關鍵：先切到「可編輯模式」
+  // （把原本只讀的網址列表隱藏，把輸入區顯示出來）
+  if (typeof enablePhotoUrlEdit === 'function') {
+    enablePhotoUrlEdit();
+  }
+
+  // 新增一列空白輸入框
+  const row = createPhotoUrlRow('', true);
+  container.appendChild(row);
+
+  // 幫你把游標直接放進去，好直接貼網址
+  const input = row.querySelector('.photo-url-input');
+  if (input) {
+    input.focus();
+  }
 });
 
 document.getElementById('photoUrlContainer')?.addEventListener('click', (e)=>{

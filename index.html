@@ -1,521 +1,688 @@
 <!DOCTYPE html>
-
 <html lang="zh-Hant">
 <head>
-<link href="styles.css" rel="stylesheet"/>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>自然大叔 ∣ 訂單排程系統</title>
-<link href="https://res.cloudinary.com/dijzndzw2/image/upload/v1757176751/logo-3_hddq08.png" rel="icon" type="image/png"/>
-<script defer="True" src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<style>
-.photo-url-input {
-  width: 100%;
-  max-width: 520px;
-  margin-bottom: 4px;
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-#photoUrlContainer .photo-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-#addPhotoUrlBtn.btn.btn-blue {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-}
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>自然大叔 ∣ 訂單排程系統</title>
 
-#photoUrlViewer a {
-  word-break: break-all;
-  overflow-wrap: anywhere;
-  display: block;
-}
-</style></head>
+  <link rel="icon" type="image/png"
+        href="https://res.cloudinary.com/dijzndzw2/image/upload/v1757176751/logo-3_hddq08.png"/>
+  <link rel="stylesheet" href="styles.css"/>
+
+  <!-- 你原本就有載的外部套件，保留 -->
+  <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    /* 以下是你檔案裡本來就有的 inline 樣式，直接保留 */
+    .photo-url-input {
+      width: 100%;
+      max-width: 520px;
+      margin-bottom: 4px;
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    #photoUrlContainer .photo-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #addPhotoUrlBtn.btn.btn-blue {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #photoUrlViewer a {
+      word-break: break-all;
+      overflow-wrap: anywhere;
+      display: block;
+    }
+  </style>
+</head>
+
 <body>
 <header>
-<div class="wrap toolbar">
-<div class="pill">
-<strong>月份</strong>
-<select id="yearSel"><option value="自然大叔"></option></select>
-<select id="monthSel"></select>
-</div>
-<div class="pill">
-<strong>作業人員</strong>
-<select id="staffFilter"></select>
-</div>
-<div class="pill">
-<strong>狀況</strong>
-<select id="statusFilter">
-<option value="">全部</option>
-<option value="排定">排定</option>
-<option value="完成">完成</option>
-<option value="未完成">未完成</option>
-</select>
-</div>
-<div class="pill">
-<strong>完成時間</strong>
-<select id="completedRange">
-<option value="">全部</option>
-<option value="7">近7天</option>
-<option value="30">近30天</option>
-</select>
-</div>
-<label class="pill" style="gap:8px">
-<input checked="" id="showUndated" type="checkbox"/>
-<span>顯示未排期</span>
-</label>
-<div class="pill">
-<strong>搜尋</strong>
-<input id="searchInput" placeholder="姓名 / 電話 / 地址" style="width:220px" type="text"/>
-</div>
-<div class="right"><button class="accent" id="gdriveBackupBtn" onclick="initGoogleBackup()">☁️Google</button>
-<button class="accent" id="newBtn">新增訂單</button>
-<button id="newExpenseBtn">新增花費</button>
-<button id="exportJson">匯出JSON</button>
-<button id="exportXlsx">匯出Excel</button>
-<button class="warn" id="importJson">匯入JSON</button>
-<button class="danger" id="clearAll">清空資料</button></div>
-</div>
-</header>
-<main class="wrap stack" style="margin-top:16px">
-<!-- 訂單列表（上） -->
-<section class="card">
-<div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
-<h2>訂單列表</h2>
-<div class="header-actions" style="display:flex; align-items:center; gap:4px; flex-shrink:0;"><select aria-label="統計年份選擇" id="yearStatSelect" style="height:32px; margin-right:12px; padding:4px 8px; font-size:14px; max-width:120px;"></select>
-<button aria-controls="yearSummary" aria-expanded="false" class="small-toggle" id="toggleYearBtn" style=" min-width:80px; white-space:nowrap;" title="切換年度統計 (預設收起)">
-      年度統計 ▾
-    </button>
-</div>
-</div>
-<div class="body">
-<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
-<div></div>
-<div style="display:flex; gap:8px; align-items:center;">
-</div>
-</div>
-<div class="sum" id="yearSummary" style="padding-top: 4px; margin-bottom: 16px;"></div>
-<div class="sum" id="summary"></div>
-<div class="hr"></div>
-<div style="overflow:auto;margin-top:8px">
-<!-- 快到期提醒區塊 -->
-<div class="card due-panel" id="dueSoonPanel">
-<div class="card-title">快到期提醒（30 天內）</div>
-<div class="due-list empty" id="dueSoonList">目前沒有 30 天內將到期的客戶</div>
-</div>
-<table id="ordersTable">
-<thead>
-<tr>
-<th>#</th>
-<th>日期</th>
-<th>時間</th>
-<th>作業人員</th>
-<th>客戶</th>
-<th>電話</th>
-<th class="col-slot">時段</th>
-<th>地址</th>
-<th class="col-status">狀況</th>
-<th>確認</th>
-<th>報價單</th>
-<th class="right-align col-total">總金額</th>
-<th class="right-align">折後</th>
-<th>來源</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
-</div>
-</section>
-<!-- 訂單表單（中） -->
-<details class="accordion" id="orderAccordion"><summary><span id="formTitle">新增 / 編輯訂單</span>
-  <button id="toggleLayoutEditBtn" style="font-size:13px;padding:6px 8px;border-radius:6px;margin-left:8px;" type="button">編輯布局</button>
-<button id="saveLayoutBtn" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;" type="button">儲存布局</button>
-<button id="resetLayoutBtn" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;" type="button">還原預設</button>
-</summary><div class="content">
-<form id="orderForm">
-<input id="id" type="hidden"/>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>作業人員</label>
-<div class="toolbar" style="gap:8px">
-<select id="staff"><option value="透天屋"></option><option value="大樓(有電梯)"></option><option value="大樓(無電梯)"></option><option value="其他(可自行輸入)"></option></select>
-<button class="inline-btn" id="addStaffBtn" type="button">新增人員</button>
-</div>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>日期（可留空，之後再填）</label>
-<input id="date" type="date"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>時間</label>
-<input id="time" type="time"/>
-</div>
-<div class="col" style="grid-column:span 7">
-<label>清洗地址</label>
-<input id="address" placeholder="地址" type="text"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>姓名（支援通訊錄）</label>
-<input id="customer" list="contactsDL" placeholder="客戶姓名" type="text"/>
-<datalist id="contactsDL"></datalist>
-<div class="tiny">選既有客戶會自動帶出電話/地址</div>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>LINE or Fackbook ID</label>
-<input id="lineId" type="text"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>電話</label>
-<div id="phoneContainer">
-<input class="phone-input" placeholder="輸入電話" type="text"/>
-</div>
-<button id="addPhoneBtn" type="button">＋新增電話</button>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>居住地型態</label>
-<div class="toolbar" style="gap:8px">
-<select id="residenceType">
-<option value="">（未選擇）</option>
-<option value="透天屋">透天屋</option>
-<option value="大樓(有電梯)">大樓(有電梯)</option>
-<option value="大樓(無電梯)">大樓(無電梯)</option>
-<option value="其他">其他（可自行輸入）</option>
-</select>
-<input class="hidden" id="residenceOther" placeholder="請輸入其他型態" type="text"/>
-</div>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>安排時段（可複選）</label>
-<div class="checkbox-group" id="slotGroup"></div>
-<input class="hidden tiny" id="slotNote" placeholder="請輸入指定日期／時段（如 10/10 上午 或 10/12 9:00–12:00）" type="text"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>方便聯繫時間（可複選）</label>
-<div class="checkbox-group" id="contactTimesGroup"></div>
-<input class="hidden tiny" id="contactTimeNote" placeholder="請輸入指定時間（如 9:00–12:00 或 週三晚上）" type="text"/>
-</div>
-<div class="col" style="grid-column:span 8">
-<label>與我司聯繫方式</label>
-<div class="toolbar" style="gap:8px">
-<select id="contactMethod"></select>
-<button class="inline-btn" id="addContactMethod" type="button">新增聯繫方式</button>
-</div>
-</div>
-<div class="col" style="grid-column:span 4">
-<label>狀況</label>
-<select id="status">
-<option value="排定">排定</option>
-<option value="完成">完成</option>
-<option value="未完成">未完成</option>
-</select>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>冷氣位於樓層（可複選）</label>
-<div class="checkbox-group" id="acFloors"></div>
-<div class="hidden" id="acFloorAboveWrap"><input id="acFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>洗衣機位於樓層（可複選）</label>
-<div class="checkbox-group" id="washerFloors"></div>
-<div class="hidden" id="washerFloorAboveWrap"><input id="washerFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
-</div>
-<div class="col" style="grid-column:span 6">
-<div class="toolbar" id="reminderToolbar" style="gap:8px; align-items:center; flex-wrap:wrap">
-<label class="pill"><input checked="" id="reminderEnabled" type="checkbox"/> <span>啟用提醒</span></label>
-<label class="muted">提醒週期（月）</label>
-<input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
-<label class="muted">下次提醒</label>
-<input class="tiny" disabled="" id="nextReminder" type="text"/>
-<label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
-<label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
-</div>
-</div>
-</div>
-<div class="hr"></div>
-<h3 style="margin:0 0 8px">清洗項目與價格</h3>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">分離式冷氣室內機（每台1800；滿3台每台1500）</span></b></label>
-<input id="acSplit" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>吊隱式冷氣（每台2800）</label>
-<input id="acDuct" min="0" step="1" type="number" value="0"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">直立式洗衣機（每台2000；若同單含冷氣室內機則每台1800）</span></b></label>
-<input id="washerTop" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>水塔（每顆1000）</label>
-<input id="waterTank" min="0" step="1" type="number" value="0"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>自來水管（自訂金額，未稅總額）</label>
-<input id="pipesAmount" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">防霉噴劑（每台300；滿5台每台250）</span></b></label>
-<input id="antiMold" min="0" step="1" type="number" value="0"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>臭氧殺菌（每間200）</label>
-<input id="ozone" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>變形金剛機型（每台加500）</label>
-<input id="transformerCount" min="0" step="1" type="number" value="0"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 6">
-<label>分離式室內機長度 &gt; 182cm（每台加300）</label>
-<input id="longSplitCount" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>一體式水盤（每台加500）</label>
-<input id="onePieceTray" min="0" step="1" type="number" value="0"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 12">
-<label>備註</label>
-<textarea id="note" placeholder="其他補充事項"></textarea>
-</div>
-</div>
+  <div class="wrap toolbar">
+    <div class="pill">
+      <strong>月份</strong>
+      <!-- 原檔裡 yearSel / monthSel -->
+      <select id="yearSel"><option value="自然大叔"></option></select>
+      <select id="monthSel"></select>
+    </div>
 
-<div class="row">
-  <div class="col" style="grid-column:span 12">
-    <label>預約冷氣品牌（可複選）</label>
-    <div class="checkbox-group" id="acBrandGroup"></div>
-    <input class="hidden tiny" id="acBrandOtherText" placeholder="請輸入其他品牌" type="text"/>
+    <div class="pill">
+      <strong>作業人員</strong>
+      <select id="staffFilter"></select>
+    </div>
+
+    <div class="pill">
+      <strong>狀況</strong>
+      <select id="statusFilter">
+        <option value="">全部</option>
+        <option value="排定">排定</option>
+        <option value="完成">完成</option>
+        <option value="未完成">未完成</option>
+      </select>
+    </div>
+
+    <div class="pill">
+      <strong>完成時間</strong>
+      <select id="completedRange">
+        <option value="">全部</option>
+        <option value="7">近7天</option>
+        <option value="30">近30天</option>
+      </select>
+    </div>
+
+    <label class="pill" style="gap:8px">
+      <input id="showUndated" type="checkbox" checked/>
+      <span>顯示未排期</span>
+    </label>
+
+    <!-- 登入區 -->
+    <div class="pill" id="authSection" style="min-width:max-content;">
+      <strong id="roleLabel">未登入</strong>
+      <button id="loginBtn" type="button" class="accent" style="min-width:auto;">🔒登入</button>
+      <button id="logoutBtn" type="button" style="display:none;">登出</button>
+    </div>
+
+    <div class="pill">
+      <strong>搜尋</strong>
+      <input id="searchInput" type="text"
+             placeholder="姓名 / 電話 / 地址"
+             style="width:220px"/>
+    </div>
+
+    <div class="right">
+      <button class="accent" id="gdriveBackupBtn" onclick="initGoogleBackup()">☁️Google</button>
+      <button class="accent" id="newBtn">新增訂單</button>
+      <button id="newExpenseBtn">新增花費</button>
+      <button id="exportJson">匯出JSON</button>
+      <button id="exportXlsx">匯出Excel</button>
+      <button class="warn" id="importJson">匯入JSON</button>
+      <button class="danger" id="clearAll">清空資料</button>
+    </div>
   </div>
-</div>
-<div class="row"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button><div class="tiny">貼入網址，完成後可點選開啟清洗前後照片頁面</div></div></div>
-<div class="hr"></div>
-<div class="row">
-<div class="col" style="grid-column:span 4">
-<!-- 改為可點擊整區塊的 checkbox (big-toggle) -->
-<label class="big-toggle" for="confirmed">
-  <input id="confirmed" name="confirmed" type="checkbox" aria-label="客人確認安排時間" />
-  <span class="big-toggle-text">客人確認安排時間</span>
-</label>
-</div>
-<div class="col" style="grid-column:span 4">
-<label class="big-toggle" for="quotationOk">
-  <input id="quotationOk" name="quotationOk" type="checkbox" aria-label="客人確認報價單" />
-  <span class="big-toggle-text">客人確認報價單</span>
-</label>
-</div>
-<div class="col right-align" style="grid-column:span 4">
-<button class="inline-btn" id="recalc" type="button">重新計算金額</button>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 3">
-<label>總金額（自動）</label>
-<input id="total" readonly="" type="number"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>額外加價（手動輸入）</label>
-<input id="extraCharge" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>折扣金額（可輸入）</label>
-<input id="discount" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>折後總金額（自動）</label>
-<input id="netTotal" readonly="" type="number"/>
-</div>
-</div>
-<div class="hr"></div>
-<div class="toolbar">
-<button class="primary" id="saveBtn" type="submit">儲存訂單</button>
-<button id="resetBtn" type="button">清空表單</button>
-<button id="copyLastBtn" type="button">複製上一筆</button>
-<button id="copyFromHistoryBtn" type="button">從客戶舊單帶入</button>
-<div class="right">
-<span class="lock-badge" id="lockInfo"></span>
-<div style="display:inline-block; margin-right:8px;"><label style="margin-right:4px;">時長(分)</label><input id="durationMinutes" min="15" placeholder="分鐘" step="15" style="width:80px;" type="number"/></div><button class="btn" onclick="handleUploadWithAuth(gatherForm())">📅</button><button class="warn" id="toggleLock" type="button">解鎖金額編輯</button>
-<button class="danger" disabled="" id="deleteBtn" type="button">刪除此訂單</button>
-</div>
-</div>
-</form>
-</div></details>
-<!-- 支出模組（下）以手風琴呈現 -->
-<details =""="" class="accordion" id="expenseAcc">
-<summary>本月花費（可展開/收合）</summary>
-<div class="content">
-<div class="two-col">
-<section class="card" style="border:none;box-shadow:none">
-<h2>本月花費列表</h2>
-<div class="body">
-<div class="toolbar" style="margin-bottom:8px">
-<button id="expExportCsv">匯出花費CSV</button>
-<button id="expExportJson">匯出花費JSON</button>
-<button class="warn" id="expImportJson">匯入花費JSON</button>
-<button class="danger" id="expClear">清空花費</button>
-</div>
-<div style="overflow:auto">
-<table id="expenseTable">
-<thead>
-<tr>
-<th>#</th>
-<th>日期</th>
-<th>類別</th>
-<th>說明</th>
-<th class="right-align">金額</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
-</div>
-</section>
-<aside class="card" style="border:none;box-shadow:none">
-<h2>新增 / 編輯花費</h2>
-<div class="body">
-<form id="expenseForm">
-<input id="expId" type="hidden"/>
-<div class="row">
-<div class="col" style="grid-column:span 4">
-<label>日期</label>
-<input id="expDate" type="date"/>
-</div>
-<div class="col" style="grid-column:span 4">
-<label>類別</label>
-<div class="toolbar" style="gap:8px">
-<select id="expCategory"></select>
-<button class="inline-btn" id="addExpCat" type="button">新增類別</button>
-</div>
-</div>
-<div class="col" style="grid-column:span 4">
-<label>金額</label>
-<input id="expAmount" min="0" step="1" type="number" value="0"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 12">
-<label>說明</label>
-<input id="expNote" placeholder="例如：材料、加油、停車、工具維修…" type="text"/>
-</div>
-</div>
-<div class="toolbar">
-<button class="primary" id="expSave" type="submit">儲存花費</button>
-<button id="expReset" type="button">清空表單</button>
-<div class="right">
-<button class="danger" disabled="" id="expDelete" type="button">刪除此筆花費</button>
-</div>
-</div>
-</form>
-</div>
-</aside>
-</div>
-</div>
-</details>
-<!-- 靜音名單（預設收合） -->
-<section class="card" id="muteListSection">
-<details id="muteCollapse">
-<summary class="ab-summary"><h2>靜音名單</h2><span class="hint">(預設收合，手動展開)</span></summary>
-<div class="body">
-<div class="ab-toolbar">
-<input id="muteSearch" placeholder="搜尋：姓名 / 電話 / 備註" type="search"/>
-</div>
-<div class="ab-table-wrap">
-<table class="ab-table" id="muteTable">
-<thead>
-<tr>
-<th>姓名</th>
-<th>電話</th>
-<th>地址</th>
-<th style="width:120px;">狀態</th>
-<th style="width:120px;">操作</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
-</div>
-</details>
-</section>
-</main>
-<input accept=".json" class="hidden" id="filePicker" type="file"/>
-<input accept=".json" class="hidden" id="filePickerExp" type="file"/>
-<template id="expRowTpl">
-<tr>
-<td class="small muted"></td>
-<td></td><td></td><td></td><td class="right-align"></td>
-</tr>
-</template>
-<script src="https://apis.google.com/js/api.js"></script>
-<div>
-<!-- ✅ 載入 Google OAuth SDK -->
-<script async="" defer="" src="https://accounts.google.com/gsi/client"></script>
-<!-- ✅ 加在 refreshTable 的每筆訂單操作欄位中 -->
-<!-- ✅ 表單中新增：工作時長欄位 -->
-<!-- ✅ gatherForm() 中補上 -->
-</div>
-<script defer="" src="app.js"></script>
-<!-- Customer History Modal (added by assistant) -->
-<div aria-hidden="true" class="modal" id="historyModal">
-<div class="modal-backdrop" data-close="true"></div>
-<div class="modal-panel">
-<header class="modal-header">
-<h3 id="historyModalTitle">客戶歷史紀錄</h3>
-<button aria-label="關閉" class="btn-small" id="historyCloseBtn">✕</button>
 </header>
-<section class="modal-body">
-<div class="history-controls">
-<input id="historySearch" placeholder="搜尋清洗項目或備註..."/>
-<button class="btn-small" id="historyExportCsv">匯出 CSV</button>
-<select id="historySort">
-<option value="desc">依時間（新→舊）</option>
-<option value="asc">依時間（舊→新）</option>
-</select>
-</div>
-<div class="history-table-wrap">
-<table class="table" id="historyTable">
-<thead>
-<tr>
-<th>清洗時間</th>
-<th>清洗項目</th>
-<th>狀態</th>
-<th>備註</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody id="historyTableBody"></tbody>
-</table>
-<div id="historyEmpty" style="display:none">目前沒有歷史紀錄</div>
-</div>
-</section>
-</div>
-</div>
-<!-- End Customer History Modal -->
 
-<!-- assistant-added: sync .checked class for big-toggle labels (fallback for browsers without :has) -->
+<main class="wrap stack" style="margin-top:16px">
+
+  <!-- 訂單列表 -->
+  <section class="card">
+    <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
+      <h2>訂單列表</h2>
+
+      <div class="header-actions"
+           style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+        <!-- 年度統計 -->
+        <select id="yearStatSelect"
+                aria-label="統計年份選擇"
+                style="height:32px; margin-right:12px; padding:4px 8px; font-size:14px; max-width:120px;"></select>
+
+        <button id="toggleYearBtn"
+                class="small-toggle"
+                aria-controls="yearSummary"
+                aria-expanded="false"
+                style="min-width:80px; white-space:nowrap;"
+                title="切換年度統計 (預設收起)">
+          年度統計 ▾
+        </button>
+      </div>
+    </div>
+
+    <div class="body">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+        <div></div>
+        <div style="display:flex; gap:8px; align-items:center;"></div>
+      </div>
+
+      <div id="yearSummary" class="sum" style="padding-top:4px; margin-bottom:16px;"></div>
+      <div id="summary" class="sum"></div>
+      <div class="hr"></div>
+
+      <!-- 快到期提醒區塊 -->
+      <div style="overflow:auto;margin-top:8px">
+        <div id="dueSoonPanel" class="card due-panel">
+          <div class="card-title">快到期提醒（30 天內）</div>
+          <div id="dueSoonList" class="due-list empty">
+            目前沒有 30 天內將到期的客戶
+          </div>
+        </div>
+
+        <table id="ordersTable">
+          <thead>
+          <tr>
+            <th>#</th>
+            <th>日期</th>
+            <th>時間</th>
+            <th>作業人員</th>
+            <th>客戶</th>
+            <th>電話</th>
+            <th class="col-slot">時段</th>
+            <th>地址</th>
+            <th class="col-status">狀況</th>
+            <th>確認</th>
+            <th>報價單</th>
+            <th class="right-align col-total">總金額</th>
+            <th class="right-align">折後</th>
+            <th>來源</th>
+            <th>操作</th>
+          </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 訂單表單 -->
+  <details id="orderAccordion" class="accordion">
+    <summary>
+      <span id="formTitle">新增 / 編輯訂單</span>
+      <button id="toggleLayoutEditBtn"
+              type="button"
+              style="font-size:13px;padding:6px 8px;border-radius:6px;margin-left:8px;">
+        編輯布局
+      </button>
+      <button id="saveLayoutBtn"
+              type="button"
+              style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;">
+        儲存布局
+      </button>
+      <button id="resetLayoutBtn"
+              type="button"
+              style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;">
+        還原預設
+      </button>
+    </summary>
+
+    <div class="content">
+      <form id="orderForm">
+        <input id="id" type="hidden"/>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>作業人員</label>
+            <div class="toolbar" style="gap:8px">
+              <select id="staff">
+                <option value="透天屋"></option>
+                <option value="大樓(有電梯)"></option>
+                <option value="大樓(無電梯)"></option>
+                <option value="其他(可自行輸入)"></option>
+              </select>
+              <button id="addStaffBtn" type="button" class="inline-btn">新增人員</button>
+            </div>
+          </div>
+
+          <div class="col" style="grid-column:span 3">
+            <label>日期（可留空，之後再填）</label>
+            <input id="date" type="date"/>
+          </div>
+
+          <div class="col" style="grid-column:span 3">
+            <label>時間</label>
+            <input id="time" type="time"/>
+          </div>
+
+          <div class="col" style="grid-column:span 7">
+            <label>清洗地址</label>
+            <input id="address" type="text" placeholder="地址"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>姓名（支援通訊錄）</label>
+            <input id="customer" type="text" list="contactsDL" placeholder="客戶姓名"/>
+            <datalist id="contactsDL"></datalist>
+            <div class="tiny">選既有客戶會自動帶出電話/地址</div>
+          </div>
+
+          <div class="col" style="grid-column:span 3">
+            <label>LINE or Fackbook ID</label>
+            <input id="lineId" type="text"/>
+          </div>
+
+          <div class="col" style="grid-column:span 3">
+            <label>電話</label>
+            <div id="phoneContainer">
+              <input class="phone-input" type="text" placeholder="輸入電話"/>
+            </div>
+            <button id="addPhoneBtn" type="button">＋新增電話</button>
+          </div>
+
+          <div class="col" style="grid-column:span 6">
+            <label>居住地型態</label>
+            <div class="toolbar" style="gap:8px">
+              <select id="residenceType">
+                <option value="">（未選擇）</option>
+                <option value="透天屋">透天屋</option>
+                <option value="大樓(有電梯)">大樓(有電梯)</option>
+                <option value="大樓(無電梯)">大樓(無電梯)</option>
+                <option value="其他">其他（可自行輸入）</option>
+              </select>
+              <input id="residenceOther"
+                     class="hidden"
+                     type="text"
+                     placeholder="請輸入其他型態"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>安排時段（可複選）</label>
+            <div id="slotGroup" class="checkbox-group"></div>
+            <input id="slotNote"
+                   class="hidden tiny"
+                   type="text"
+                   placeholder="請輸入指定日期／時段（如 10/10 上午 或 10/12 9:00–12:00）"/>
+          </div>
+
+          <div class="col" style="grid-column:span 6">
+            <label>方便聯繫時間（可複選）</label>
+            <div id="contactTimesGroup" class="checkbox-group"></div>
+            <input id="contactTimeNote"
+                   class="hidden tiny"
+                   type="text"
+                   placeholder="請輸入指定時間（如 9:00–12:00 或 週三晚上）"/>
+          </div>
+
+          <div class="col" style="grid-column:span 8">
+            <label>與我司聯繫方式</label>
+            <div class="toolbar" style="gap:8px">
+              <select id="contactMethod"></select>
+              <button id="addContactMethod" type="button" class="inline-btn">新增聯繫方式</button>
+            </div>
+          </div>
+
+          <div class="col" style="grid-column:span 4">
+            <label>狀況</label>
+            <select id="status">
+              <option value="排定">排定</option>
+              <option value="完成">完成</option>
+              <option value="未完成">未完成</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>冷氣位於樓層（可複選）</label>
+            <div id="acFloors" class="checkbox-group"></div>
+            <div id="acFloorAboveWrap" class="hidden">
+              <input id="acFloorAbove" type="text"
+                     placeholder="請輸入實際樓層（例：6F、7F…）"/>
+            </div>
+          </div>
+
+          <div class="col" style="grid-column:span 6">
+            <label>洗衣機位於樓層（可複選）</label>
+            <div id="washerFloors" class="checkbox-group"></div>
+            <div id="washerFloorAboveWrap" class="hidden">
+              <input id="washerFloorAbove" type="text"
+                     placeholder="請輸入實際樓層（例：6F、7F…）"/>
+            </div>
+          </div>
+
+          <div class="col" style="grid-column:span 6">
+            <div id="reminderToolbar"
+                 class="toolbar"
+                 style="gap:8px; align-items:center; flex-wrap:wrap">
+              <label class="pill">
+                <input id="reminderEnabled" type="checkbox" checked/>
+                <span>啟用提醒</span>
+              </label>
+              <label class="muted">提醒週期（月）</label>
+              <input id="reminderMonths"
+                     class="tiny compact"
+                     type="number"
+                     min="0" step="1"
+                     placeholder="例如 12"
+                     value="24"/>
+              <label class="muted">下次提醒</label>
+              <input id="nextReminder" class="tiny" type="text" disabled/>
+              <label class="pill">
+                <input id="reminderNotified" type="checkbox"/>
+                <span>已通知</span>
+              </label>
+              <label class="pill danger">
+                <input id="reminderMuted" type="checkbox"/>
+                <span>不再提醒</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <h3 style="margin:0 0 8px">清洗項目與價格</h3>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label><b><span style="color:red;font-size:15px">
+              分離式冷氣室內機（每台1800；滿3台每台1500）
+            </span></b></label>
+            <input id="acSplit" type="number" min="0" step="1" value="0"/>
+          </div>
+          <div class="col" style="grid-column:span 6">
+            <label>吊隱式冷氣（每台2800）</label>
+            <input id="acDuct" type="number" min="0" step="1" value="0"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label><b><span style="color:red;font-size:15px">
+              直立式洗衣機（每台2000；若同單含冷氣室內機則每台1800）
+            </span></b></label>
+            <input id="washerTop" type="number" min="0" step="1" value="0"/>
+          </div>
+          <div class="col" style="grid-column:span 6">
+            <label>水塔（每顆1000）</label>
+            <input id="waterTank" type="number" min="0" step="1" value="0"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>自來水管（自訂金額，未稅總額）</label>
+            <input id="pipesAmount" type="number" min="0" step="1" value="0"/>
+          </div>
+          <div class="col" style="grid-column:span 6">
+            <label><b><span style="color:red;font-size:15px">
+              防霉噴劑（每台300；滿5台每台250）
+            </span></b></label>
+            <input id="antiMold" type="number" min="0" step="1" value="0"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>臭氧殺菌（每間200）</label>
+            <input id="ozone" type="number" min="0" step="1" value="0"/>
+          </div>
+          <div class="col" style="grid-column:span 6">
+            <label>變形金剛機型（每台加500）</label>
+            <input id="transformerCount" type="number" min="0" step="1" value="0"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>分離式室內機長度 &gt; 182cm（每台加300）</label>
+            <input id="longSplitCount" type="number" min="0" step="1" value="0"/>
+          </div>
+          <div class="col" style="grid-column:span 6">
+            <label>一體式水盤（每台加500）</label>
+            <input id="onePieceTray" type="number" min="0" step="1" value="0"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 12">
+            <label>備註</label>
+            <textarea id="note" placeholder="其他補充事項"></textarea>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 12">
+            <label>預約冷氣品牌（可複選）</label>
+            <div id="acBrandGroup" class="checkbox-group"></div>
+            <input id="acBrandOtherText"
+                   class="hidden tiny"
+                   type="text"
+                   placeholder="請輸入其他品牌"/>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 6">
+            <label>清洗照片網址（可多筆）</label>
+
+            <div id="photoUrlContainer"></div>
+            <div id="photoUrlViewer" style="display:none; margin-top:4px;"></div>
+
+            <button id="editPhotoUrlsBtn"
+                    type="button"
+                    style="display:none; margin:6px 0; padding:6px 12px; border-radius:6px; border:none; background-color:#28a745; color:white; cursor:pointer;">
+              ✏️ 編輯網址
+            </button>
+
+            <button id="addPhotoUrlBtn"
+                    class="btn btn-blue"
+                    type="button"
+                    style="margin-top:4px; margin-bottom:4px;">
+              ＋新增網址
+            </button>
+
+            <div class="tiny">
+              貼入網址，完成後可點選開啟清洗前後照片頁面
+            </div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <!-- 狀態 / 報價確認 / 工時計算 -->
+        <div class="row">
+          <div class="col" style="grid-column:span 4">
+            <label class="big-toggle" for="confirmed">
+              <input id="confirmed" name="confirmed" type="checkbox"
+                     aria-label="客人確認安排時間" />
+              <span class="big-toggle-text">客人確認安排時間</span>
+            </label>
+          </div>
+
+          <div class="col" style="grid-column:span 4">
+            <label class="big-toggle" for="quotationOk">
+              <input id="quotationOk" name="quotationOk" type="checkbox"
+                     aria-label="客人確認報價單" />
+              <span class="big-toggle-text">客人確認報價單</span>
+            </label>
+          </div>
+
+          <div class="col right-align" style="grid-column:span 4">
+            <button id="recalc" class="inline-btn" type="button">重新計算金額</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col" style="grid-column:span 3">
+            <label>總金額（自動）</label>
+            <input id="total" type="number" readonly/>
+          </div>
+          <div class="col" style="grid-column:span 3">
+            <label>額外加價（手動輸入）</label>
+            <input id="extraCharge" type="number" min="0" step="1" value="0"/>
+          </div>
+          <div class="col" style="grid-column:span 3">
+            <label>折扣金額（可輸入）</label>
+            <input id="discount" type="number" min="0" step="1" value="0"/>
+          </div>
+          <div class="col" style="grid-column:span 3">
+            <label>折後總金額（自動）</label>
+            <input id="netTotal" type="number" readonly/>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="toolbar">
+          <button id="saveBtn" class="primary" type="submit">儲存訂單</button>
+          <button id="resetBtn" type="button">清空表單</button>
+          <button id="copyLastBtn" type="button">複製上一筆</button>
+          <button id="copyFromHistoryBtn" type="button">從客戶舊單帶入</button>
+
+          <div class="right">
+            <span id="lockInfo" class="lock-badge"></span>
+
+            <div style="display:inline-block; margin-right:8px;">
+              <label style="margin-right:4px;">時長(分)</label>
+              <input id="durationMinutes"
+                     type="number"
+                     min="15" step="15"
+                     style="width:80px;"
+                     placeholder="分鐘"/>
+            </div>
+
+            <button class="btn"
+                    type="button"
+                    onclick="handleUploadWithAuth(gatherForm())">
+              📅
+            </button>
+
+            <button id="toggleLock" class="warn" type="button">
+              解鎖金額編輯
+            </button>
+
+            <button id="deleteBtn" class="danger" type="button" disabled>
+              刪除此訂單
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <!-- 支出模組 -->
+  <details id="expenseAcc" class="accordion">
+    <summary>本月花費（可展開/收合）</summary>
+
+    <div class="content">
+      <div class="two-col">
+        <section class="card" style="border:none;box-shadow:none">
+          <h2>本月花費列表</h2>
+          <div class="body">
+            <div class="toolbar" style="margin-bottom:8px">
+              <button id="expExportCsv">匯出花費CSV</button>
+              <button id="expExportJson">匯出花費JSON</button>
+              <button id="expImportJson" class="warn">匯入花費JSON</button>
+              <button id="expClear" class="danger">清空花費</button>
+            </div>
+
+            <div style="overflow:auto">
+              <table id="expenseTable">
+                <thead>
+                <tr>
+                  <th>#</th>
+                  <th>日期</th>
+                  <th>類別</th>
+                  <th>說明</th>
+                  <th class="right-align">金額</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <aside class="card" style="border:none;box-shadow:none">
+          <h2>新增 / 編輯花費</h2>
+          <div class="body">
+            <form id="expenseForm">
+              <input id="expId" type="hidden"/>
+
+              <div class="row">
+                <div class="col" style="grid-column:span 4">
+                  <label>日期</label>
+                  <input id="expDate" type="date"/>
+                </div>
+
+                <div class="col" style="grid-column:span 4">
+                  <label>類別</label>
+                  <div class="toolbar" style="gap:8px">
+                    <select id="expCategory"></select>
+                    <button id="addExpCat" type="button" class="inline-btn">新增類別</button>
+                  </div>
+                </div>
+
+                <div class="col" style="grid-column:span 4">
+                  <label>金額</label>
+                  <input id="expAmount" type="number" min="0" step="1" value="0"/>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col" style="grid-column:span 12">
+                  <label>說明</label>
+                  <input id="expNote"
+                         type="text"
+                         placeholder="例如：材料、加油、停車、工具維修…"/>
+                </div>
+              </div>
+
+              <div class="toolbar">
+                <button id="expSave" class="primary" type="submit">儲存花費</button>
+                <button id="expReset" type="button">清空表單</button>
+                <div class="right">
+                  <button id="expDelete" class="danger" type="button" disabled>
+                    刪除此筆花費
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </details>
+
+  <!-- 靜音名單 -->
+  <section id="muteListSection" class="card">
+    <details id="muteCollapse">
+      <summary class="ab-summary">
+        <h2>靜音名單</h2>
+        <span class="hint">(預設收合，手動展開)</span>
+      </summary>
+      <div class="body">
+        <div class="ab-toolbar">
+          <input id="muteSearch"
+                 type="search"
+                 placeholder="搜尋：姓名 / 電話 / 備註"/>
+        </div>
+
+        <div class="ab-table-wrap">
+          <table id="muteTable" class="ab-table">
+            <thead>
+            <tr>
+              <th>姓名</th>
+              <th>電話</th>
+              <th>地址</th>
+              <th style="width:120px;">狀態</th>
+              <th style="width:120px;">操作</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="historyEmpty" style="display:none">目前沒有歷史紀錄</div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<!-- 隱藏的檔案 input / row template -->
+<input id="filePicker" class="hidden" type="file" accept=".json"/>
+<input id="filePickerExp" class="hidden" type="file" accept=".json"/>
+
+<template id="expRowTpl">
+  <tr>
+    <td class="small muted"></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td class="right-align"></td>
+  </tr>
+</template>
+
+<!-- big-toggle label .checked fallback (原本就有的 script) -->
 <script>
 (function(){
   try {
@@ -526,7 +693,6 @@
       const sync = () => label.classList.toggle('checked', !!input.checked);
       sync();
       input.addEventListener('change', sync);
-      // also sync on any programmatic changes if needed
       const observer = new MutationObserver(sync);
       observer.observe(input, { attributes: true, attributeFilter: ['checked'] });
     });
@@ -535,9 +701,209 @@
   }
 })();
 </script>
-<!-- /assistant-added -->
+
+<!-- ===== 登入視窗 ===== -->
+<div id="loginModal" aria-hidden="true" style="
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,0);
+  font-family:inherit;
+">
+  <div style="
+    background:#fff;
+    color:#000;
+    border-radius:12px;
+    padding:16px 20px;
+    min-width:260px;
+    max-width:90%;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+    position:relative;
+  ">
+    <button id="loginCloseBtn" data-close="1" style="
+      position:absolute;
+      top:8px;
+      right:8px;
+      background:transparent;
+      border:0;
+      font-size:16px;
+      cursor:pointer;
+      line-height:1;
+    ">✕</button>
+
+    <div style="font-weight:bold;font-size:1rem;margin-bottom:8px;">登入系統</div>
+    <div style="font-size:0.9rem;color:#333;margin-bottom:12px;">請輸入密碼</div>
+
+    <input id="loginPassword" type="password" placeholder="密碼" style="
+      width:100%;
+      padding:8px;
+      border:1px solid #ccc;
+      border-radius:6px;
+      margin-bottom:12px;
+    "/>
+
+    <button id="loginSubmitBtn" style="
+      width:100%;
+      padding:8px;
+      border:0;
+      border-radius:6px;
+      background:#2563eb;
+      color:#fff;
+      font-size:0.9rem;
+      cursor:pointer;
+    ">登入</button>
+  </div>
+</div>
+
+<!-- ===== 全畫面黑遮罩（未登入時顯示） ===== -->
+<div id="lockOverlay" style="
+  position:fixed;
+  inset:0;
+  background:#000;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  font-size:1rem;
+  z-index:9998;
+">
+  <div style="
+    background:#222;
+    padding:16px 20px;
+    border-radius:10px;
+    max-width:260px;
+    text-align:center;
+    line-height:1.5;
+  ">
+    <div style="font-size:2rem;margin-bottom:8px;">🔒</div>
+    <div style="margin-bottom:12px;">
+      此內容僅限授權人員<br/>請先登入
+    </div>
+    <button type="button" style="
+      background:#fff;
+      color:#000;
+      border:0;
+      border-radius:6px;
+      padding:6px 12px;
+      cursor:pointer;
+      font-size:0.9rem;
+    " onclick="openLoginModal()">
+      登入
+    </button>
+  </div>
+</div>
+
+<!-- ===== 客製化 Alert (單顆『確定』) ===== -->
+<div id="customAlertOverlay" style="
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:20000;
+  background:rgba(0,0,0,0.4);
+  font-family:inherit;
+">
+  <div style="
+    background:#fff;
+    color:#000;
+    border-radius:12px;
+    padding:16px 20px;
+    min-width:240px;
+    max-width:80%;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+    text-align:center;
+    font-size:0.9rem;
+    line-height:1.5;
+  ">
+    <div id="customAlertMsg" style="margin-bottom:12px;">
+      訊息
+    </div>
+
+    <button id="customAlertOkBtn" style="
+      background:#2563eb;
+      color:#fff;
+      border:0;
+      border-radius:6px;
+      padding:6px 12px;
+      cursor:pointer;
+      font-size:0.9rem;
+      line-height:1.2;
+    ">
+      確定
+    </button>
+  </div>
+</div>
+
+<!-- ===== 客製化 Confirm (取消 / 確定) ===== -->
+<div id="customConfirmOverlay" style="
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:20001;
+  background:rgba(0,0,0,0.4);
+  font-family:inherit;
+">
+  <div style="
+    background:#fff;
+    color:#000;
+    border-radius:12px;
+    padding:16px 20px;
+    min-width:260px;
+    max-width:90%;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+    font-size:0.9rem;
+    line-height:1.5;
+  ">
+    <div id="customConfirmMsg" style="margin-bottom:16px; text-align:center;">
+      確定要執行這個動作嗎？此動作無法復原。
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button id="customConfirmCancelBtn" style="
+        background:#e5e7eb;
+        color:#111827;
+        border:0;
+        border-radius:6px;
+        padding:6px 12px;
+        cursor:pointer;
+        font-size:0.9rem;
+        line-height:1.2;
+      ">
+        取消
+      </button>
+      <button id="customConfirmOkBtn" style="
+        background:#2563eb;
+        color:#fff;
+        border:0;
+        border-radius:6px;
+        padding:6px 12px;
+        cursor:pointer;
+        font-size:0.9rem;
+        line-height:1.2;
+      ">
+        確定
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 外部 SDK / 你的主程式 ===== -->
+
+<!-- Google API JS (gapi for Drive備份) -->
+<script src="https://apis.google.com/js/api.js"></script>
+
+<!-- Google OAuth SDK (for sign-in / token) -->
+<script async defer src="https://accounts.google.com/gsi/client"></script>
+
+<!-- 主要邏輯：app.js -->
+<script defer src="app.js"></script>
 
 </body>
 </html>
-<!-- 加入 Google API SDK -->
-<script async="" defer="" src="https://accounts.google.com/gsi/client"></script>

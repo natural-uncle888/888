@@ -3154,3 +3154,556 @@ document.addEventListener('click', function(e){
     }
   }catch(e){}
 });
+
+/* ================================
+   AUTH & ROLE CONTROL (v6)
+   ================================ */
+
+// 角色定義
+const ROLE_LOCKED  = 'locked';   // 尚未授權，整頁黑屏 + 強制登入
+const ROLE_VIEWER  = 'viewer';   // 只讀，可看全部資料但不可修改
+const ROLE_MANAGER = 'manager';  // 可新增(新訂單/新花費)，不可改舊資料，不可刪除
+const ROLE_ADMIN   = 'admin';    // 全權(可修改舊資料、刪除、清空、匯入)
+
+// ====== 自訂美化警示框 ======
+function showAlert(msg) {
+  const overlay = document.getElementById('customAlertOverlay');
+  const msgBox  = document.getElementById('customAlertMsg');
+  const okBtn   = document.getElementById('customAlertOk');
+
+  if (!overlay || !msgBox || !okBtn) {
+    // 後備方案：用原生 alert
+    window.showAlert(msg);
+    return;
+  }
+
+  msgBox.textContent = msg || '';
+  overlay.style.display = 'flex';
+
+  // 確保不會重複綁定多次
+  if (!okBtn.__boundForAlert) {
+    okBtn.__boundForAlert = true;
+    okBtn.addEventListener('click', hideAlert);
+  }
+}
+
+function hideAlert() {
+  const overlay = document.getElementById('customAlertOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+
+
+// 從 sessionStorage 抓目前角色，預設 locked
+function loadRole() {
+  try {
+    const r = sessionStorage.getItem('yl_clean_role');
+    if (
+      r === ROLE_ADMIN ||
+      r === ROLE_MANAGER ||
+      r === ROLE_VIEWER ||
+      r === ROLE_LOCKED
+    ) {
+      return r;
+    }
+  } catch(e){}
+  return ROLE_LOCKED;
+}
+
+let currentRole = loadRole();
+
+// 儲存角色到 sessionStorage
+function saveRole(r) {
+  currentRole = r;
+  try {
+    sessionStorage.setItem('yl_clean_role', r);
+  } catch(e){}
+}
+
+// 便利的角色檢查
+function isAuthorizedRole() {
+  // 有登入成功就算授權 (viewer / manager / admin)
+  return (
+    currentRole === ROLE_ADMIN ||
+    currentRole === ROLE_MANAGER ||
+    currentRole === ROLE_VIEWER
+  );
+}
+
+function canCreateNew() {
+  return currentRole === ROLE_MANAGER || currentRole === ROLE_ADMIN;
+}
+
+function canModifyExisting() {
+  return currentRole === ROLE_ADMIN;
+}
+
+function canDelete() {
+  return currentRole === ROLE_ADMIN;
+}
+
+
+// ===== 登入框 / 登出 =====
+
+// 顯示登入視窗
+function openLoginModal() {
+  const m = document.getElementById('loginModal');
+  if (!m) return;
+  m.setAttribute('aria-hidden', 'false');
+  m.style.display = 'flex';
+
+  const pw = document.getElementById('loginPassword');
+  if (pw) {
+    pw.value = '';
+    setTimeout(()=>pw.focus(),0);
+  }
+}
+
+// 嘗試關閉登入視窗
+// (未授權角色不能關，會被要求先登入)
+function closeLoginModal() {
+  if (!isAuthorizedRole()) {
+    showAlert('請先登入');
+    return;
+  }
+  const m = document.getElementById('loginModal');
+  if (!m) return;
+  m.setAttribute('aria-hidden', 'true');
+  m.style.display = 'none';
+}
+
+// 送密碼去 Netlify Function 檢查，並依回傳設定角色
+async function loginWithPassword() {
+  const pwEl = document.getElementById('loginPassword');
+  const pwd = pwEl ? pwEl.value.trim() : '';
+  if (!pwd) {
+    showAlert('請輸入密碼');
+    return;
+  }
+
+  try {
+    const res = await fetch('/.netlify/functions/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    });
+
+    if (!res.ok) {
+      showAlert('密碼錯誤或沒有對應權限');
+      return;
+    }
+
+    const data = await res.json();
+    if (data && data.role) {
+      saveRole(data.role);
+      applyRolePermissions();
+      closeLoginModal();
+      showAlert('登入成功');
+    } else {
+      showAlert('登入回傳格式錯誤');
+    }
+  } catch (err) {
+    console.error('login error', err);
+    showAlert('登入失敗，請稍後再試');
+  }
+}
+
+// 登出 -> 回到 locked 狀態並強制顯示登入
+function logout() {
+  saveRole(ROLE_LOCKED);
+  applyRolePermissions();
+  openLoginModal();
+}
+
+
+// ===== 依照角色套用整個介面權限、遮罩、按鈕可用性 =====
+function applyRolePermissions() {
+  const role = currentRole;
+
+  // 角色標籤
+  const roleLabelEl = document.getElementById('roleLabel');
+  if (roleLabelEl) {
+    let txt = '未登入';
+    if (role === ROLE_VIEWER)  txt = '唯讀';
+    if (role === ROLE_MANAGER) txt = '管理階層';
+    if (role === ROLE_ADMIN)   txt = '管理者';
+    roleLabelEl.textContent = txt;
+  }
+
+  // 登入 / 登出按鈕
+  const loginBtn  = document.getElementById('loginBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (loginBtn && logoutBtn) {
+    if (isAuthorizedRole()) {
+      // viewer / manager / admin
+      loginBtn.style.display  = 'none';
+      logoutBtn.style.display = '';
+    } else {
+      // locked
+      loginBtn.style.display  = '';
+      logoutBtn.style.display = 'none';
+    }
+  }
+
+  const viewerMode = (role === ROLE_VIEWER);
+  const isAdmin    = (role === ROLE_ADMIN);
+
+  // ===== 訂單表單欄位 =====
+  const orderFormEl = document.getElementById('orderForm');
+  if (orderFormEl) {
+    orderFormEl
+      .querySelectorAll('input, textarea, select')
+      .forEach(el => {
+        if (viewerMode) {
+          if (el.type === 'checkbox' || el.type === 'radio') {
+            el.disabled = true;
+          } else {
+            el.readOnly = true;
+            el.disabled = true;
+          }
+        } else {
+          el.readOnly = false;
+          el.disabled = false;
+        }
+        // 這些欄位一律唯讀
+        if (['id','total','netTotal'].includes(el.id)) {
+          el.readOnly = true;
+          el.disabled = true;
+        }
+      });
+  }
+
+  // ===== 花費表單欄位 =====
+  const expenseFormEl = document.getElementById('expenseForm');
+  if (expenseFormEl) {
+    expenseFormEl
+      .querySelectorAll('input, textarea, select')
+      .forEach(el => {
+        if (viewerMode) {
+          el.readOnly = true;
+          el.disabled = true;
+        } else {
+          el.readOnly = false;
+          el.disabled = false;
+        }
+        if (['expId'].includes(el.id)) {
+          el.readOnly = true;
+          el.disabled = true;
+        }
+      });
+  }
+
+  // ===== 一般操作按鈕 (viewer 不可動) =====
+  [
+    'newBtn',
+    'newExpenseBtn',
+    'saveBtn',
+    'resetBtn',
+    'copyLastBtn',
+    'copyFromHistoryBtn',
+    'recalc',
+    'toggleLock',
+    'expSave',
+    'addStaffBtn',
+    'addContactMethod',
+    'addExpCat',
+    'gdriveBackupBtn',
+    'expImportJson'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = viewerMode;
+  });
+
+  // ===== 危險 / 破壞性操作 (只有 admin 看得到) =====
+  [
+    'deleteBtn',   // 刪除訂單
+    'expDelete',   // 刪除花費
+    'clearAll',    // 清空所有訂單
+    'expClear',    // 清空所有花費
+    'importJson'   // 匯入整包 JSON
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = isAdmin ? '' : 'none';
+    el.disabled = !isAdmin;
+  });
+
+  // ===== 已有訂單的「金額鎖定」: 管理階層/管理者可看可切，viewer 不可動 =====
+  if (!viewerMode) {
+    try {
+      const curIdEl = document.getElementById('id');
+      const curId = curIdEl ? curIdEl.value : '';
+      if (curId) {
+        const i = (typeof orders!=='undefined' && Array.isArray(orders))
+          ? orders.findIndex(o=>o.id===curId)
+          : -1;
+        if (i>=0 && typeof setFormLock === 'function') {
+          setFormLock(!!orders[i].locked);
+        }
+      }
+    } catch(e){}
+  }
+
+  // ===== 全畫面黑遮罩 =====
+  const overlay = document.getElementById('lockOverlay');
+  if (overlay) {
+    overlay.style.display = isAuthorizedRole() ? 'none' : 'flex';
+  }
+}
+
+
+// ===== 初始化授權相關的 UI 綁定、權限防護 =====
+function initAuthUI() {
+  // 綁登入按鈕
+  const loginBtn = document.getElementById('loginBtn');
+  if (loginBtn && !loginBtn.__authBound) {
+    loginBtn.__authBound = true;
+    loginBtn.addEventListener('click', openLoginModal);
+  }
+
+  // 綁登出按鈕
+  const logoutBtnEl = document.getElementById('logoutBtn');
+  if (logoutBtnEl && !logoutBtnEl.__authBound) {
+    logoutBtnEl.__authBound = true;
+    logoutBtnEl.addEventListener('click', logout);
+  }
+
+  // 綁登入視窗的「X」關閉
+  const closeBtn = document.getElementById('loginCloseBtn');
+  if (closeBtn && !closeBtn.__authBound) {
+    closeBtn.__authBound = true;
+    closeBtn.addEventListener('click', closeLoginModal);
+  }
+
+  // 點登入視窗背景(有 data-close="1") 嘗試關閉
+  const loginModal = document.getElementById('loginModal');
+  if (loginModal && !loginModal.__authBound) {
+    loginModal.__authBound = true;
+    loginModal.addEventListener('click', (e)=>{
+      if (e.target && e.target.dataset && e.target.dataset.close) {
+        closeLoginModal();
+      }
+    });
+  }
+
+  // 綁登入送出按鈕
+  const submitBtn = document.getElementById('loginSubmitBtn');
+  if (submitBtn && !submitBtn.__authBound) {
+    submitBtn.__authBound = true;
+    submitBtn.addEventListener('click', loginWithPassword);
+  }
+
+  // 密碼輸入框支援 Enter
+  const pwField = document.getElementById('loginPassword');
+  if (pwField && !pwField.__authBound) {
+    pwField.__authBound = true;
+    pwField.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loginWithPassword();
+      }
+    });
+  }
+
+  // 先套用目前角色的 UI 權限 (會同時處理遮罩顯示/隱藏)
+  applyRolePermissions();
+
+  // --- 權限防護區 ---
+
+  // 小工具：在捕獲階段(CAPTURE)攔截危險按鈕
+  function protectClick(el, checker, msg){
+    if(!el || el.__guardBound) return;
+    el.__guardBound = true;
+    el.addEventListener('click', (e)=>{
+      if(!checker()){
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        e.preventDefault();
+        showAlert(msg);
+      }
+    }, true); // capture = true
+  }
+
+  // 清除全部訂單/花費、切換鎖定 -> 高權限才允許
+  protectClick(
+    document.getElementById('clearAll'),
+    canDelete,
+    '您沒有清除全部訂單的權限'
+  );
+
+  protectClick(
+    document.getElementById('expClear'),
+    canDelete,
+    '您沒有清除全部花費的權限'
+  );
+
+  protectClick(
+    document.getElementById('toggleLock'),
+    canModifyExisting,
+    '目前身分沒有修改金額鎖定的權限 (管理階層只能新增新單)'
+  );
+
+  // 表單送出保護：新增 vs 修改
+  function protectSubmit(formEl, isNewCheck, noCreateMsg, noEditMsg){
+    if(!formEl || formEl.__guardSubmitBound) return;
+    formEl.__guardSubmitBound = true;
+    formEl.addEventListener('submit', (ev)=>{
+      const isNew = isNewCheck();
+      if(isNew){
+        if(!canCreateNew()){
+          ev.stopImmediatePropagation();
+          ev.preventDefault();
+          showAlert(noCreateMsg);
+        }
+      } else {
+        if(!canModifyExisting()){
+          ev.stopImmediatePropagation();
+          ev.preventDefault();
+          showAlert(noEditMsg);
+        }
+      }
+    }, true); // capture
+  }
+
+  protectSubmit(
+    document.getElementById('orderForm'),
+    ()=> !document.getElementById('id')?.value,
+    '目前身分沒有新增訂單的權限',
+    '目前身分沒有修改這筆訂單的權限 (管理階層只能新增新單)'
+  );
+
+  protectSubmit(
+    document.getElementById('expenseForm'),
+    ()=> !document.getElementById('expId')?.value,
+    '目前身分沒有新增花費的權限',
+    '目前身分沒有修改這筆花費的權限 (管理階層只能新增新花費)'
+  );
+
+  // 列表內的危險互動 (刪除、改狀態、改日期...)
+  const ordersTableEl = document.getElementById('ordersTable');
+  if (ordersTableEl && !ordersTableEl.__guardTableBound){
+    ordersTableEl.__guardTableBound = true;
+    ordersTableEl.addEventListener('click',(e)=>{
+      if (canModifyExisting()) return; // admin OK
+      const t = e.target;
+      if (!t) return;
+
+      const dangerBtn = t.closest && t.closest('.danger');
+      const statusPill = t.closest && t.closest('.status');
+      const toggleCell = (t.closest && (t.closest('.toggle-confirm') || t.closest('.toggle-quote'))) || null;
+
+      // 嘗試判斷是否在日期/時間欄 (第2或第3格)
+      let isDateOrTimeCell = false;
+      const tr = t.closest && t.closest('tr');
+      const td = t.closest && t.closest('td');
+      if(tr && td){
+        const cells = Array.from(tr.children);
+        if(cells[1]===td || cells[2]===td){
+          isDateOrTimeCell = true;
+        }
+      }
+
+      if(dangerBtn || statusPill || toggleCell || isDateOrTimeCell){
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        e.preventDefault();
+        showAlert('目前身分沒有修改既有訂單的權限 (管理階層只能新增新單)');
+      }
+    }, true); // capture
+  }
+
+  // 不是 viewer/manager/admin 的話，強制打開登入框
+  if (!isAuthorizedRole()) {
+    openLoginModal();
+  }
+}
+
+// 在整個 DOM 準備好之後再執行 initAuthUI()
+// 這樣 loginModal / lockOverlay 都已經在畫面上了
+window.addEventListener('DOMContentLoaded', function(){
+  try {
+    initAuthUI();
+  } catch(e){
+    console.warn('initAuthUI error', e);
+  }
+});
+
+
+
+/* ===== Pretty Alert/Confirm module (v11) ===== */
+(function(){"use strict";
+  function $(id){return document.getElementById(id);}
+
+  // single-button alert
+  window.showAlert = function(message, onClose){
+    var overlay=$('customAlertOverlay'), msg=$('customAlertMsg'), ok=$('customAlertOkBtn');
+    if(!overlay||!msg||!ok){ try{ alert(message); }catch(e){} if(onClose)try{onClose();}catch(e){}; return; }
+    msg.innerHTML = String(message||'').replace(/\n/g,'<br>');
+    overlay.style.display='flex'; document.body.style.overflow='hidden';
+    function close(){ overlay.style.display='none'; document.body.style.overflow=''; ok.removeEventListener('click', close); if(onClose)try{onClose();}catch(e){} }
+    ok.addEventListener('click', close);
+  };
+
+  // two-button confirm (Promise<boolean>)
+  window.showConfirm = function(message){
+    return new Promise(function(resolve){
+      var ov=$('customConfirmOverlay'), msg=$('customConfirmMsg'), ok=$('customConfirmOkBtn'), cancel=$('customConfirmCancelBtn');
+      if(!ov||!msg||!ok||!cancel){ try{ resolve(confirm(message)); }catch(e){ resolve(false); } return; }
+      msg.innerHTML = String(message||'').replace(/\n/g,'<br>');
+      ov.style.display='flex'; document.body.style.overflow='hidden';
+      function cleanup(v){ ov.style.display='none'; document.body.style.overflow=''; ok.removeEventListener('click', onOk); cancel.removeEventListener('click', onCancel); resolve(v); }
+      function onOk(){ cleanup(true); }
+      function onCancel(){ cleanup(false); }
+      ok.addEventListener('click', onOk); cancel.addEventListener('click', onCancel);
+    });
+  };
+
+  // Bind common danger buttons if present (non-invasive)
+  function bindPrettyConfirm(btnId, message, onOk){
+    var btn = $(btnId); if(!btn||btn.__prettyBound) return; btn.__prettyBound = true;
+    btn.addEventListener('click', function(ev){
+      if(!$('customConfirmOverlay')) return; // no custom confirm -> do nothing
+      ev.preventDefault(); ev.stopPropagation();
+      showConfirm(message||'此動作無法復原，確定要執行？').then(function(ok){
+        if(ok && typeof onOk==='function') onOk();
+      });
+    }, true);
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    // 清空資料
+    bindPrettyConfirm('clearAll', '確定要清空所有訂單資料嗎？\n此動作無法復原。', function(){
+      try{
+        if(typeof orders!=='undefined') orders = [];
+        if(typeof save==='function') save('yl_clean_orders_v1', orders);
+        if(typeof refreshTable==='function') refreshTable();
+        if(typeof refreshDueSoonPanel==='function') try{refreshDueSoonPanel();}catch(_e){}
+        showAlert('✅ 已清空所有資料');
+      }catch(e){ console.error(e); }
+    });
+    // 清空花費
+    bindPrettyConfirm('expClear', '確定要清空所有花費紀錄嗎？\n此動作無法復原。', function(){
+      try{
+        if(typeof expenses!=='undefined') expenses = [];
+        if(typeof save==='function') save('yl_clean_expenses_v1', expenses);
+        if(typeof refreshExpense==='function') refreshExpense();
+        showAlert('✅ 已清空所有資料');
+      }catch(e){ console.error(e); }
+    });
+  });
+
+  // Override native alert → pretty
+  (function(){
+    var nativeAlert = (window.alert||function(msg){console.log('ALERT:',msg);}).bind(window);
+    window.alert = function(msg){
+      try{
+        if(document.getElementById('customAlertOverlay')) { showAlert(msg); return; }
+      }catch(e){}
+      nativeAlert(msg);
+    };
+  })();
+})();
+

@@ -333,29 +333,14 @@
             <div id="reminderToolbar"
                  class="toolbar"
                  style="gap:8px; align-items:center; flex-wrap:wrap">
-              <label class="pill">
-                <input id="reminderEnabled" type="checkbox" checked/>
-                <span>啟用提醒</span>
-              </label>
+              <label class="pill"><input checked="" id="reminderEnabled" type="checkbox"/> <span>啟用提醒</span></label>
               <label class="muted">提醒週期（月）</label>
-              <input id="reminderMonths"
-                     class="tiny compact"
-                     type="number"
-                     min="0" step="1"
-                     placeholder="例如 12"
-                     value="24"/>
+              <input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
               <label class="muted">下次提醒</label>
-              <input id="nextReminder" class="tiny" type="text" disabled/>
-              </label>
-              <label class="pill">
-                <input id="reminderNotified" type="checkbox"/>
-                <span>已通知</span>
-              </label>
-              <label class="pill danger">
-                <input id="reminderMuted" type="checkbox"/>
-                <span>不再提醒</span>
-              </label>
-            </div>
+              <input class="tiny" disabled="" id="nextReminder" type="text"/>
+              <label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
+              <label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
+           </div>
           </div>
         </div>
 

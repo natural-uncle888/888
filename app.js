@@ -607,7 +607,7 @@ durationMinutes: +$('durationMinutes').value,
     calBtn2.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleUploadWithAuth(o); });
     op.appendChild(calBtn2);
     const delBtn = document.createElement('button'); delBtn.className='icon-btn danger'; delBtn.textContent='刪';
-    delBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); if(confirm('確定要刪除此訂單嗎？')){ orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
+    delBtn.addEventListener('click', async (ev)=>{ ev.stopPropagation(); if (typeof showConfirm === 'function' ? await showConfirm('此頁面說明','確定要刪除此訂單嗎？','確定','取消') : confirm('確定要刪除此訂單嗎？')) { orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
     op.appendChild(delBtn);
 
     // mobile keep list classes and hidden column classes (try/catch to avoid crashes)
@@ -981,7 +981,7 @@ recalcTotals();
       // validate duration
       const dm = Number(document.getElementById('durationMinutes').value);
       if (!dm || dm <= 0) {
-        alert('請輸入有效的工作時長（分鐘，需大於 0）');
+        if (typeof showAlert === 'function') { showAlert('此頁面說明','請輸入有效的工作時長（分鐘，需大於 0）').then(()=>{ try{ document.getElementById('durationMinutes').focus(); }catch(e){} }); } else { alert('請輸入有效的工作時長（分鐘，需大於 0）'); }
         document.getElementById('durationMinutes').focus();
         return;
       }
@@ -999,11 +999,11 @@ recalcTotals();
       save(KEY, orders); refreshTable(); fillForm({}); refreshContactsDatalist();
       window.scrollTo({top:0, behavior:'smooth'});
     }
-    function deleteOrder(){
+    async function deleteOrder(){
       const id=$('id').value; if(!id) return;
-      if(confirm('確定要刪除這筆訂單嗎？')){
-        orders=orders.filter(o=>o.id!==id); save(KEY, orders); refreshTable(); fillForm({});
-      }
+      const ok = await showConfirm('刪除訂單', '確定要刪除這筆訂單嗎？');
+      if(!ok) return;
+      orders=orders.filter(o=>o.id!==id); save(KEY, orders); refreshTable(); fillForm({});
     }
     function resetForm(){ fillForm({}); }
     function download(filename, text){ const blob=new Blob([text],{type:'application/octet-stream'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
@@ -1199,7 +1199,7 @@ function refreshDueSoonPanel(){
       $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
 $('exportJson').addEventListener('click', exportJSON);
 $('importJson').addEventListener('click', importJSON);
-      $('clearAll').addEventListener('click', ()=>{ if(confirm('確定要清空所有訂單資料嗎？此動作無法復原。')){ orders=[]; save(KEY, orders); refreshTable(); } });
+      $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const ok = await showConfirm('清空所有訂單','確定要清空所有訂單資料嗎？此動作無法復原。'); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
       $('addStaffBtn').addEventListener('click', addStaff);
       $('addContactMethod').addEventListener('click', addContact);
       
@@ -1627,6 +1627,53 @@ window.addEventListener('DOMContentLoaded', () => {
 
 var gTokenClient = null;
 
+
+// --- Generic modal helpers (showConfirm / showAlert) ---
+function showConfirm(title, message, okLabel = '確定', cancelLabel = '取消') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('genericConfirmModal');
+    if (!modal) return resolve(confirm(message)); // fallback to native
+    const t = document.getElementById('genericConfirmTitle');
+    const m = document.getElementById('genericConfirmMessage');
+    const ok = document.getElementById('genericConfirmOk');
+    const cancel = document.getElementById('genericConfirmCancel');
+    t.textContent = title || '確認';
+    m.textContent = message || '';
+    ok.textContent = okLabel || '確定';
+    cancel.textContent = cancelLabel || '取消';
+    function cleanup(res) {
+      modal.setAttribute('aria-hidden','true');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      resolve(res);
+    }
+    function onOk(){ cleanup(true); }
+    function onCancel(){ cleanup(false); }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    modal.setAttribute('aria-hidden','false');
+  });
+}
+
+function showAlert(title, message, okLabel = '確定') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('genericAlertModal');
+    if (!modal) { alert(message); return resolve(); }
+    const t = document.getElementById('genericAlertTitle');
+    const m = document.getElementById('genericAlertMessage');
+    const ok = document.getElementById('genericAlertOk');
+    t.textContent = title || '提示';
+    m.textContent = message || '';
+    ok.textContent = okLabel || '確定';
+    function cleanup(){ modal.setAttribute('aria-hidden','true'); ok.removeEventListener('click', onOk); resolve(); }
+    function onOk(){ cleanup(); }
+    ok.addEventListener('click', onOk);
+    modal.setAttribute('aria-hidden','false');
+  });
+}
+
+// --- end modal helpers ---
+
 function initGoogle() {
   gTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: '894514639805-g3073pmjvadbasfp1g25r24rjhl9iacb.apps.googleusercontent.com',
@@ -1787,11 +1834,22 @@ const CLIENT_ID = '894514639805-g3073pmjvadbasfp1g25r24rjhl9iacb.apps.googleuser
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 let gToken = null;
 
-function handleUploadWithAuth(orderData) {
+async function handleUploadWithAuth(orderData) {
   if (!orderData.date || !orderData.time) {
-    alert('請先填寫此訂單的日期與時間');
+    await showAlert('錯誤', '請先填寫此訂單的日期與時間');
     return;
   }
+  
+  // Validate duration: require durationMinutes or duration (positive number)
+  const durRaw = orderData?.durationMinutes ?? orderData?.duration ?? orderData?.durationMin ?? orderData?.workMinutes;
+  const hasDur = typeof durRaw !== 'undefined' && durRaw !== null && String(durRaw).trim() !== '';
+  const durNum = hasDur ? Number(durRaw) : NaN;
+  if (!hasDur || isNaN(durNum) || durNum <= 0) {
+    await showAlert('缺少資料', '請輸入有效的工作時長（分鐘，需大於 0）。');
+    return;
+  }
+const okUpload = await showConfirm('上傳 Google 日曆', '確定要將此訂單上傳至 Google 日曆嗎？');
+  if (!okUpload) return;
   if (gToken) {
     uploadEventToCalendar(orderData);
   } else {
@@ -2575,11 +2633,12 @@ function getCustomerKeyFromOrder(order) {
   return '';
 }
 
+
 function getCustomerKeyFromRow(tr) {
-  // prefer phone if present
   try {
     const phoneTd = tr.querySelector('[data-label="電話"]');
     const custTd = tr.querySelector('[data-label="客戶"]');
+    const addrTd = tr.querySelector('[data-label="地址"]');
     let phone = '';
     if (phoneTd) {
       const pt = phoneTd.querySelector('.copy-target') || phoneTd;
@@ -2588,45 +2647,187 @@ function getCustomerKeyFromRow(tr) {
     if (phone && phone.replace(/\D/g,'').length >= 3) {
       return 'phone:' + normalizePhone(phone);
     }
+    // try line or facebook in custTd dataset
     if (custTd) {
+      const lineId = custTd.dataset.lineId || custTd.getAttribute('data-line-id');
+      const fbId = custTd.dataset.facebookId || custTd.getAttribute('data-facebook-id');
+      if (lineId) return 'line:' + String(lineId).trim();
+      if (fbId) return 'facebook:' + String(fbId).trim();
       const ct = custTd.querySelector('.copy-target') || custTd;
       const name = (ct.textContent || '').trim();
       if (name) return 'name:' + name.toLowerCase();
+    }
+    if (addrTd) {
+      const at = addrTd.querySelector('.copy-target') || addrTd;
+      const addr = (at.textContent || '').trim();
+      if (addr) return 'address:' + addr.toLowerCase().replace(/\s+/g,' ');
     }
   } catch(e) { /* noop */ }
   return '';
 }
 
 
+
+
+/* --- Customer history: multi-identifier grouping + ignored-orders support --- */
+
+// Load/save ignored history ids from localStorage
+function loadIgnoredHistoryIds() {
+  try {
+    const raw = localStorage.getItem('ignoredHistoryIds');
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw || '[]');
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+function saveIgnoredHistoryIds(set) {
+  try {
+    const arr = Array.from(set || []);
+    localStorage.setItem('ignoredHistoryIds', JSON.stringify(arr));
+  } catch(e){}
+}
+
+// Normalize address for matching (simple)
+function normalizeAddress(a){
+  if(!a) return '';
+  return String(a).trim().toLowerCase().replace(/\s+/g,' ');
+}
+
+// Build set of identifier strings for an order (name, lineId/facebookId, phone(s), address)
+function getOrderIdentifiers(o){
+  const ids = new Set();
+  if(!o) return ids;
+  if (o.lineId) ids.add('line:' + String(o.lineId).trim());
+  // support facebookId if present
+  if (o.facebookId) ids.add('facebook:' + String(o.facebookId).trim());
+  if (Array.isArray(o.phones)) {
+    o.phones.forEach(p => { if (p) ids.add('phone:' + normalizePhone(p)); });
+  }
+  if (o.phone) ids.add('phone:' + normalizePhone(o.phone));
+  if (o.customer) ids.add('name:' + String(o.customer).trim().toLowerCase());
+  if (o.address) {
+    const norm = normalizeAddress(o.address);
+    if (norm) ids.add('address:' + norm);
+  }
+  // if line/profile inside contact object
+  if (o.contact && o.contact.lineId) ids.add('line:' + String(o.contact.lineId).trim());
+  if (o.contact && o.contact.facebookId) ids.add('facebook:' + String(o.contact.facebookId).trim());
+  return ids;
+}
+
+// Rebuild a Map from identifier -> sorted list of orders (desc by _ts)
+// New behavior: group orders into clusters where any identifier matches (name, line, facebook, phone, address).
+// Also exclude ignored order IDs stored in localStorage.
 function rebuildCustomerHistoryMap() {
-  // Rebuild a Map from customerKey -> sorted list of orders (desc by _ts)
   try {
     const all = (typeof orders !== 'undefined') ? orders : [];
-    const map = new Map();
+    const ignored = loadIgnoredHistoryIds();
+    // union-find via id -> groupId mapping, groups store identifier sets and order lists
+    const idToGroup = new Map();
+    const groupData = new Map(); // groupId -> {ids: Set, orders: Set(orderIds)}
+    let nextGroupId = 1;
+
+    // helper to create new group
+    function createGroupForIds(idsArray){
+      const gid = 'g' + (nextGroupId++);
+      const idset = new Set(idsArray);
+      groupData.set(gid, { ids: idset, orders: new Set() });
+      idsArray.forEach(id => idToGroup.set(id, gid));
+      return gid;
+    }
+    // helper to merge groups into targetGid
+    function mergeGroups(targetGid, otherGids){
+      const target = groupData.get(targetGid);
+      for(const og of otherGids){
+        if (og === targetGid) continue;
+        const other = groupData.get(og);
+        // move ids
+        for(const id of other.ids){ target.ids.add(id); idToGroup.set(id, targetGid); }
+        // move orders
+        for(const oid of other.orders){ target.orders.add(oid); }
+        groupData.delete(og);
+      }
+    }
+
+    // iterate orders and assign to groups based on identifiers
     all.forEach(o => {
       try {
-        const key = getCustomerKeyFromOrder(o);
-        if (!key) return;
+        const orderId = (o.id || o._id || '');
+        if (!orderId) return;
+        if (ignored.has(orderId)) return; // skip ignored
+        // determine timestamp
         let ts = null;
         if (o.datetimeISO) ts = new Date(o.datetimeISO);
-        else if (o.date && o.time) ts = new Date(`${o.date} ${o.time}`);
+        else if (o.date && o.time) ts = new Date(String(o.date) + ' ' + String(o.time));
         else if (o.date) ts = new Date(o.date);
         else ts = new Date(o.createdAt || Date.now());
         const copy = Object.assign({}, o, { _ts: ts });
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(copy);
-      } catch(e) { /* ignore single order errors */ }
+
+        const ids = Array.from(getOrderIdentifiers(o));
+        if (!ids.length) {
+          // fallback: create anonymous id using order id
+          const anonId = 'orderid:' + orderId;
+          ids.push(anonId);
+        }
+
+        // find existing group ids touched by these identifiers
+        const foundGroups = new Set();
+        ids.forEach(id => {
+          if (idToGroup.has(id)) foundGroups.add(idToGroup.get(id));
+        });
+
+        if (foundGroups.size === 0) {
+          // create new group
+          const gid = createGroupForIds(ids);
+          groupData.get(gid).orders.add(orderId);
+          // store the order object per group - we'll gather later
+          groupData.get(gid)._orderObjs = groupData.get(gid)._orderObjs || [];
+          groupData.get(gid)._orderObjs.push(copy);
+        } else {
+          // attach to one of existing groups (choose first), and merge others
+          const gids = Array.from(foundGroups);
+          const primary = gids[0];
+          // ensure all ids map to primary
+          ids.forEach(id => { idToGroup.set(id, primary); groupData.get(primary).ids.add(id); });
+          // add order to primary
+          groupData.get(primary).orders.add(orderId);
+          groupData.get(primary)._orderObjs = groupData.get(primary)._orderObjs || [];
+          groupData.get(primary)._orderObjs.push(copy);
+          // if multiple groups found, merge them
+          if (gids.length > 1) {
+            mergeGroups(primary, gids.slice(1));
+          }
+        }
+      } catch(e){
+        // ignore
+      }
     });
-    // sort each list descending
-    for (const [k, arr] of map.entries()) {
+
+    // Now convert groupData into a map from each identifier -> sorted order list
+    const map = new Map();
+    for(const [gid, gd] of groupData.entries()){
+      const arr = (gd._orderObjs || []).slice();
+      // sort desc
       arr.sort((a,b) => b._ts - a._ts);
+      // for each identifier in this group, map identifier -> arr
+      for(const id of gd.ids){
+        map.set(id, arr);
+      }
+      // also map a synthetic group key for direct access: 'group:' + gid
+      map.set('group:' + gid, arr);
     }
+
     window._customerHistoryMap = map;
+    window._customerHistoryGroups = groupData; // keep some metadata (not serialized)
   } catch(e) {
     console.error('rebuildCustomerHistoryMap failed', e);
     window._customerHistoryMap = null;
+    window._customerHistoryGroups = null;
   }
 }
+
 
 function getHistoryByCustomerKey(customerKey) {
   if (!customerKey) return [];
@@ -2649,6 +2850,7 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
 
 function renderHistoryModal(customerKey, titleText) {
   const modal = document.getElementById('historyModal');
@@ -2675,6 +2877,7 @@ function renderHistoryModal(customerKey, titleText) {
   else list.sort((a,b)=> b._ts - a._ts);
 
   const searchTerm = (document.getElementById('historySearch')||{}).value?.toLowerCase?.() || '';
+  const ignoredSet = loadIgnoredHistoryIds();
 
   list.forEach(o => {
     const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
@@ -2687,23 +2890,69 @@ function renderHistoryModal(customerKey, titleText) {
 
     const tr = document.createElement('tr');
 
+    const orderId = (o.id || o._id || '');
+
     tr.innerHTML = `
       <td>${dateStr}</td>
       <td>${escapeHtml(items)}</td>
       <td>${escapeHtml(status)}</td>
       <td>${escapeHtml(notes)}</td>
       <td>
-        <button class="btn-small history-open-order" data-order-id="${o.id || o._id || ''}">開啟</button>
-        <button class="btn-small history-export-row" data-order-id="${o.id || o._id || ''}">匯出</button>
+        <button class="btn-small history-open-order" data-order-id="${orderId}">開啟</button>
+        <button class="btn-small history-export-row" data-order-id="${orderId}">匯出</button>
+        <button class="btn-small history-ignore-row" data-order-id="${orderId}">${ignoredSet.has(orderId) ? '已忽略' : '忽略'}</button>
       </td>
     `;
     body.appendChild(tr);
+
+    // attach handlers
+    const btnOpen = tr.querySelector('.history-open-order');
+    if (btnOpen) btnOpen.addEventListener('click', (ev)=>{
+      const id = ev.currentTarget.dataset.orderId;
+      if (!id) return;
+      // find order and open it
+      const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === id) || null) : null;
+      if (ord) {
+        fillForm(ord);
+        // close modal
+        modal.setAttribute('aria-hidden','true');
+      }
+    });
+
+    const btnExport = tr.querySelector('.history-export-row');
+    if (btnExport) btnExport.addEventListener('click', (ev)=>{
+      const id = ev.currentTarget.dataset.orderId;
+      const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === id) || null) : null;
+      if (ord) {
+        exportHistoryToCsv([ord], `history_${id}.csv`);
+      }
+    });
+
+    const btnIgnore = tr.querySelector('.history-ignore-row');
+    if (btnIgnore) btnIgnore.addEventListener('click', (ev)=>{
+      const id = ev.currentTarget.dataset.orderId;
+      if (!id) return;
+      const ignored = loadIgnoredHistoryIds();
+      if (ignored.has(id)) {
+        // un-ignore
+        ignored.delete(id);
+      } else {
+        ignored.add(id);
+      }
+      saveIgnoredHistoryIds(ignored);
+      // rebuild cache and re-render modal and table badges
+      try { rebuildCustomerHistoryMap(); } catch(e){}
+      renderHistoryModal(customerKey, titleText);
+      try { transformCustomerCells(); } catch(e){}
+    });
+
   });
 
   modal.setAttribute('aria-hidden', 'false');
   modal.dataset.customerKey = customerKey;
   modal.dataset.title = titleText || '';
 }
+
 
 function exportHistoryToCsv(list, filename) {
   if (!list || !list.length) return alert('沒有資料可匯出');
@@ -3154,3 +3403,257 @@ document.addEventListener('click', function(e){
     }
   }catch(e){}
 });
+
+
+
+/* --- Ignore Manager UI & actions --- */
+function openIgnoreManager() {
+  const modal = document.getElementById('ignoreManagerModal');
+  if (!modal) return;
+  modal.setAttribute('aria-hidden','false');
+  modal.style.display = 'flex';
+  renderIgnoreManagerTable();
+  updateIgnoreCountBadge();
+}
+function closeIgnoreManager() {
+  const modal = document.getElementById('ignoreManagerModal');
+  if (!modal) return;
+  modal.setAttribute('aria-hidden','true');
+  modal.style.display = 'none';
+}
+function getIgnoredEntries() {
+  const ignored = loadIgnoredHistoryIds();
+  const all = (typeof orders !== 'undefined') ? orders : [];
+  const entries = [];
+  ignored.forEach(id => {
+    const o = all.find(x => (x.id||x._id||'') === id);
+    if (o) {
+      // ensure _ts exists
+      let ts = o._ts;
+      if (!ts) {
+        if (o.datetimeISO) ts = new Date(o.datetimeISO);
+        else if (o.date && o.time) ts = new Date(String(o.date) + ' ' + String(o.time));
+        else if (o.date) ts = new Date(o.date);
+        else ts = new Date(o.createdAt || Date.now());
+      }
+      entries.push({
+        id: id,
+        date: (ts && !isNaN(ts)) ? ts.toLocaleString() : (o.date || ''),
+        customer: o.customer || '',
+        phone: (Array.isArray(o.phones) && o.phones[0]) ? o.phones[0] : (o.phone || ''),
+        address: o.address || '',
+        raw: o
+      });
+    } else {
+      entries.push({ id, date:'', customer:'(找不到訂單)', phone:'', address:'' });
+    }
+  });
+  // sort by date desc if possible
+  entries.sort((a,b) => {
+    if (!a.date && !b.date) return 0;
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return (new Date(b.date)) - (new Date(a.date));
+  });
+  return entries;
+}
+function renderIgnoreManagerTable(filterText) {
+  const tbody = document.querySelector('#ignoreManagerTable tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const list = getIgnoredEntries();
+  const q = (filterText||'').toLowerCase();
+  list.forEach(e => {
+    if (q) {
+      const combined = `${e.id} ${e.customer} ${e.phone} ${e.address}`.toLowerCase();
+      if (!combined.includes(q)) return;
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding:6px;"><input type="checkbox" class="ignore-row-checkbox" data-id="${e.id}"></td>
+      <td class="no-wrap" style="padding:6px;">${escapeHtml(e.date)}</td>
+      <td class="no-wrap" style="padding:6px;">${escapeHtml(e.customer)}</td>
+      <td class="no-wrap" style="padding:6px;">${escapeHtml(e.phone)}</td>
+      <td style="padding:6px;">${escapeHtml(e.address)}</td>
+      <td class="no-wrap" style="padding:6px;">
+        <button class="btn-small ignore-unignore" data-id="${e.id}">取消忽略</button>
+        <button class="btn-small ignore-view" data-id="${e.id}">查看</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // attach row button handlers
+  tbody.querySelectorAll('.ignore-unignore').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      const id = ev.currentTarget.dataset.id;
+      const s = loadIgnoredHistoryIds();
+      s.delete(id);
+      saveIgnoredHistoryIds(s);
+      try { rebuildCustomerHistoryMap(); } catch(e){}
+      try { transformCustomerCells(); } catch(e){}
+      renderIgnoreManagerTable(document.getElementById('ignoreManagerSearch').value);
+      updateIgnoreCountBadge();
+    });
+  });
+  tbody.querySelectorAll('.ignore-view').forEach(btn=>{
+    btn.addEventListener('click', ev=>{
+      const id = ev.currentTarget.dataset.id;
+      const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === id) || null) : null;
+      if (ord) {
+        fillForm(ord); // open in form
+        closeIgnoreManager();
+      } else {
+        alert('找不到訂單：' + id);
+      }
+    });
+  });
+}
+
+function updateIgnoreCountBadge() {
+  const badge = document.getElementById('ignoreCountBadge');
+  if (!badge) return;
+  const size = loadIgnoredHistoryIds().size;
+  badge.textContent = size ? (size>99 ? '99+' : String(size)) : '';
+  badge.style.display = size ? 'inline-block' : 'none';
+}
+
+function exportIgnoredToCsv(selectedIds) {
+  const list = getIgnoredEntries().filter(e => !selectedIds || selectedIds.includes(e.id));
+  const rows = [['訂單ID','日期','客戶','電話','地址']];
+  list.forEach(e => rows.push([e.id, e.date, e.customer, e.phone, e.address]));
+  const csv = rows.map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ignored_history.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Bind events
+document.addEventListener('DOMContentLoaded', ()=>{
+  const btn = document.getElementById('btnOpenIgnoreManager');
+  if (btn) btn.addEventListener('click', openIgnoreManager);
+  const closeBtn = document.getElementById('ignoreCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', closeIgnoreManager);
+  const exportBtn = document.getElementById('ignoreExportBtn');
+  if (exportBtn) exportBtn.addEventListener('click', ()=> exportIgnoredToCsv());
+  const clearBtn = document.getElementById('ignoreClearBtn');
+  if (clearBtn) clearBtn.addEventListener('click', async ()=>{
+    const ok = await showConfirm('清空忽略清單','確定要清空所有忽略清單嗎？此操作可還原但會刪除本機記錄。');
+    if (!ok) return;
+    saveIgnoredHistoryIds(new Set());
+    try { rebuildCustomerHistoryMap(); } catch(e){}
+    try { transformCustomerCells(); } catch(e){}
+    renderIgnoreManagerTable(document.getElementById('ignoreManagerSearch').value);
+    updateIgnoreCountBadge();
+  });
+  const searchInput = document.getElementById('ignoreManagerSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e)=> renderIgnoreManagerTable(e.target.value));
+  }
+  const unignoreSelBtn = document.getElementById('ignoreUnignoreSelected');
+  if (unignoreSelBtn) unignoreSelBtn.addEventListener('click', ()=>{
+    const checks = Array.from(document.querySelectorAll('.ignore-row-checkbox:checked')).map(c=>c.dataset.id);
+    if (!checks.length) { if (typeof showAlert === 'function') { showAlert('此頁面說明','未選取任何項目'); } else { alert('未選取任何項目'); }; return; }
+    const s = loadIgnoredHistoryIds();
+    checks.forEach(id => s.delete(id));
+    saveIgnoredHistoryIds(s);
+    try { rebuildCustomerHistoryMap(); } catch(e){}
+    try { transformCustomerCells(); } catch(e){}
+    renderIgnoreManagerTable(document.getElementById('ignoreManagerSearch').value);
+    updateIgnoreCountBadge();
+  });
+
+  // initial badge update
+  updateIgnoreCountBadge();
+});
+
+
+
+
+async function safeUploadToCalendar(eventData) {
+  try {
+    // Build useful fields with flexible keys
+    const id = eventData?.id || eventData?.orderId || eventData?._id || '';
+    const name = eventData?.customer || eventData?.name || eventData?.clientName || '';
+    const phone = (Array.isArray(eventData?.phones) && eventData.phones[0]) || eventData?.phone || eventData?.tel || '';
+    const address = eventData?.address || eventData?.addr || eventData?.location || '';
+
+    // Date/time extraction
+    let dateVal = eventData?.date || eventData?._date || eventData?.datetime || null;
+    let timeVal = eventData?.time || eventData?._time || null;
+    if (!dateVal && eventData?._ts) {
+      const d = new Date(eventData._ts);
+      if (!isNaN(d)) {
+        dateVal = dateVal || d.toLocaleDateString();
+        timeVal = timeVal || d.toLocaleTimeString();
+      }
+    }
+    if (!timeVal && typeof dateVal === 'string' && dateVal.indexOf('T') !== -1) {
+      const parts = dateVal.split('T');
+      dateVal = parts[0];
+      timeVal = parts[1] ? parts[1].split('.')[0] : timeVal;
+    }
+
+    // Treat duration as required: must be present and positive number
+    const durationRaw = eventData?.duration;
+    const hasDuration = typeof durationRaw !== 'undefined' && durationRaw !== null && String(durationRaw).trim() !== '';
+    const durationValid = hasDuration && !isNaN(Number(durationRaw)) && Number(durationRaw) > 0;
+
+    const missing = [];
+    if (!dateVal) missing.push('日期');
+    if (!timeVal) missing.push('時間');
+    if (!hasDuration) missing.push('工作時長（未填）');
+    else if (!durationValid) missing.push('工作時長（需為正數）');
+
+    // Build summary
+    const summaryLines = [
+      `訂單：${id || '-'}`,
+      `客戶：${name || '-'}`,
+      `電話：${phone || '-'}`,
+      `地址：${address || '-'}`,
+      `日期：${dateVal || '-'}`,
+      `時間：${timeVal || '-'}`,
+      `工作時長：${hasDuration ? String(durationRaw) : '-'}`
+    ];
+    const summary = summaryLines.join('\\n');
+
+    if (missing.length) {
+      const missText = missing.map((m,i)=>`${i+1}. ${m}`).join('\\n');
+      const msg = summary + '\\n\\n缺少或不正確的欄位：\\n' + missText + '\\n\\n請補齊後再上傳。';
+      if (typeof showAlert === 'function') {
+        await showAlert('缺少資料', msg);
+      } else {
+        alert(msg);
+      }
+      return;
+    }
+
+    const confirmMsg = summary + '\\n\\n確定要將此訂單加入 Google 日曆嗎？';
+    let ok;
+    if (typeof showConfirm === 'function') {
+      ok = await showConfirm('加入 Google 日曆', confirmMsg, '加入', '取消');
+    } else {
+      ok = confirm(confirmMsg);
+    }
+    if (!ok) return;
+
+    if (typeof uploadEventToCalendar === 'function') {
+      uploadEventToCalendar(eventData);
+    } else if (typeof handleUploadWithAuth === 'function') {
+      handleUploadWithAuth(eventData);
+    } else {
+      console.warn('uploadEventToCalendar / handleUploadWithAuth not found');
+    }
+  } catch (e) {
+    console.error('safeUploadToCalendar error', e);
+    if (typeof showAlert === 'function') {
+      await showAlert('錯誤', '上傳過程發生錯誤，請查看 Console。');
+    } else {
+      alert('上傳過程發生錯誤，請查看 Console。');
+    }
+  }
+}
+

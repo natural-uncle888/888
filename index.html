@@ -70,6 +70,7 @@
 <label class="pill" style="gap:8px">
 <input checked="" id="showUndated" type="checkbox"/>
 <span>顯示未排期</span>
+<button id="btnOpenIgnoreManager" class="btn" title="管理忽略清單" style="margin-left:8px;">忽略管理 <span id="ignoreCountBadge" class="small-badge" aria-hidden="true" style="display:none;margin-left:6px;padding:2px 6px;border-radius:12px;background:#0b74de;color:#fff;font-size:12px;"></span></button>
 </label>
 <div class="pill">
 <strong>搜尋</strong>
@@ -365,7 +366,7 @@
 </form>
 </div></details>
 <!-- 支出模組（下）以手風琴呈現 -->
-<details =""="" class="accordion" id="expenseAcc">
+<details class="accordion" id="expenseAcc">
 <summary>本月花費（可展開/收合）</summary>
 <div class="content">
 <div class="two-col">
@@ -536,6 +537,62 @@
 })();
 </script>
 <!-- /assistant-added -->
+
+
+
+<!-- Ignore Manager Modal -->
+<div aria-hidden="true" class="modal" id="ignoreManagerModal">
+  <div class="modal-backdrop" data-close="true"></div>
+  <div class="modal-panel" style="max-width:1000px; max-height:80vh; overflow:auto;">
+    <header class="modal-header">
+      <h3>忽略清單管理</h3>
+      <button aria-label="關閉" class="btn-small" id="ignoreCloseBtn">✕</button>
+    </header>
+    <section class="modal-body">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+        <input id="ignoreManagerSearch" placeholder="搜尋 ID/姓名/電話/地址" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border);"/>
+        <button id="ignoreExportBtn" class="btn-small">匯出 CSV</button>
+        <button id="ignoreUnignoreSelected" class="btn-small">取消忽略選取</button>
+        <button id="ignoreClearBtn" class="btn-small danger">清空所有</button>
+      </div>
+      <div style="overflow:auto; max-height:60vh;">
+        <table  id="ignoreManagerTable" class="ignore-manager-table" class="table" style="width:100%; border-collapse:collapse;">
+          
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th class="no-wrap">日期</th><th class="no-wrap">姓名</th><th class="no-wrap">電話</th><th>地址</th><th class="no-wrap">操作</th>
+            </tr>
+          </thead>
+    
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+<!-- Generic Confirm Modal -->
+<div id="genericConfirmModal" class="confirm-modal" aria-hidden="true" role="dialog">
+  <div class="confirm-panel">
+    <h3 id="genericConfirmTitle">確認</h3>
+    <div id="genericConfirmMessage" class="confirm-message"></div>
+    <div class="confirm-actions">
+      <button id="genericConfirmCancel" class="btn btn-secondary">取消</button>
+      <button id="genericConfirmOk" class="btn btn-danger">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic Alert Modal -->
+<div id="genericAlertModal" class="confirm-modal" aria-hidden="true" role="alertdialog">
+  <div class="confirm-panel">
+    <h3 id="genericAlertTitle">提示</h3>
+    <div id="genericAlertMessage" class="confirm-message"></div>
+    <div class="confirm-actions">
+      <button id="genericAlertOk" class="btn btn-primary">確定</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

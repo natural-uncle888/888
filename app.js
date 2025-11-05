@@ -372,7 +372,9 @@ durationMinutes: +$('durationMinutes').value,
         id: $('id').value || crypto.randomUUID(),
         staff:$('staff').value, date:$('date').value, time:$('time').value,
         confirmed:$('confirmed')?.checked||false, quotationOk:$('quotationOk')?.checked||false,
-        customer:$('customer').value.trim(), lineId:$('lineId').value.trim(), phone:getPhones().trim(),
+        customer:$('customer').value.trim(), lineIds:getLineIds(),
+        lineId:(getLineIds()[0] || $('lineId').value.trim()),
+        phone:getPhones().trim(),
         slots:getChecked('slot'), slotNote:$('slotNote')?.value.trim()||'', address:$('address').value.trim(),
         residenceType:$('residenceType')?.value||'', residenceOther:$('residenceOther')?.value.trim()||'',
         contactTimes:getChecked('contactTime'), contactTimeNote:$('contactTimeNote')?.value.trim()||'',
@@ -1026,8 +1028,97 @@ recalcTotals();
     });
 
     // add staff/contact
-    function addStaff(){ const name=prompt('輸入新作業人員名稱：')?.trim(); if(!name) return; if(!staffList.includes(name)){ staffList.push(name); save(STAFF_KEY, staffList); initStaffSelects(); } $('staff').value=name; $('staffFilter').value=''; }
-    function addContact(){ const name=prompt('輸入新聯繫方式：')?.trim(); if(!name) return; if(!contactList.includes(name)){ contactList.push(name); save(CONTACT_KEY, contactList); initContactSelect(); } $('contactMethod').value=name; }
+    
+// helper: show a custom input modal. onConfirm receives the trimmed value.
+function showInputModal(title, label, placeholder, initialValue, onConfirm) {
+  const modal = document.getElementById('inputModal');
+  const input = document.getElementById('inputModalInput');
+  const titleEl = document.getElementById('inputModalTitle');
+  const labelEl = document.getElementById('inputModalLabel');
+  const btnConfirm = document.getElementById('inputModalConfirm');
+  const btnCancel = document.getElementById('inputModalCancel');
+  const btnClose = document.getElementById('inputModalCloseBtn');
+
+  if (!modal) {
+    // fallback to native prompt
+    const val = prompt(label || title) || '';
+    if (onConfirm) onConfirm(val.trim());
+    return;
+  }
+
+  titleEl.textContent = title || '輸入';
+  labelEl.textContent = label || '';
+  input.placeholder = placeholder || '';
+  input.value = initialValue || '';
+  modal.setAttribute('aria-hidden','false');
+  input.focus();
+  input.select();
+
+  function cleanup() {
+    modal.setAttribute('aria-hidden','true');
+    btnConfirm.removeEventListener('click', onConfirmClick);
+    btnCancel.removeEventListener('click', onCancel);
+    btnClose.removeEventListener('click', onCancel);
+    modal.querySelector('.modal-backdrop')?.removeEventListener('click', onCancel);
+  }
+
+  function onConfirmClick(e) {
+    const val = (input.value || '').trim();
+    cleanup();
+    if (onConfirm) onConfirm(val);
+  }
+  function onCancel(e) {
+    cleanup();
+  }
+
+  btnConfirm.addEventListener('click', onConfirmClick);
+  btnCancel.addEventListener('click', onCancel);
+  btnClose.addEventListener('click', onCancel);
+  modal.querySelector('.modal-backdrop')?.addEventListener('click', onCancel);
+
+  // allow Enter/Escape on input
+  function onKey(e){
+    if(e.key === 'Enter'){ onConfirmClick(); }
+    else if(e.key === 'Escape'){ onCancel(); }
+  }
+  input.addEventListener('keydown', onKey);
+
+  // cleanup input listener after modal closed by wrapping cleanup to remove key listener
+  const origCleanup = cleanup;
+  cleanup = function(){
+    input.removeEventListener('keydown', onKey);
+    origCleanup();
+  };
+}
+
+// add staff/contact using custom modal
+function addStaff(){ 
+  showInputModal('新增作業人員','輸入新作業人員名稱：','姓名', '', function(name){
+    name = (name||'').trim();
+    if(!name) return;
+    const staffList = loadStaffList ? loadStaffList() : (window.staffList||[]);
+    if(!staffList.includes(name)){
+      staffList.push(name);
+      saveStaffList && saveStaffList(staffList);
+      initStaffSelects && initStaffSelects();
+    }
+    $('staff').value = name; $('staffFilter').value = '';
+  });
+}
+function addContact(){ 
+  showInputModal('新增聯繫方式','輸入新聯繫方式：','例如：Line/Email/電話', '', function(name){
+    name = (name||'').trim();
+    if(!name) return;
+    const contactList = loadContactList ? loadContactList() : (window.contactList||[]);
+    if(!contactList.includes(name)){
+      contactList.push(name);
+      saveContactList && saveContactList(contactList);
+      initContactSelect && initContactSelect();
+    }
+    $('contactMethod').value = name;
+  });
+}
+
 
     // ---------- Expense module ----------
     function refreshExpense(){
@@ -1202,8 +1293,15 @@ $('importJson').addEventListener('click', importJSON);
       $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const ok = await showConfirm('清空所有訂單','確定要清空所有訂單資料嗎？此動作無法復原。'); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
       $('addStaffBtn').addEventListener('click', addStaff);
       $('addContactMethod').addEventListener('click', addContact);
-      
-      // Autofill from contacts when name/phone entered
+      // 新增 LINE/Facebook ID 按鈕動作：在 #lineIdContainer 新增一個輸入欄位
+      $('addLineIdBtn')?.addEventListener('click', ()=>{
+        const container = document.getElementById('lineIdContainer');
+        if(!container) return;
+        container.appendChild(createLineIdRow(''));
+        // focus newest input
+        const inputs = container.querySelectorAll('input.lineid-input');
+        if(inputs.length) inputs[inputs.length-1].focus();
+      });// Autofill from contacts when name/phone entered
       $('customer').addEventListener('blur', ()=>{ const c = findContactByName($('customer').value); if(c){ if ($('phone').dataset.touched !== '1' && !getPhones()) getPhones() = c.phone||''; if(!$('address').value) $('address').value = c.address||''; if(!$('lineId').value) $('lineId').value = c.lineId||''; }
       });
       // ---- phone touched guard (so user can keep it empty) ----
@@ -2714,8 +2812,30 @@ function getOrderIdentifiers(o){
   // if line/profile inside contact object
   if (o.contact && o.contact.lineId) ids.add('line:' + String(o.contact.lineId).trim());
   if (o.contact && o.contact.facebookId) ids.add('facebook:' + String(o.contact.facebookId).trim());
+  
+  
+  // --- Add all LINE/Facebook IDs (from lineIds/facebookIds arrays) as identifiers (快速全部ID策略)
+  try{
+    if (Array.isArray(o.lineIds) && o.lineIds.length){
+      o.lineIds.forEach(id => {
+        if(!id) return;
+        try{ ids.add(('line:' + String(id).trim().toLowerCase()).replace(/\s+/g,'')); }catch(e){}
+      });
+    }
+    if (Array.isArray(o.facebookIds) && o.facebookIds.length){
+      o.facebookIds.forEach(id => {
+        if(!id) return;
+        try{ ids.add(('facebook:' + String(id).trim().toLowerCase()).replace(/\s+/g,'')); }catch(e){}
+      });
+    }
+    // also consider legacy single fields
+    try{ if(o.lineId) ids.add(('line:'+String(o.lineId).trim().toLowerCase()).replace(/\s+/g,'')); }catch(e){}
+    try{ if(o.facebookId) ids.add(('facebook:'+String(o.facebookId).trim().toLowerCase()).replace(/\s+/g,'')); }catch(e){}
+  }catch(e){}
+
   return ids;
 }
+
 
 // Rebuild a Map from identifier -> sorted list of orders (desc by _ts)
 // New behavior: group orders into clusters where any identifier matches (name, line, facebook, phone, address).
@@ -2852,6 +2972,7 @@ function escapeHtml(s) {
 }
 
 
+
 function renderHistoryModal(customerKey, titleText) {
   const modal = document.getElementById('historyModal');
   const body = document.getElementById('historyTableBody');
@@ -2862,7 +2983,7 @@ function renderHistoryModal(customerKey, titleText) {
   body.innerHTML = '';
 
   const list = getHistoryByCustomerKey(customerKey);
-  if (!list.length) {
+  if (!list || !list.length) {
     empty.style.display = 'block';
     modal.setAttribute('aria-hidden', 'false');
     modal.dataset.customerKey = customerKey;
@@ -2871,75 +2992,77 @@ function renderHistoryModal(customerKey, titleText) {
   }
   empty.style.display = 'none';
 
-  const sortSel = document.getElementById('historySort');
-  const sortDir = (sortSel && sortSel.value === 'asc') ? 1 : -1;
-  if (sortDir === 1) list.sort((a,b)=> a._ts - b._ts);
-  else list.sort((a,b)=> b._ts - a._ts);
+  // build ignored set for quick lookup
+  const ignoredSet = new Set((loadIgnoredHistoryIds && Array.from(loadIgnoredHistoryIds()) ) || []);
 
-  const searchTerm = (document.getElementById('historySearch')||{}).value?.toLowerCase?.() || '';
-  const ignoredSet = loadIgnoredHistoryIds();
+  // create rows
+  list.forEach(o=>{
+    // Name
+    const nameText = (o.name || o.customer || o.contact || '') + '';
+    // Date only (no time)
+    let dateOnly = '';
+    if (o._ts) {
+      const d = new Date(o._ts);
+      if (!isNaN(d)) dateOnly = d.toLocaleDateString('zh-TW');
+    } else if (o.date) {
+      const d2 = new Date(o.date);
+      if (!isNaN(d2)) dateOnly = d2.toLocaleDateString('zh-TW');
+    }
+    // Phone (single-line)
+    let phoneText = '';
+    if (Array.isArray(o.phone)) phoneText = o.phone.join(' / ');
+    else phoneText = (o.phone || o.phones || o.tel || o.phoneNumber || '') + '';
 
-  list.forEach(o => {
-    const dateStr = (o._ts && !isNaN(o._ts)) ? o._ts.toLocaleString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
-    const items = (Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '')) || getOrderItems(o) || '-';
-    const status = o.status || '-';
+    const items = (Array.isArray(o.items) ? o.items.join(' / ') : (o.items || '')) || getOrderItems(o) || '';
+    const addr = o.address || '';
     const notes = o.notes || o.note || o.slotNote || '';
-
-    const searchable = (items + ' ' + notes + ' ' + status).toLowerCase();
-    if (searchTerm && !searchable.includes(searchTerm)) return;
+    const status = o.status || '';
 
     const tr = document.createElement('tr');
+    tr.dataset.orderId = (o.id || o._id || '');
 
-    const orderId = (o.id || o._id || '');
+    // add clickable class and accessible role
+    tr.classList.add('history-row-clickable');
 
     tr.innerHTML = `
-      <td>${dateStr}</td>
+      <td class="no-wrap">${escapeHtml(nameText)}</td>
+      <td class="no-wrap">${escapeHtml(dateOnly)}</td>
+      <td class="no-wrap">${escapeHtml(phoneText)}</td>
       <td>${escapeHtml(items)}</td>
-      <td>${escapeHtml(status)}</td>
+      <td>${escapeHtml(addr)}</td>
       <td>${escapeHtml(notes)}</td>
       <td>
-        <button class="btn-small history-open-order" data-order-id="${orderId}">開啟</button>
-        <button class="btn-small history-export-row" data-order-id="${orderId}">匯出</button>
-        <button class="btn-small history-ignore-row" data-order-id="${orderId}">${ignoredSet.has(orderId) ? '已忽略' : '忽略'}</button>
+        <button class="btn-small history-ignore-row" data-order-id="${tr.dataset.orderId}">${ignoredSet.has(tr.dataset.orderId) ? '已忽略' : '忽略'}</button>
       </td>
     `;
     body.appendChild(tr);
 
-    // attach handlers
-    const btnOpen = tr.querySelector('.history-open-order');
-    if (btnOpen) btnOpen.addEventListener('click', (ev)=>{
-      const id = ev.currentTarget.dataset.orderId;
+    // Clicking the row opens the order (unless click target is the ignore button)
+    tr.addEventListener('click', (ev) => {
+      if (ev.target.closest('.history-ignore-row')) {
+        // let the ignore button handler handle it
+        return;
+      }
+      const id = tr.dataset.orderId;
       if (!id) return;
-      // find order and open it
       const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === id) || null) : null;
       if (ord) {
-        fillForm(ord);
+        if (typeof fillForm === 'function') fillForm(ord);
         // close modal
         modal.setAttribute('aria-hidden','true');
       }
     });
 
-    const btnExport = tr.querySelector('.history-export-row');
-    if (btnExport) btnExport.addEventListener('click', (ev)=>{
-      const id = ev.currentTarget.dataset.orderId;
-      const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === id) || null) : null;
-      if (ord) {
-        exportHistoryToCsv([ord], `history_${id}.csv`);
-      }
-    });
-
+    // attach ignore handler
     const btnIgnore = tr.querySelector('.history-ignore-row');
     if (btnIgnore) btnIgnore.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
       const id = ev.currentTarget.dataset.orderId;
       if (!id) return;
-      const ignored = loadIgnoredHistoryIds();
-      if (ignored.has(id)) {
-        // un-ignore
-        ignored.delete(id);
-      } else {
-        ignored.add(id);
-      }
-      saveIgnoredHistoryIds(ignored);
+      const ignored = loadIgnoredHistoryIds ? new Set(loadIgnoredHistoryIds()) : new Set();
+      if (ignored.has(id)) ignored.delete(id);
+      else ignored.add(id);
+      saveIgnoredHistoryIds && saveIgnoredHistoryIds(ignored);
       // rebuild cache and re-render modal and table badges
       try { rebuildCustomerHistoryMap(); } catch(e){}
       renderHistoryModal(customerKey, titleText);
@@ -2952,6 +3075,7 @@ function renderHistoryModal(customerKey, titleText) {
   modal.dataset.customerKey = customerKey;
   modal.dataset.title = titleText || '';
 }
+
 
 
 function exportHistoryToCsv(list, filename) {
@@ -3656,4 +3780,63 @@ async function safeUploadToCalendar(eventData) {
     }
   }
 }
+
+
+
+
+// --- Helper for multiple LINE/Facebook IDs (新增ID 功能) ---
+function escapeAttr(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function createLineIdRow(val){
+  const div = document.createElement('div');
+  div.className = 'lineid-row';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'lineid-input';
+  input.value = val || '';
+  input.placeholder = '輸入 LINE 或 Facebook ID';
+  input.addEventListener('blur', ()=>{
+    // try autofill from contact list if matches a contact
+    const c = findContactByLineId(input.value);
+    if(c){
+      if(!$('customer').value) $('customer').value = c.name || '';
+      if(!$('address').value) $('address').value = c.address || '';
+      if ($('phone') && $('phone').dataset && $('phone').dataset.touched !== '1' && !getPhones()) setFirstPhone(c.phone || '');
+    }
+  });
+  div.appendChild(input);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'lineid-remove btn-small';
+  btn.title = '移除 ID';
+  btn.textContent = '✖';
+  btn.addEventListener('click', ()=>{ div.remove(); });
+  div.appendChild(btn);
+  return div;
+}
+
+function getLineIds(){
+  const container = document.getElementById('lineIdContainer');
+  if(!container) return [];
+  const inputs = Array.from(container.querySelectorAll('input.lineid-input'));
+  const vals = inputs.map(i=> (i.value||'').trim()).filter(Boolean);
+  return vals;
+}
+
+// Utility: if there is only a legacy single #lineId input, ensure it's present in container on load
+(function ensureLineIdContainerOnLoad(){
+  try{
+    const container = document.getElementById('lineIdContainer');
+    if(!container){
+      const single = $('lineId');
+      if(single){
+        const wrap = document.createElement('div');
+        wrap.id = 'lineIdContainer';
+        wrap.innerHTML = `<div class="lineid-row"></div>`;
+        single.parentNode.insertBefore(wrap, single);
+        wrap.querySelector('.lineid-row').appendChild(single);
+      }
+    }
+  }catch(e){}
+})();
 

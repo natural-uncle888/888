@@ -173,8 +173,11 @@
 <div class="tiny">選既有客戶會自動帶出電話/地址</div>
 </div>
 <div class="col" style="grid-column:span 3">
-<label>LINE or Fackbook ID</label>
-<input id="lineId" type="text"/>
+  <label>LINE or Fackbook ID</label>
+  <div id="lineIdContainer">
+    <div class="lineid-row"><input class="lineid-input" id="lineId" type="text"/></div>
+  </div>
+  <button id="addLineIdBtn" type="button" class="btn-add-id">＋ 新增 ID</button>
 </div>
 <div class="col" style="grid-column:span 3">
 <label>電話</label>
@@ -478,6 +481,25 @@
 <!-- ✅ 表單中新增：工作時長欄位 -->
 <!-- ✅ gatherForm() 中補上 -->
 </div>
+
+<!-- Input Modal for adding staff/contact (custom styled) -->
+<div aria-hidden="true" class="modal input-modal" id="inputModal">
+  <div class="modal-backdrop" data-close="true"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="inputModalTitle">
+    <header class="modal-header">
+      <h3 id="inputModalTitle">輸入內容</h3>
+      <button aria-label="關閉" class="btn-small" id="inputModalCloseBtn">✕</button>
+    </header>
+    <div class="modal-body">
+      <label id="inputModalLabel" class="muted small"></label>
+      <input id="inputModalInput" class="form-input" type="text" />
+    </div>
+    <footer class="modal-footer">
+      <button class="btn" id="inputModalConfirm">確定</button>
+      <button class="btn btn-ghost" id="inputModalCancel">取消</button>
+    </footer>
+  </div>
+</div>
 <script defer="" src="app.js"></script>
 <!-- Customer History Modal (added by assistant) -->
 <div aria-hidden="true" class="modal" id="historyModal">
@@ -500,9 +522,11 @@
 <table class="table" id="historyTable">
 <thead>
 <tr>
+<th>姓名</th>
 <th>清洗時間</th>
+<th>電話</th>
 <th>清洗項目</th>
-<th>狀態</th>
+<th>地址</th>
 <th>備註</th>
 <th>操作</th>
 </tr>

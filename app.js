@@ -2009,10 +2009,36 @@ async function uploadEventToCalendar(o) {
   });
 
   if (res.ok) {
-    alert(`\u2705 已成功加入 Google 日曆！`);
+    // prettier modal using SweetAlert2
+    try {
+      Swal.fire({
+        icon: 'success',
+        title: '已成功加入 Google 日曆！',
+        html: `<div style="text-align:left;line-height:1.45;padding-top:6px">
+                 <div><strong>標題：</strong>${escapeHtml(summary || '')}</div>
+                 <div><strong>時間：</strong>${escapeHtml((new Date(start)).toLocaleString())}</div>
+                 <div style="margin-top:6px;color:var(--muted)">事件已加入您的 Google 日曆。</div>
+               </div>`,
+        confirmButtonText: '確定',
+        customClass: { popup: 'swal2-calendar-popup' }
+      });
+    } catch (e) {
+      // fallback
+      alert('\u2705 已成功加入 Google 日曆！');
+    }
   } else {
     const err = await res.json();
-    alert(`\u274C 上傳失敗：${err.error?.message || '未知錯誤'}`);
+    try {
+      Swal.fire({
+        icon: 'error',
+        title: '上傳失敗',
+        html: `<div style="text-align:left;line-height:1.45;padding-top:6px">${escapeHtml(err.error?.message || '未知錯誤')}</div>`,
+        confirmButtonText: '關閉',
+        customClass: { popup: 'swal2-calendar-popup' }
+      });
+    } catch (e) {
+      alert('\u274C 上傳失敗：' + (err.error?.message || '未知錯誤'));
+    }
   }
 }
 

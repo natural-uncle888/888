@@ -604,6 +604,11 @@ durationMinutes: +$('durationMinutes').value,
 
     // op buttons
     const op = tr.querySelector('.op-cell');
+    // 新增：報價單帶入按鈕
+    const quoteBtn = document.createElement('button'); quoteBtn.className='icon-btn'; quoteBtn.textContent='🧾';
+    quoteBtn.title = '開啟報價單（自動帶入此筆）';
+    quoteBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); window.openQuotationFromOrder(o); });
+    op.appendChild(quoteBtn);
     const calBtn2 = document.createElement('button'); calBtn2.className='icon-btn'; calBtn2.textContent='📅';
     calBtn2.title = '加入 Google 日曆';
     calBtn2.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleUploadWithAuth(o); });
@@ -2009,36 +2014,10 @@ async function uploadEventToCalendar(o) {
   });
 
   if (res.ok) {
-    // prettier modal using SweetAlert2
-    try {
-      Swal.fire({
-        icon: 'success',
-        title: '已成功加入 Google 日曆！',
-        html: `<div style="text-align:left;line-height:1.45;padding-top:6px">
-                 <div><strong>標題：</strong>${escapeHtml(summary || '')}</div>
-                 <div><strong>時間：</strong>${escapeHtml((new Date(start)).toLocaleString())}</div>
-                 <div style="margin-top:6px;color:var(--muted)">事件已加入您的 Google 日曆。</div>
-               </div>`,
-        confirmButtonText: '確定',
-        customClass: { popup: 'swal2-calendar-popup' }
-      });
-    } catch (e) {
-      // fallback
-      alert('\u2705 已成功加入 Google 日曆！');
-    }
+    alert(`\u2705 已成功加入 Google 日曆！`);
   } else {
     const err = await res.json();
-    try {
-      Swal.fire({
-        icon: 'error',
-        title: '上傳失敗',
-        html: `<div style="text-align:left;line-height:1.45;padding-top:6px">${escapeHtml(err.error?.message || '未知錯誤')}</div>`,
-        confirmButtonText: '關閉',
-        customClass: { popup: 'swal2-calendar-popup' }
-      });
-    } catch (e) {
-      alert('\u274C 上傳失敗：' + (err.error?.message || '未知錯誤'));
-    }
+    alert(`\u274C 上傳失敗：${err.error?.message || '未知錯誤'}`);
   }
 }
 
@@ -3866,3 +3845,60 @@ function getLineIds(){
   }catch(e){}
 })();
 
+
+
+// === Quote Prefill: per-order sender (global) ===
+(function(){
+  'use strict';
+  function primaryServiceOfOrder(o){
+    try{
+      if ((+o.acSplit||0)  > 0) return { code:'ac_split',  label:'分離式冷氣清洗' };
+      if ((+o.acDuct||0)   > 0) return { code:'ac_duct',   label:'吊隱式冷氣清洗' };
+      if ((+o.washerTop||0)> 0) return { code:'washer_top',label:'直立式洗衣機清洗' };
+      if ((+o.waterTank||0)> 0) return { code:'water_tank',label:'水塔清洗' };
+    }catch(e){}
+    return { code:'', label:'' };
+  }
+  function firstPhone(p){
+    if (!p) return '';
+    // support delimiters like '/', '、', '，', ','
+    const s = String(p).split(/[\/、，,]/).map(x=>x.trim()).filter(Boolean);
+    return s[0] || '';
+  }
+  function buildAppointment(o){
+    const date = o?.date || '';
+    const time = o?.time || '';
+    let iso = null;
+    try{
+      if (date && time) iso = new Date(`${date}T${time}:00+08:00`).toISOString();
+    }catch(e){ iso = null; }
+    return { date, time, iso, tz: 'Asia/Taipei' };
+  }
+  function openQuotationFromOrder(order){
+    try{
+      const payload = {
+        name: order.customer || '',
+        phone: firstPhone(order.phone || ''),
+        address: order.address || '',
+        appointment: buildAppointment(order),
+        service: primaryServiceOfOrder(order)
+      };
+      const targetOrigin = 'https://unclequotation.netlify.app';
+      const child = window.open(targetOrigin, '_blank', 'noopener');
+      let attempts = 0, maxAttempts = 20;
+      const timer = setInterval(()=>{
+        attempts++;
+        try{
+          if (!child || child.closed || attempts > maxAttempts){
+            clearInterval(timer);
+            return;
+          }
+          child.postMessage({ type:'PREFILL_QUOTE', payload }, targetOrigin);
+          clearInterval(timer);
+        }catch(e){ /* retry until child ready */ }
+      }, 250);
+    }catch(e){ console.error('openQuotationFromOrder failed:', e); }
+  }
+  // expose to global for row buttons
+  window.openQuotationFromOrder = openQuotationFromOrder;
+})();

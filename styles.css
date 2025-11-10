@@ -1055,28 +1055,3 @@ th.col-total, td.col-total {
 }
 .input-modal .btn { background:#0b74de; color:#fff; padding:8px 14px; border-radius:8px; border:none; }
 .input-modal .btn-ghost { background:transparent; color:#334155; border:1px solid rgba(15,23,42,0.06); padding:8px 12px; border-radius:8px; }
-
-
-/* --- Calendar upload: SweetAlert2 custom popup styling --- */
-.swal2-calendar-popup {
-  border-radius: 12px !important;
-  box-shadow: 0 12px 40px rgba(11,116,222,0.12) !important;
-  font-family: inherit;
-  max-width: 560px;
-}
-.swal2-calendar-popup .swal2-title {
-  font-size: 18px;
-  margin-bottom: 6px;
-}
-.swal2-calendar-popup .swal2-html-container {
-  color: var(--text, #222);
-  font-size: 14px;
-  text-align: left;
-}
-.swal2-calendar-popup .swal2-confirm {
-  background: var(--primary, #0b74de) !important;
-  color: #fff !important;
-  border-radius: 8px !important;
-  padding: 8px 14px !important;
-  box-shadow: none !important;
-}

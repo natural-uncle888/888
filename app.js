@@ -3905,7 +3905,8 @@ function getLineIds(){
     }
   }
 
-  function openQuotationFromOrder(order){
+  
+function openQuotationFromOrder(order){
   try{
     const payload = {
       name: order.customer || '',
@@ -3938,4 +3939,5 @@ function getLineIds(){
   }
 }
 window.openQuotationFromOrder = openQuotationFromOrder;
+
 })();

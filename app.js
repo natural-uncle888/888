@@ -3905,25 +3905,37 @@ function getLineIds(){
     }
   }
 
-  async function openQuotationFromOrder(order){
-    try{
-      await copyOrderInfoToClipboard(order);
-      if (typeof showAlert === 'function'){
-        await showAlert('系統訊息','已複製姓名／電話／地址，請在報價單頁面貼上（Ctrl+V）。');
-      } else {
-        alert('已複製姓名／電話／地址，請在報價單頁面貼上（Ctrl+V）。');
-      }
-    }catch(e){
-      console.error('copy failed:', e);
-      if (typeof showAlert === 'function'){
-        await showAlert('系統訊息','無法自動複製，請改用手動複製。');
-      } else {
-        alert('無法自動複製，請改用手動複製。');
-      }
-    }
-    window.open(QUOTATION_URL, '_blank', 'noopener');
-  }
+  function openQuotationFromOrder(order){
+  try{
+    const payload = {
+      name: order.customer || '',
+      phone: firstPhone(order.phone || ''),
+      address: order.address || '',
+      appointment: buildAppointment(order),
+      service: primaryServiceOfOrder(order)
+    };
 
-  // expose to global for row buttons
-  window.openQuotationFromOrder = openQuotationFromOrder;
+    const targetOrigin = 'https://unclequotation.netlify.app';
+    const child = window.open(targetOrigin, '_blank', 'noopener');
+
+    let attempts = 0, maxAttempts = 30;
+    const timer = setInterval(()=>{
+      attempts++;
+
+      if (!child || child.closed || attempts > maxAttempts) {
+        clearInterval(timer);
+        return;
+      }
+
+      try{
+        child.postMessage({ type:'PREFILL_QUOTE', payload }, targetOrigin);
+        clearInterval(timer);
+      }catch(e){}
+    }, 300);
+
+  }catch(e){ 
+    console.error('openQuotationFromOrder failed:', e); 
+  }
+}
+window.openQuotationFromOrder = openQuotationFromOrder;
 })();

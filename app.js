@@ -3874,31 +3874,56 @@ function getLineIds(){
     }catch(e){ iso = null; }
     return { date, time, iso, tz: 'Asia/Taipei' };
   }
-  function openQuotationFromOrder(order){
-    try{
-      const payload = {
-        name: order.customer || '',
-        phone: firstPhone(order.phone || ''),
-        address: order.address || '',
-        appointment: buildAppointment(order),
-        service: primaryServiceOfOrder(order)
-      };
-      const targetOrigin = 'https://unclequotation.netlify.app';
-      const child = window.open(targetOrigin, '_blank', 'noopener');
-      let attempts = 0, maxAttempts = 20;
-      const timer = setInterval(()=>{
-        attempts++;
-        try{
-          if (!child || child.closed || attempts > maxAttempts){
-            clearInterval(timer);
-            return;
-          }
-          child.postMessage({ type:'PREFILL_QUOTE', payload }, targetOrigin);
-          clearInterval(timer);
-        }catch(e){ /* retry until child ready */ }
-      }, 250);
-    }catch(e){ console.error('openQuotationFromOrder failed:', e); }
+
+  const QUOTATION_URL = 'https://unclequotation.netlify.app';
+
+  async function copyOrderInfoToClipboard(order){
+    const lines = [
+      `姓名：${order.customer || ''}`,
+      `電話：${firstPhone(order.phone || '')}`,
+      `地址：${order.address || ''}`
+    ];
+    const text = lines.join('\n').trim();
+    if (!text) return;
+
+    if (navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try{
+        document.execCommand('copy');
+      } finally {
+        document.body.removeChild(ta);
+      }
+    }
   }
+
+  async function openQuotationFromOrder(order){
+    try{
+      await copyOrderInfoToClipboard(order);
+      if (typeof showAlert === 'function'){
+        await showAlert('系統訊息','已複製姓名／電話／地址，請在報價單頁面貼上（Ctrl+V）。');
+      } else {
+        alert('已複製姓名／電話／地址，請在報價單頁面貼上（Ctrl+V）。');
+      }
+    }catch(e){
+      console.error('copy failed:', e);
+      if (typeof showAlert === 'function'){
+        await showAlert('系統訊息','無法自動複製，請改用手動複製。');
+      } else {
+        alert('無法自動複製，請改用手動複製。');
+      }
+    }
+    window.open(QUOTATION_URL, '_blank', 'noopener');
+  }
+
   // expose to global for row buttons
   window.openQuotationFromOrder = openQuotationFromOrder;
 })();

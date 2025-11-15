@@ -2009,10 +2009,39 @@ async function uploadEventToCalendar(o) {
   });
 
   if (res.ok) {
-    alert(`\u2705 已成功加入 Google 日曆！`);
+  // 使用 SweetAlert2 美化成功彈窗
+  if (typeof Swal !== 'undefined' && Swal.fire) {
+    Swal.fire({
+      icon: 'success',
+      title: '已成功加入 Google 日曆',
+      text: `${o.customer || '這筆訂單'} 已新增到行事曆中。`,
+      footer: '可以到 Google 日曆查看與編輯這筆排程。',
+      showConfirmButton: true,
+      confirmButtonText: '太好了！',
+      // 如果想要自動關閉，可以加上這兩行：
+      // timer: 1800,
+      // timerProgressBar: true,
+    });
+  } else if (typeof showAlert === 'function') {
+    // 若 SweetAlert2 不在，就走你自訂的 Alert Modal
+    showAlert('上傳成功', '已成功加入 Google 日曆！');
   } else {
-    const err = await res.json();
-    alert(`\u274C 上傳失敗：${err.error?.message || '未知錯誤'}`);
+    // 最後保險：才用原生 alert
+    alert('✅ 已成功加入 Google 日曆！');
+  }
+} else {
+  const err = await res.json();
+  if (typeof Swal !== 'undefined' && Swal.fire) {
+    Swal.fire({
+      icon: 'error',
+      title: '上傳失敗',
+      text: err.error?.message || '未知錯誤，請稍後再試。',
+      confirmButtonText: '了解'
+    });
+  } else if (typeof showAlert === 'function') {
+    showAlert('上傳失敗', err.error?.message || '未知錯誤，請稍後再試。');
+  } else {
+    alert(`❌ 上傳失敗：${err.error?.message || '未知錯誤'}`);
   }
 }
 

@@ -2044,7 +2044,7 @@ async function uploadEventToCalendar(o) {
     alert(`❌ 上傳失敗：${err.error?.message || '未知錯誤'}`);
   }
 }
-
+}
 // ---- concatenated from inline <script> blocks ----
 
 // （已改為由操作列的第一顆按鈕提供📅上傳功能）

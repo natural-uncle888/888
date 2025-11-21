@@ -1211,237 +1211,119 @@ function findLatestOrderByCustomer(name){
 function refreshDueSoonPanel(){
   const panel = document.getElementById('dueSoonPanel');
   const listEl = document.getElementById('dueSoonList');
+  const statsEl = document.getElementById('dueSoonStats');
   if(!panel || !listEl) return;
+
   const today = new Date(); today.setHours(0,0,0,0);
+  const dayMs = 24*60*60*1000;
   const seen = new Set();
   const items = [];
-  orders.forEach(o => {
+
+  (orders || []).forEach(o => {
     if(!o.reminderEnabled) return;
-    const name = (o.customer||'').trim();
+    const name = (o.customer || '').trim();
     if(!name || seen.has(name)) return;
     seen.add(name);
     const flags = reminderFlagsForCustomer(name);
     if(flags.muted) return;
-          const nd = nextDueDateForCustomer(name);
+    const nd = nextDueDateForCustomer(name);
     if(!nd) return;
-    const days = Math.floor((nd - today)/(24*60*60*1000));
+    const days = Math.floor((nd - today)/dayMs);
     if(days <= 30){
       const latest = findLatestOrderByCustomer(name) || {};
       items.push({
         name,
         due: nd,
         days,
-        phone: latest.phone||'',
-        address: latest.address||'',
+        notified: !!flags.notified,
+        phone: latest.phone || '',
+        address: latest.address || '',
         last: lastCompletedDateForCustomer(name) || '',
-        obj: latest
+        id: latest.id || ''
       });
     }
   });
-  items.sort((a,b)=> a.days - b.days);
-  const top = items.slice(0, 20);
-  if(top.length === 0){
+
+  if(items.length === 0){
+    if(statsEl){
+      statsEl.textContent = '目前沒有需要提醒的客戶';
+    }
     listEl.classList.add('empty');
-    listEl.innerHTML = '目前沒有 30 天內將到期的客戶';
+    listEl.textContent = '目前沒有 30 天內將到期的客戶';
     return;
   }
+
+  // 統計：逾期 / 7 天內 / 8–30 天內
+  const overdue = items.filter(i => i.days <= 0).length;
+  const soon7 = items.filter(i => i.days > 0 && i.days <= 7).length;
+  const soon30 = items.filter(i => i.days > 7 && i.days <= 30).length;
+  if(statsEl){
+    statsEl.innerHTML =
+      `逾期 <strong>${overdue}</strong> 位，` +
+      `7 天內 <strong>${soon7}</strong> 位，` +
+      `8–30 天內 <strong>${soon30}</strong> 位。`;
+  }
+
+  items.sort((a,b) => {
+    if (a.days !== b.days){
+      return a.days - b.days;
+    }
+    return (a.name || '').localeCompare(b.name || '', 'zh-Hant');
+  });
+
+  const top = items.slice(0, 3);
   listEl.classList.remove('empty');
   listEl.innerHTML = top.map(it => {
     const dueStr = fmtDate(it.due);
-    const badge = it.days <= 0 ? `<span class="badge due">⚠️ 到期 ${dueStr}</span>` : `<span class="badge soon">⏰ ${it.days} 天後到期</span>`;
-    const notified = reminderFlagsForCustomer(it.name).notified ? `<span class="badge muted">已通知</span>` : '';
-    const lastStr = it.last ? `最近完成：${(it.last||'').slice(0,10)}` : '';
-    const phoneStr = it.phone ? it.phone : '';
-    const addrStr = it.address ? it.address : '';
-    return `<div class="row">
-      <div class="name">${it.name} ${badge} ${notified}</div>
-      <div class="muted">${lastStr}</div>
-      <div class="muted">${phoneStr}</div>
-      <div class="muted">${addrStr}</div>
-      <div><button class="inline-btn" data-open="${it.obj?.id||''}">開啟</button></div>
-    </div>`;
+    let statusText = '';
+    if (it.days <= 0){
+      const overdueDays = Math.abs(it.days);
+      statusText = overdueDays === 0 ? '今天到期' : `已逾期 ${overdueDays} 天`;
+    } else {
+      statusText = `還有 ${it.days} 天`;
+    }
+    const notifiedText = it.notified ? '（已通知）' : '';
+    const meta = `下次提醒：${dueStr}（${statusText}）${notifiedText}`;
+    const safeName = escapeHtml(it.name || '');
+    const safeMeta = escapeHtml(meta);
+
+    const idAttr = it.id ? ` data-open="${escapeHtml(it.id)}"` : '';
+    return `
+      <div class="item"${idAttr}>
+        <div>
+          <div class="name">${safeName}</div>
+          <div class="meta">${safeMeta}</div>
+        </div>
+        <button type="button" class="inline-btn" data-open="${escapeHtml(it.id || '')}">開啟</button>
+      </div>
+    `;
   }).join('');
+
   // Attach open handlers
   listEl.querySelectorAll('button[data-open]').forEach(btn => {
     btn.addEventListener('click', (ev)=>{
       ev.stopPropagation();
       const id = btn.getAttribute('data-open');
-      const target = orders.find(x=> x.id===id) || null;
-      if(target){ fillForm(target); }
-      else {
-        // 若找不到特定訂單，就新建一筆以該客戶為基底
-        fillForm({ customer: btn.closest('.row').querySelector('.name')?.textContent.trim().split(' ')[0] || '' });
+      let target = null;
+      if(id){
+        target = (orders || []).find(x => x.id === id) || null;
       }
-      document.getElementById('orderAccordion').open = true;
-      document.getElementById('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
+      const name = btn.closest('.item')?.querySelector('.name')?.textContent.trim() || '';
+      if(target){
+        fillForm(target);
+      } else if (name){
+        fillForm({ customer: name });
+      } else {
+        fillForm({});
+      }
+      const acc = document.getElementById('orderAccordion');
+      if(acc){
+        acc.open = true;
+        acc.scrollIntoView({behavior:'smooth', block:'start'});
+      }
     });
   });
 }
-
-// ---------- Events ----------
-    function attachEvents(){
-      // order form
-      $('orderForm').addEventListener('submit', saveOrder);
-      $('deleteBtn').addEventListener('click', deleteOrder);
-      $('resetBtn').addEventListener('click', resetForm);
-      $('recalc').addEventListener('click', recalcTotals);
-      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount']
-        .forEach(id => $(id).addEventListener('input', recalcTotals));
-      $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
-$('exportJson').addEventListener('click', exportJSON);
-$('importJson').addEventListener('click', importJSON);
-      $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const ok = await showConfirm('清空所有訂單','確定要清空所有訂單資料嗎？此動作無法復原。'); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
-      $('addStaffBtn').addEventListener('click', addStaff);
-      $('addContactMethod').addEventListener('click', addContact);
-      // 新增 LINE/Facebook ID 按鈕動作：在 #lineIdContainer 新增一個輸入欄位
-      $('addLineIdBtn')?.addEventListener('click', ()=>{
-        const container = document.getElementById('lineIdContainer');
-        if(!container) return;
-        container.appendChild(createLineIdRow(''));
-        // focus newest input
-        const inputs = container.querySelectorAll('input.lineid-input');
-        if(inputs.length) inputs[inputs.length-1].focus();
-      });// Autofill from contacts when name/phone entered
-      $('customer').addEventListener('blur', ()=>{ const c = findContactByName($('customer').value); if(c){ if ($('phone').dataset.touched !== '1' && !getPhones()) getPhones() = c.phone||''; if(!$('address').value) $('address').value = c.address||''; if(!$('lineId').value) $('lineId').value = c.lineId||''; }
-      });
-      // ---- phone touched guard (so user can keep it empty) ----
-try {
-  $('phone').dataset.touched = $('phone').dataset.touched || '0';
-  $('phone').addEventListener('input', ()=>{ $('phone').dataset.touched = '1'; });
-} catch(e) { /* ignore if element missing */ }
-// ---------------------------------------------------------
-const pc = document.getElementById('phoneContainer');
-if (pc) {
-  pc.addEventListener('blur', (e) => {
-    if (e.target && e.target.classList && e.target.classList.contains('phone-input')) {
-      const val = e.target.value;
-      const c = findContactByPhone(val);
-      if (c) {
-        if (!$('customer').value) $('customer').value = c.name || '';
-        if (!$('address').value) $('address').value = c.address || '';
-        if (!$('lineId').value) $('lineId').value = c.lineId || '';
-      }
-    }
-  }, true);
-}
-$('lineId').addEventListener('blur', ()=>{
-        const c3 = findContactByLineId($('lineId').value);
-        if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = c3.address||''; if ($('phone').dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
-      });
-      // removed: phone blur handler (replaced by delegation)
-// Recompute nextReminder when customer/reminderMonths change
-      $('customer').addEventListener('blur', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
-      $('reminderMonths').addEventListener('input', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
-
-      // expenses
-      $('expenseForm').addEventListener('submit', saveExpense);
-      $('expDelete').addEventListener('click', deleteExpense);
-      $('expReset').addEventListener('click', ()=>fillExpForm({}));
-      $('expExportCsv').addEventListener('click', expExportCsv);
-      $('expExportJson').addEventListener('click', expExportJson);
-      $('expImportJson').addEventListener('click', expImportJson);
-      $('expClear').addEventListener('click', ()=>{ if(confirm('確定要清空所有花費資料嗎？此動作無法復原。')){ expenses=[]; save(EXP_KEY, expenses); refreshExpense(); } });
-      $('addExpCat').addEventListener('click', addExpCat);
-
-      $('toggleLock').addEventListener('click', ()=>{
-        const id=$('id').value; if(!id){ alert('請先選擇或儲存一筆訂單'); return; }
-        const i=orders.findIndex(o=>o.id===id); if(i<0) return;
-        const wantUnlock = orders[i].locked;
-        if(wantUnlock && !confirm('確定要解除金額鎖定嗎？解除後可修改金額與折扣。')) return;
-        orders[i].locked = !orders[i].locked;
-        save(KEY, orders);
-        setFormLock(orders[i].locked);
-      });
-
-      // 複製相關
-      function copyOrderToForm(o){
-        const t={...o};
-        delete t.id; t.status='排定'; t.confirmed=false; t.quotationOk=false; t.completedAt=undefined; t.locked=false; t.date=''; t.time='';
-        fillForm(t); recalcTotals();
-        $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
-      }
-      function copyOrderFrom(o){ copyOrderToForm(o); }
-      $('copyLastBtn').addEventListener('click', ()=>{
-        if(orders.length===0){ alert('目前沒有可複製的訂單'); return; }
-        const last = [...orders].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0];
-        if(!last){ alert('找不到上一筆'); return; }
-        copyOrderToForm(last);
-      });
-      $('copyFromHistoryBtn').addEventListener('click', ()=>{
-        const np = normalizePhone(getPhones());
-        let cand = null;
-        if(np){ cand = [...orders].filter(o=> normalizePhone(o.phone)===np).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
-        if(!cand && $('customer').value){ cand = [...orders].filter(o=> (o.customer||'')=== $('customer').value.trim()).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
-        if(!cand){ alert('找不到此客戶的舊單（請先輸入姓名或電話）'); return; }
-        copyOrderToForm(cand);
-      });
-
-
-      // Accordion behavior: auto-collapse on small screens
-      function adjustAccordion(){
-        const acc = $('expenseAcc');
-        if(!acc) return;
-        if(window.innerWidth < 900){ acc.open = false; } else { acc.open = true; }
-      }
-      window.addEventListener('resize', adjustAccordion);
-      adjustAccordion();
-    
-      
-    
-      // residenceType toggle
-      $('residenceType')?.addEventListener('change', ()=>{
-        $('residenceOther').classList.toggle('hidden', $('residenceType').value!=='其他');
-      });
-      // contact time "時間指定" toggle
-      document.addEventListener('change', (e)=>{
-        if(e.target && e.target.matches('input[type="checkbox"][data-name="contactTime"]')){
-          const specified = Array.from(document.querySelectorAll('input[type="checkbox"][data-name="contactTime"]'))
-                              .some(x=> x.checked && (x.value==='日期指定' || x.value==='時間指定'));
-          $('contactTimeNote').classList.toggle('hidden', !specified);
-        }
-      });
-    
-    
-      // slot "時間指定" toggle
-      document.addEventListener('change', (e)=>{
-        if(e.target && e.target.matches('input[type="checkbox"][data-name="slot"]')){
-          const specified = Array.from(document.querySelectorAll('input[type="checkbox"][data-name="slot"]'))
-                              .some(x=> x.checked && (x.value==='日期指定' || x.value==='時間指定'));
-          $('slotNote').classList.toggle('hidden', !specified);
-        }
-      });
-    
-    
-      // auto-open orderAccordion when buttons clicked
-      ;['saveBtn','resetBtn','copyLastBtn','copyFromHistoryBtn'].forEach(id=>{
-        $(id)?.addEventListener('click', ()=>{ $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'}); });
-      });
-    
-    
-      // 新增花費按鈕：切到花費區塊頂部並重置表單
-      $('newExpenseBtn')?.addEventListener('click', ()=>{
-        if (typeof fillExpForm === 'function') fillExpForm({});
-        const exp = $('expenseAcc');
-        if (exp){ exp.open = true; exp.scrollIntoView({behavior:'smooth', block:'start'}); }
-      });
-
-
-      // 新增訂單：展開並捲動到區塊開頭
-      $('newBtn')?.addEventListener('click', ()=>{
-        $('orderAccordion').open = true;
-        $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
-      });
-
-      // 前往提醒中心（從首頁快到期區塊）
-      $('btnOpenReminderCenter')?.addEventListener('click', ()=>{
-        if (typeof setActiveView === 'function') setActiveView('reminder');
-      });
-
-      $('exportXlsx')?.addEventListener('click', exportXLSX);
-      initViewTabs();
-    }
-
-    
 
 // ---------- Reminder Center（提醒中心獨立頁） ----------
 function initReminderFilters(){
@@ -1741,7 +1623,170 @@ function initViewTabs(){
   });
 }
 
-// ---------- Boot ----------
+// ---------- Events ----------
+    function attachEvents(){
+      // order form
+      $('orderForm').addEventListener('submit', saveOrder);
+      $('deleteBtn').addEventListener('click', deleteOrder);
+      $('resetBtn').addEventListener('click', resetForm);
+      $('recalc').addEventListener('click', recalcTotals);
+      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount']
+        .forEach(id => $(id).addEventListener('input', recalcTotals));
+      $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
+$('exportJson').addEventListener('click', exportJSON);
+$('importJson').addEventListener('click', importJSON);
+      $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const ok = await showConfirm('清空所有訂單','確定要清空所有訂單資料嗎？此動作無法復原。'); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
+      $('addStaffBtn').addEventListener('click', addStaff);
+      $('addContactMethod').addEventListener('click', addContact);
+      // 新增 LINE/Facebook ID 按鈕動作：在 #lineIdContainer 新增一個輸入欄位
+      $('addLineIdBtn')?.addEventListener('click', ()=>{
+        const container = document.getElementById('lineIdContainer');
+        if(!container) return;
+        container.appendChild(createLineIdRow(''));
+        // focus newest input
+        const inputs = container.querySelectorAll('input.lineid-input');
+        if(inputs.length) inputs[inputs.length-1].focus();
+      });// Autofill from contacts when name/phone entered
+      $('customer').addEventListener('blur', ()=>{ const c = findContactByName($('customer').value); if(c){ if ($('phone').dataset.touched !== '1' && !getPhones()) getPhones() = c.phone||''; if(!$('address').value) $('address').value = c.address||''; if(!$('lineId').value) $('lineId').value = c.lineId||''; }
+      });
+      // ---- phone touched guard (so user can keep it empty) ----
+try {
+  $('phone').dataset.touched = $('phone').dataset.touched || '0';
+  $('phone').addEventListener('input', ()=>{ $('phone').dataset.touched = '1'; });
+} catch(e) { /* ignore if element missing */ }
+// ---------------------------------------------------------
+const pc = document.getElementById('phoneContainer');
+if (pc) {
+  pc.addEventListener('blur', (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains('phone-input')) {
+      const val = e.target.value;
+      const c = findContactByPhone(val);
+      if (c) {
+        if (!$('customer').value) $('customer').value = c.name || '';
+        if (!$('address').value) $('address').value = c.address || '';
+        if (!$('lineId').value) $('lineId').value = c.lineId || '';
+      }
+    }
+  }, true);
+}
+$('lineId').addEventListener('blur', ()=>{
+        const c3 = findContactByLineId($('lineId').value);
+        if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = c3.address||''; if ($('phone').dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
+      });
+      // removed: phone blur handler (replaced by delegation)
+// Recompute nextReminder when customer/reminderMonths change
+      $('customer').addEventListener('blur', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
+      $('reminderMonths').addEventListener('input', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
+
+      // expenses
+      $('expenseForm').addEventListener('submit', saveExpense);
+      $('expDelete').addEventListener('click', deleteExpense);
+      $('expReset').addEventListener('click', ()=>fillExpForm({}));
+      $('expExportCsv').addEventListener('click', expExportCsv);
+      $('expExportJson').addEventListener('click', expExportJson);
+      $('expImportJson').addEventListener('click', expImportJson);
+      $('expClear').addEventListener('click', ()=>{ if(confirm('確定要清空所有花費資料嗎？此動作無法復原。')){ expenses=[]; save(EXP_KEY, expenses); refreshExpense(); } });
+      $('addExpCat').addEventListener('click', addExpCat);
+
+      $('toggleLock').addEventListener('click', ()=>{
+        const id=$('id').value; if(!id){ alert('請先選擇或儲存一筆訂單'); return; }
+        const i=orders.findIndex(o=>o.id===id); if(i<0) return;
+        const wantUnlock = orders[i].locked;
+        if(wantUnlock && !confirm('確定要解除金額鎖定嗎？解除後可修改金額與折扣。')) return;
+        orders[i].locked = !orders[i].locked;
+        save(KEY, orders);
+        setFormLock(orders[i].locked);
+      });
+
+      // 複製相關
+      function copyOrderToForm(o){
+        const t={...o};
+        delete t.id; t.status='排定'; t.confirmed=false; t.quotationOk=false; t.completedAt=undefined; t.locked=false; t.date=''; t.time='';
+        fillForm(t); recalcTotals();
+        $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
+      }
+      function copyOrderFrom(o){ copyOrderToForm(o); }
+      $('copyLastBtn').addEventListener('click', ()=>{
+        if(orders.length===0){ alert('目前沒有可複製的訂單'); return; }
+        const last = [...orders].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0];
+        if(!last){ alert('找不到上一筆'); return; }
+        copyOrderToForm(last);
+      });
+      $('copyFromHistoryBtn').addEventListener('click', ()=>{
+        const np = normalizePhone(getPhones());
+        let cand = null;
+        if(np){ cand = [...orders].filter(o=> normalizePhone(o.phone)===np).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
+        if(!cand && $('customer').value){ cand = [...orders].filter(o=> (o.customer||'')=== $('customer').value.trim()).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
+        if(!cand){ alert('找不到此客戶的舊單（請先輸入姓名或電話）'); return; }
+        copyOrderToForm(cand);
+      });
+
+
+      // Accordion behavior: auto-collapse on small screens
+      function adjustAccordion(){
+        const acc = $('expenseAcc');
+        if(!acc) return;
+        if(window.innerWidth < 900){ acc.open = false; } else { acc.open = true; }
+      }
+      window.addEventListener('resize', adjustAccordion);
+      adjustAccordion();
+    
+      
+    
+      // residenceType toggle
+      $('residenceType')?.addEventListener('change', ()=>{
+        $('residenceOther').classList.toggle('hidden', $('residenceType').value!=='其他');
+      });
+      // contact time "時間指定" toggle
+      document.addEventListener('change', (e)=>{
+        if(e.target && e.target.matches('input[type="checkbox"][data-name="contactTime"]')){
+          const specified = Array.from(document.querySelectorAll('input[type="checkbox"][data-name="contactTime"]'))
+                              .some(x=> x.checked && (x.value==='日期指定' || x.value==='時間指定'));
+          $('contactTimeNote').classList.toggle('hidden', !specified);
+        }
+      });
+    
+    
+      // slot "時間指定" toggle
+      document.addEventListener('change', (e)=>{
+        if(e.target && e.target.matches('input[type="checkbox"][data-name="slot"]')){
+          const specified = Array.from(document.querySelectorAll('input[type="checkbox"][data-name="slot"]'))
+                              .some(x=> x.checked && (x.value==='日期指定' || x.value==='時間指定'));
+          $('slotNote').classList.toggle('hidden', !specified);
+        }
+      });
+    
+    
+      // auto-open orderAccordion when buttons clicked
+      ;['saveBtn','resetBtn','copyLastBtn','copyFromHistoryBtn'].forEach(id=>{
+        $(id)?.addEventListener('click', ()=>{ $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'}); });
+      });
+    
+    
+      // 新增花費按鈕：切到花費區塊頂部並重置表單
+      $('newExpenseBtn')?.addEventListener('click', ()=>{
+        if (typeof fillExpForm === 'function') fillExpForm({});
+        const exp = $('expenseAcc');
+        if (exp){ exp.open = true; exp.scrollIntoView({behavior:'smooth', block:'start'}); }
+      });
+    
+    
+      // 新增訂單：展開並捲動到區塊開頭
+      $('newBtn')?.addEventListener('click', ()=>{
+        $('orderAccordion').open = true;
+        $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
+      });
+
+      // 前往提醒中心（從首頁快到期區塊）
+      $('btnOpenReminderCenter')?.addEventListener('click', ()=>{
+        if (typeof setActiveView === 'function') setActiveView('reminder');
+      });
+
+      $('exportXlsx')?.addEventListener('click', exportXLSX);
+      initViewTabs();
+    }
+
+    // ---------- Boot ----------
     (function boot(){
       setTimeout(refreshDueSoonPanel, 0);
 
@@ -4284,4 +4329,3 @@ function getLineIds(){
     }
   }catch(e){}
 })();
-

@@ -70,7 +70,7 @@
 <label class="pill" style="gap:8px">
 <input checked="" id="showUndated" type="checkbox"/>
 <span>顯示未排期</span>
-<button id="btnOpenIgnoreManager" class="btn" title="管理忽略清單" style="margin-left:8px;">忽略管理 <span id="ignoreCountBadge" class="small-badge" aria-hidden="true" style="display:none;margin-left:6px;padding:2px 6px;border-radius:12px;background:#0b74de;color:#fff;font-size:12px;"></span></button>
+
 </label>
 <div class="pill">
 <strong>搜尋</strong>
@@ -88,6 +88,15 @@
 </div>
 </header>
 <main class="wrap stack" style="margin-top:16px">
+  <!-- 視圖切換：訂單 / 提醒中心 -->
+  <div class="view-tabs">
+    <button class="view-tab is-active" type="button" data-view="main">訂單 / 花費</button>
+    <button class="view-tab" type="button" data-view="reminder">提醒中心</button>
+  </div>
+
+  <!-- 主畫面：原本的訂單列表 + 表單 + 花費等 -->
+  <div id="mainMode" class="view-panel view-main is-active">
+
 <!-- 訂單列表（上） -->
 <section class="card">
 <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
@@ -110,8 +119,12 @@
 <div style="overflow:auto;margin-top:8px">
 <!-- 快到期提醒區塊 -->
 <div class="card due-panel" id="dueSoonPanel">
-<div class="card-title">快到期提醒（30 天內）</div>
-<div class="due-list empty" id="dueSoonList">目前沒有 30 天內將到期的客戶</div>
+<div class="card-title-row">
+  <div class="card-title">快到期提醒（30 天內）</div>
+  <button type="button" class="btn btn-reminder" id="btnOpenReminderCenter">前往提醒中心</button>
+</div>
+<div class="due-stats" id="dueSoonStats">目前沒有需要提醒的客戶</div>
+<div class="due-list" id="dueSoonList">目前沒有 30 天內將到期的客戶</div>
 </div>
 <table id="ordersTable">
 <thead>
@@ -441,32 +454,59 @@
 </div>
 </div>
 </details>
-<!-- 靜音名單（預設收合） -->
-<section class="card" id="muteListSection">
-<details id="muteCollapse">
-<summary class="ab-summary"><h2>靜音名單</h2><span class="hint">(預設收合，手動展開)</span></summary>
-<div class="body">
-<div class="ab-toolbar">
-<input id="muteSearch" placeholder="搜尋：姓名 / 電話 / 備註" type="search"/>
-</div>
-<div class="ab-table-wrap">
-<table class="ab-table" id="muteTable">
-<thead>
-<tr>
-<th>姓名</th>
-<th>電話</th>
-<th>地址</th>
-<th style="width:120px;">狀態</th>
-<th style="width:120px;">操作</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
-</div>
-</details>
-</section>
+
+  </div> <!-- /#mainMode -->
+
+  <!-- 提醒中心：獨立頁 -->
+  <section id="reminderCenterSection" class="card view-panel view-reminder" style="display:none">
+    <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+      <h2>提醒中心</h2>
+      <div class="header-actions" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+        <div class="pill">
+          <strong>顯示範圍</strong>
+          <select id="reminderRange">
+            <option value="overdue">僅逾期</option>
+            <option value="7">7 天內</option>
+            <option value="30" selected>30 天內</option>
+            <option value="60">60 天內</option>
+            <option value="all">全部未來</option>
+          </select>
+        </div>
+        <div class="pill">
+          <strong>作業人員</strong>
+          <select id="reminderStaffFilter">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="pill">
+          <strong>搜尋</strong>
+          <input id="reminderSearch" type="search" placeholder="姓名 / 電話 / 地址"/>
+        </div>
+        <label class="pill">
+          <input id="reminderOnlyUnnotified" type="checkbox" checked/>
+          <span>只看尚未通知</span>
+        </label>
+        <label class="pill">
+          <input id="reminderShowMuted" type="checkbox"/>
+          <span>顯示靜音客戶</span>
+        </label>
+        <button type="button" class="btn btn-reminder" id="btnOpenIgnoreManager" title="管理忽略清單">
+          管理靜音 / 忽略名單
+        </button>
+      </div>
+    </div>
+    <div class="body">
+      <div id="reminderStats" class="muted" style="margin-bottom:8px;font-size:14px;">
+        目前沒有提醒資料。
+      </div>
+      <div class="hr"></div>
+      <div id="reminderList" class="reminder-center-list">
+        <!-- 由 JS (refreshReminderCenter) 產生 -->
+      </div>
+    </div>
+  </section>
 </main>
+
 <input accept=".json" class="hidden" id="filePicker" type="file"/>
 <input accept=".json" class="hidden" id="filePickerExp" type="file"/>
 <template id="expRowTpl">

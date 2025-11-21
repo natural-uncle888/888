@@ -1055,3 +1055,163 @@ th.col-total, td.col-total {
 }
 .input-modal .btn { background:#0b74de; color:#fff; padding:8px 14px; border-radius:8px; border:none; }
 .input-modal .btn-ghost { background:transparent; color:#334155; border:1px solid rgba(15,23,42,0.06); padding:8px 12px; border-radius:8px; }
+
+/* === 視圖切換 Tab（訂單 / 提醒中心） === */
+.view-tabs{
+  display:flex;
+  gap:8px;
+  align-items:flex-end;
+  margin-bottom:12px;
+  border-bottom:1px solid rgba(148,163,184,0.6);
+}
+.view-tab{
+  border:none;
+  background:transparent;
+  padding:6px 14px;
+  border-radius:999px 999px 0 0;
+  font-size:14px;
+  color:var(--muted);
+  cursor:pointer;
+}
+.view-tab.is-active{
+  background:#ffffff;
+  color:var(--text);
+  box-shadow:0 -1px 0 #ffffff, 0 0 0 1px rgba(148,163,184,0.9);
+}
+
+/* === 提醒中心列表 === */
+.reminder-center-list{
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  background:#ffffff;
+  max-height:70vh;
+  overflow:auto;
+}
+.reminder-center-list .rem-row{
+  display:grid;
+  grid-template-columns:minmax(160px,1.4fr) minmax(140px,1.1fr) minmax(120px,1fr) minmax(180px,1.3fr) auto;
+  gap:12px;
+  padding:10px 12px;
+  border-bottom:1px dashed #e5e7eb;
+  align-items:center;
+  font-size:14px;
+}
+.reminder-center-list .rem-row:last-child{
+  border-bottom:none;
+}
+.reminder-center-list .title{
+  font-weight:600;
+}
+.reminder-center-list .badge{
+  display:inline-block;
+  padding:2px 6px;
+  font-size:12px;
+  border-radius:999px;
+  margin-right:4px;
+}
+.reminder-center-list .badge.due{ background:#ffe5e5; color:#b00020; }
+.reminder-center-list .badge.soon7{ background:#fff7e0; color:#8a6d00; }
+.reminder-center-list .badge.soon30{ background:#ecfdf3; color:#166534; }
+.reminder-center-list .badge.muted{ background:#e5e7eb; color:#4b5563; }
+.reminder-center-list .badge.notified{ background:#dbeafe; color:#1d4ed8; }
+
+.reminder-center-list .c-main .meta{
+  margin-top:4px;
+}
+.reminder-center-list .c-dates .muted,
+.reminder-center-list .c-cycle .muted,
+.reminder-center-list .c-contact .muted{
+  opacity:.7;
+  font-size:12px;
+}
+.reminder-center-list .c-actions{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:flex-end;
+}
+.reminder-center-list .c-actions .inline-btn{
+  padding:4px 8px;
+  font-size:12px;
+  border-radius:8px;
+}
+.reminder-center-list .empty{
+  padding:12px;
+  color:#6b7280;
+  font-size:14px;
+}
+
+@media (max-width: 900px){
+  .reminder-center-list .rem-row{
+    grid-template-columns:1fr;
+    align-items:flex-start;
+  }
+  .reminder-center-list .c-actions{
+    flex-direction:row;
+    flex-wrap:wrap;
+    justify-content:flex-start;
+  }
+}
+
+/* === 簡化版快到期提醒區（首頁縮圖） === */
+.card.due-panel .card-title-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:4px;
+}
+.card.due-panel .due-stats{
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+.card.due-panel .due-list{
+  font-size:14px;
+}
+.card.due-panel .due-list .item{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  padding:2px 0;
+  border-bottom:1px dashed rgba(148,163,184,0.4);
+}
+.card.due-panel .due-list .item:last-child{
+  border-bottom:none;
+}
+.card.due-panel .due-list .name{
+  font-weight:500;
+}
+.card.due-panel .due-list .meta{
+  font-size:12px;
+  color:var(--muted);
+}
+
+/* Special style for reminder-related buttons */
+.btn-reminder{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 12px;
+  border-radius:999px;
+  border:1px solid rgba(37,99,235,0.15);
+  background:linear-gradient(135deg, var(--primary) 0%, #4f46e5 50%, var(--accent) 100%);
+  color:#fff;
+  font-size:13px;
+  font-weight:500;
+  box-shadow:0 4px 12px rgba(15,23,42,0.18);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.btn-reminder:hover{
+  filter:brightness(1.05);
+  box-shadow:0 6px 18px rgba(15,23,42,0.25);
+}
+.btn-reminder:active{
+  transform:translateY(1px);
+  box-shadow:0 2px 8px rgba(15,23,42,0.2);
+}
+.btn-reminder::before{
+  content:"⏰";
+  font-size:14px;
+}

@@ -218,7 +218,7 @@ function findContactByPhone(phone){
       $('completedRange').onchange = refreshTable;
       $('searchInput').addEventListener('input', refreshTable);
     }
-    function initStaffSelects(){ $('staff').innerHTML = staffList.map(s=>`<option value="${s}">${s}</option>`).join(''); initFilters(); }
+    function initStaffSelects(){ $('staff').innerHTML = staffList.map(s=>`<option value="${s}">${s}</option>`).join(''); initFilters(); initReminderFilters(); }
     function initContactSelect(){ $('contactMethod').innerHTML = contactList.map(c=>`<option value="${c}">${c}</option>`).join(''); }
     function initCheckboxes(){ renderChecks('slotGroup', SLOT_OPTS, 'slot');
       renderChecks('acBrandGroup', BRAND_OPTS, 'acBrand');
@@ -1211,69 +1211,414 @@ function findLatestOrderByCustomer(name){
 function refreshDueSoonPanel(){
   const panel = document.getElementById('dueSoonPanel');
   const listEl = document.getElementById('dueSoonList');
+  const statsEl = document.getElementById('dueSoonStats');
   if(!panel || !listEl) return;
+
   const today = new Date(); today.setHours(0,0,0,0);
+  const dayMs = 24*60*60*1000;
   const seen = new Set();
   const items = [];
-  orders.forEach(o => {
+
+  (orders || []).forEach(o => {
     if(!o.reminderEnabled) return;
-    const name = (o.customer||'').trim();
+    const name = (o.customer || '').trim();
     if(!name || seen.has(name)) return;
     seen.add(name);
     const flags = reminderFlagsForCustomer(name);
     if(flags.muted) return;
-          const nd = nextDueDateForCustomer(name);
+    const nd = nextDueDateForCustomer(name);
     if(!nd) return;
-    const days = Math.floor((nd - today)/(24*60*60*1000));
+    const days = Math.floor((nd - today)/dayMs);
     if(days <= 30){
       const latest = findLatestOrderByCustomer(name) || {};
       items.push({
         name,
         due: nd,
         days,
-        phone: latest.phone||'',
-        address: latest.address||'',
+        notified: !!flags.notified,
+        phone: latest.phone || '',
+        address: latest.address || '',
         last: lastCompletedDateForCustomer(name) || '',
-        obj: latest
+        id: latest.id || ''
       });
     }
   });
-  items.sort((a,b)=> a.days - b.days);
-  const top = items.slice(0, 20);
-  if(top.length === 0){
+
+  if(items.length === 0){
+    if(statsEl){
+      statsEl.textContent = '目前沒有需要提醒的客戶';
+    }
     listEl.classList.add('empty');
-    listEl.innerHTML = '目前沒有 30 天內將到期的客戶';
+    listEl.textContent = '目前沒有 30 天內將到期的客戶';
     return;
   }
+
+  // 統計：逾期 / 7 天內 / 8–30 天內
+  const overdue = items.filter(i => i.days <= 0).length;
+  const soon7 = items.filter(i => i.days > 0 && i.days <= 7).length;
+  const soon30 = items.filter(i => i.days > 7 && i.days <= 30).length;
+  if(statsEl){
+    statsEl.innerHTML =
+      `逾期 <strong>${overdue}</strong> 位，` +
+      `7 天內 <strong>${soon7}</strong> 位，` +
+      `8–30 天內 <strong>${soon30}</strong> 位。`;
+  }
+
+  items.sort((a,b) => {
+    if (a.days !== b.days){
+      return a.days - b.days;
+    }
+    return (a.name || '').localeCompare(b.name || '', 'zh-Hant');
+  });
+
+  const top = items.slice(0, 3);
   listEl.classList.remove('empty');
   listEl.innerHTML = top.map(it => {
     const dueStr = fmtDate(it.due);
-    const badge = it.days <= 0 ? `<span class="badge due">⚠️ 到期 ${dueStr}</span>` : `<span class="badge soon">⏰ ${it.days} 天後到期</span>`;
-    const notified = reminderFlagsForCustomer(it.name).notified ? `<span class="badge muted">已通知</span>` : '';
-    const lastStr = it.last ? `最近完成：${(it.last||'').slice(0,10)}` : '';
-    const phoneStr = it.phone ? it.phone : '';
-    const addrStr = it.address ? it.address : '';
-    return `<div class="row">
-      <div class="name">${it.name} ${badge} ${notified}</div>
-      <div class="muted">${lastStr}</div>
-      <div class="muted">${phoneStr}</div>
-      <div class="muted">${addrStr}</div>
-      <div><button class="inline-btn" data-open="${it.obj?.id||''}">開啟</button></div>
-    </div>`;
+    let statusText = '';
+    if (it.days <= 0){
+      const overdueDays = Math.abs(it.days);
+      statusText = overdueDays === 0 ? '今天到期' : `已逾期 ${overdueDays} 天`;
+    } else {
+      statusText = `還有 ${it.days} 天`;
+    }
+    const notifiedText = it.notified ? '（已通知）' : '';
+    const meta = `下次提醒：${dueStr}（${statusText}）${notifiedText}`;
+    const safeName = escapeHtml(it.name || '');
+    const safeMeta = escapeHtml(meta);
+
+    const idAttr = it.id ? ` data-open="${escapeHtml(it.id)}"` : '';
+    return `
+      <div class="item"${idAttr}>
+        <div>
+          <div class="name">${safeName}</div>
+          <div class="meta">${safeMeta}</div>
+        </div>
+        <button type="button" class="inline-btn" data-open="${escapeHtml(it.id || '')}">開啟</button>
+      </div>
+    `;
   }).join('');
+
   // Attach open handlers
   listEl.querySelectorAll('button[data-open]').forEach(btn => {
     btn.addEventListener('click', (ev)=>{
       ev.stopPropagation();
       const id = btn.getAttribute('data-open');
-      const target = orders.find(x=> x.id===id) || null;
-      if(target){ fillForm(target); }
-      else {
-        // 若找不到特定訂單，就新建一筆以該客戶為基底
-        fillForm({ customer: btn.closest('.row').querySelector('.name')?.textContent.trim().split(' ')[0] || '' });
+      let target = null;
+      if(id){
+        target = (orders || []).find(x => x.id === id) || null;
       }
-      document.getElementById('orderAccordion').open = true;
-      document.getElementById('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
+      const name = btn.closest('.item')?.querySelector('.name')?.textContent.trim() || '';
+      if(target){
+        fillForm(target);
+      } else if (name){
+        fillForm({ customer: name });
+      } else {
+        fillForm({});
+      }
+      const acc = document.getElementById('orderAccordion');
+      if(acc){
+        acc.open = true;
+        acc.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    });
+  });
+}
+
+// ---------- Reminder Center（提醒中心獨立頁） ----------
+function initReminderFilters(){
+  const staffSel = document.getElementById('reminderStaffFilter');
+  if (staffSel){
+    staffSel.innerHTML = ['全部', ...staffList].map(s => {
+      const v = (s === '全部') ? '' : s;
+      return `<option value="${v}">${s}</option>`;
+    }).join('');
+    staffSel.onchange = refreshReminderCenter;
+  }
+  const rangeSel = document.getElementById('reminderRange');
+  if (rangeSel){
+    rangeSel.onchange = refreshReminderCenter;
+  }
+  const qEl = document.getElementById('reminderSearch');
+  if (qEl){
+    qEl.addEventListener('input', () => refreshReminderCenter());
+  }
+  const showMutedEl = document.getElementById('reminderShowMuted');
+  if (showMutedEl){
+    showMutedEl.onchange = refreshReminderCenter;
+  }
+  const onlyUnnotifiedEl = document.getElementById('reminderOnlyUnnotified');
+  if (onlyUnnotifiedEl){
+    onlyUnnotifiedEl.onchange = refreshReminderCenter;
+  }
+}
+
+function setReminderNotifiedForCustomer(name, notified){
+  const n = (name || '').trim();
+  if (!n) return;
+  let changed = 0;
+  (orders || []).forEach(o => {
+    if ((o.customer || '').trim() === n){
+      if (!!o.reminderNotified !== !!notified){
+        o.reminderNotified = !!notified;
+        changed++;
+      }
+    }
+  });
+  if (changed > 0){
+    if (typeof save === 'function' && typeof KEY !== 'undefined'){
+      save(KEY, orders);
+    }
+  }
+}
+
+function setReminderMutedForCustomer(name, muted){
+  const n = (name || '').trim();
+  if (!n) return;
+  let changed = 0;
+  (orders || []).forEach(o => {
+    if ((o.customer || '').trim() === n){
+      if (!!o.reminderMuted !== !!muted){
+        o.reminderMuted = !!muted;
+        changed++;
+      }
+    }
+  });
+  if (changed > 0){
+    if (typeof save === 'function' && typeof KEY !== 'undefined'){
+      save(KEY, orders);
+    }
+  }
+}
+
+function refreshReminderCenter(){
+  const listEl = document.getElementById('reminderList');
+  const statsEl = document.getElementById('reminderStats');
+  if (!listEl) return;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const dayMs = 24*60*60*1000;
+
+  const rangeSel = document.getElementById('reminderRange');
+  const rangeVal = rangeSel ? rangeSel.value : '30';
+  const staffSel = document.getElementById('reminderStaffFilter');
+  const staffF = staffSel ? staffSel.value : '';
+  const showMuted = document.getElementById('reminderShowMuted')?.checked || false;
+  const onlyUnnotified = document.getElementById('reminderOnlyUnnotified')?.checked || false;
+  const qEl = document.getElementById('reminderSearch');
+  const qRaw = (qEl ? qEl.value : '').trim();
+  const q = qRaw.toLowerCase();
+  const qDigits = q.replace(/\D+/g,'');
+
+  const seen = new Set();
+  const items = [];
+
+  (orders || []).forEach(o => {
+    if (!o.reminderEnabled) return;
+    const name = (o.customer || '').trim();
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+
+    const flags = reminderFlagsForCustomer(name);
+    if (flags.muted && !showMuted) return;
+    if (onlyUnnotified && flags.notified) return;
+
+    const nd = nextDueDateForCustomer(name);
+    if (!nd) return;
+    const days = Math.floor((nd - today) / dayMs);
+
+    if (rangeVal === 'overdue'){
+      if (days > 0) return;
+    } else if (rangeVal !== 'all'){
+      const limit = parseInt(rangeVal, 10);
+      if (!isNaN(limit) && days > limit) return;
+    }
+
+    const latest = findLatestOrderByCustomer(name) || {};
+    if (staffF && latest.staff !== staffF) return;
+
+    if (q){
+      const fields = [
+        (name || '').toLowerCase(),
+        (latest.phone || '').toLowerCase(),
+        (latest.address || '').toLowerCase()
+      ];
+      let hit = fields.some(s => s && s.indexOf(q) !== -1);
+      if (!hit && qDigits){
+        const phoneDigits = (latest.phone || '').replace(/\D+/g,'');
+        hit = phoneDigits.indexOf(qDigits) !== -1;
+      }
+      if (!hit) return;
+    }
+
+    items.push({
+      name,
+      staff: latest.staff || '',
+      due: nd,
+      days,
+      last: lastCompletedDateForCustomer(name) || '',
+      cycleMonths: reminderMonthsForCustomer(name) || 0,
+      muted: !!flags.muted,
+      notified: !!flags.notified,
+      phone: latest.phone || '',
+      address: latest.address || '',
+      id: latest.id || ''
+    });
+  });
+
+  items.sort((a,b) => {
+    if (a.notified !== b.notified){
+      return a.notified ? 1 : -1;
+    }
+    if (a.due && b.due && a.due.getTime() !== b.due.getTime()){
+      return a.due - b.due;
+    }
+    return (a.name || '').localeCompare(b.name || '', 'zh-Hant');
+  });
+
+  if (statsEl){
+    const total = items.length;
+    const overdue = items.filter(i => i.days <= 0).length;
+    const soon7 = items.filter(i => i.days > 0 && i.days <= 7).length;
+    const soon30 = items.filter(i => i.days > 7 && i.days <= 30).length;
+    statsEl.innerHTML =
+      `目前共有 <strong>${total}</strong> 位客戶在提醒名單；` +
+      `逾期 <strong>${overdue}</strong> 位，7 天內 <strong>${soon7}</strong> 位，8–30 天內 <strong>${soon30}</strong> 位。`;
+  }
+
+  if (items.length === 0){
+    listEl.innerHTML = '<div class="empty">目前沒有符合條件的提醒客戶</div>';
+    return;
+  }
+
+  listEl.innerHTML = items.map(it => {
+    const dueStr = fmtDate(it.due);
+    let badgeClass = 'soon30';
+    let badgeLabel = '';
+    if (it.days <= 0){
+      badgeClass = 'due';
+      badgeLabel = '已到期';
+    } else if (it.days <= 7){
+      badgeClass = 'soon7';
+      badgeLabel = `還有 ${it.days} 天`;
+    } else {
+      badgeLabel = `還有 ${it.days} 天`;
+    }
+    const mutedBadge = it.muted ? '<span class="badge muted">已靜音</span>' : '';
+    const notifiedBadge = it.notified ? '<span class="badge notified">已通知</span>' : '';
+    const cycleText = it.cycleMonths ? `${it.cycleMonths} 個月` : '未設定';
+    const lastStr = it.last ? it.last.slice(0,10) : '—';
+    const staffStr = it.staff || '';
+
+    return `
+      <div class="rem-row" data-id="${escapeHtml(it.id || '')}" data-name="${escapeHtml(it.name || '')}">
+        <div class="c-main">
+          <div class="title">${escapeHtml(it.name || '')}</div>
+          <div class="meta">
+            <span class="badge ${badgeClass}">${badgeLabel}</span>
+            ${notifiedBadge}
+            ${mutedBadge}
+          </div>
+        </div>
+        <div class="c-dates">
+          <div>下次提醒：<strong>${dueStr}</strong></div>
+          <div class="muted">最近完成：${escapeHtml(lastStr)}</div>
+        </div>
+        <div class="c-cycle">
+          <div>週期：${escapeHtml(cycleText)}</div>
+          <div class="muted">作業人員：${escapeHtml(staffStr)}</div>
+        </div>
+        <div class="c-contact">
+          <div>${escapeHtml(it.phone || '')}</div>
+          <div class="muted">${escapeHtml(it.address || '')}</div>
+        </div>
+        <div class="c-actions">
+          <button type="button" class="inline-btn" data-action="open">開啟訂單</button>
+          <button type="button" class="inline-btn" data-action="notified">${it.notified ? '取消已通知' : '標記已通知'}</button>
+          <button type="button" class="inline-btn" data-action="mute">${it.muted ? '恢復提醒' : '不再提醒'}</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 綁定 row 內的按鈕事件
+  listEl.querySelectorAll('.rem-row').forEach(row => {
+    const name = row.getAttribute('data-name') || row.querySelector('.title')?.textContent.trim() || '';
+    const id = row.getAttribute('data-id') || '';
+
+    row.querySelectorAll('button[data-action]').forEach(btn => {
+      const action = btn.getAttribute('data-action');
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        if (action === 'open'){
+          // 切回主畫面 + 開啟該客戶訂單
+          setActiveView('main');
+          let target = null;
+          if (id){
+            target = (orders || []).find(o => o.id === id) || null;
+          }
+          if (target){
+            fillForm(target);
+          } else {
+            fillForm({ customer: name });
+          }
+          const acc = document.getElementById('orderAccordion');
+          if (acc){
+            acc.open = true;
+            acc.scrollIntoView({ behavior:'smooth', block:'start' });
+          }
+        } else if (action === 'notified'){
+          const nowNotified = !items.find(x => x.id === id)?.notified;
+          setReminderNotifiedForCustomer(name, nowNotified);
+          refreshDueSoonPanel();
+          refreshReminderCenter();
+        } else if (action === 'mute'){
+          const nowMuted = !items.find(x => x.id === id)?.muted;
+          setReminderMutedForCustomer(name, nowMuted);
+          refreshDueSoonPanel();
+          refreshReminderCenter();
+        }
+      });
+    });
+  });
+}
+
+function setActiveView(view){
+  const mainMode = document.getElementById('mainMode');
+  const reminderSection = document.getElementById('reminderCenterSection');
+  const tabs = document.querySelectorAll('.view-tab');
+
+  tabs.forEach(btn => {
+    const v = btn.getAttribute('data-view') || 'main';
+    if (view === v){
+      btn.classList.add('is-active');
+    } else {
+      btn.classList.remove('is-active');
+    }
+  });
+
+  if (mainMode && reminderSection){
+    if (view === 'reminder'){
+      mainMode.style.display = 'none';
+      reminderSection.style.display = '';
+      refreshReminderCenter();
+    } else {
+      mainMode.style.display = '';
+      reminderSection.style.display = 'none';
+    }
+  }
+}
+
+function initViewTabs(){
+  const tabs = document.querySelectorAll('.view-tab');
+  if (!tabs.length) return;
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const v = btn.getAttribute('data-view') || 'main';
+      setActiveView(v);
     });
   });
 }
@@ -1431,9 +1776,14 @@ $('lineId').addEventListener('blur', ()=>{
         $('orderAccordion').open = true;
         $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
       });
-        
-    
+
+      // 前往提醒中心（從首頁快到期區塊）
+      $('btnOpenReminderCenter')?.addEventListener('click', ()=>{
+        if (typeof setActiveView === 'function') setActiveView('reminder');
+      });
+
       $('exportXlsx')?.addEventListener('click', exportXLSX);
+      initViewTabs();
     }
 
     // ---------- Boot ----------
@@ -2045,6 +2395,7 @@ async function uploadEventToCalendar(o) {
   }
 }
 }
+
 // ---- concatenated from inline <script> blocks ----
 
 // （已改為由操作列的第一顆按鈕提供📅上傳功能）
@@ -3978,4 +4329,3 @@ function getLineIds(){
     }
   }catch(e){}
 })();
-

@@ -3726,7 +3726,7 @@ function transformCustomerCells() {
       } catch(e) { histList = []; }
 
       const count = Array.isArray(histList) ? histList.length : 0;
-      const hasHistory = count > 0;
+      const hasHistory = count > 1;
       if (hasHistory) {
         // create container with button + badge
         const container = document.createElement('span');

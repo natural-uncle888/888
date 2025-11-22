@@ -1410,7 +1410,10 @@ function refreshReminderCenter(){
   const qRaw = (qEl ? qEl.value : '').trim();
   const q = qRaw.toLowerCase();
   const qDigits = q.replace(/\D+/g,'');
+
   const reminderTokens = qRaw ? qRaw.split(/\s+/).filter(Boolean) : [];
+  const prevSearchTokens = Array.isArray(searchTokens) ? searchTokens.slice() : [];
+  searchTokens = reminderTokens;
 
   const seen = new Set();
   const items = [];
@@ -1490,11 +1493,10 @@ function refreshReminderCenter(){
 
   if (items.length === 0){
     listEl.innerHTML = '<div class="empty">目前沒有符合條件的提醒客戶</div>';
+    // 還原主列表搜索的 highlight tokens
+    searchTokens = prevSearchTokens;
     return;
   }
-
-  const prevSearchTokens = Array.isArray(searchTokens) ? searchTokens.slice() : [];
-  searchTokens = reminderTokens;
 
   listEl.innerHTML = items.map(it => {
     const dueStr = fmtDate(it.due);
@@ -1546,8 +1548,8 @@ function refreshReminderCenter(){
     `;
   }).join('');
 
+  // 還原主列表搜索的 highlight tokens
   searchTokens = prevSearchTokens;
-
 
   // 綁定 row 內的按鈕事件
   listEl.querySelectorAll('.rem-row').forEach(row => {
@@ -1591,7 +1593,9 @@ function refreshReminderCenter(){
       });
     });
   });
+
 }
+
 
 function setActiveView(view){
   const mainMode = document.getElementById('mainMode');
@@ -4107,6 +4111,8 @@ function renderIgnoreManagerTable(filterText) {
       }
       const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === openId) || null) : null;
       if (ord) {
+        // 切回主畫面並帶入該訂單
+        try { if (typeof setActiveView === 'function') setActiveView('main'); } catch(e){}
         fillForm(ord);
         closeIgnoreManager();
       } else {
@@ -4114,6 +4120,36 @@ function renderIgnoreManagerTable(filterText) {
       }
     });
   });
+
+  // 同步表頭「全選」勾選狀態
+  const headerCheckbox = document.getElementById('ignoreSelectAll');
+  if (headerCheckbox) {
+    const rowChecks = Array.from(tbody.querySelectorAll('.ignore-row-checkbox'));
+    const total = rowChecks.length;
+    if (!total) {
+      headerCheckbox.checked = false;
+      headerCheckbox.indeterminate = false;
+    } else {
+      const checkedCount = rowChecks.filter(c => c.checked).length;
+      headerCheckbox.checked = checkedCount === total;
+      headerCheckbox.indeterminate = checkedCount > 0 && checkedCount < total;
+    }
+    rowChecks.forEach(cb => {
+      cb.addEventListener('change', () => {
+        const rows = Array.from(tbody.querySelectorAll('.ignore-row-checkbox'));
+        const totalRows = rows.length;
+        const checkedRows = rows.filter(x => x.checked).length;
+        if (!totalRows) {
+          headerCheckbox.checked = false;
+          headerCheckbox.indeterminate = false;
+        } else {
+          headerCheckbox.checked = checkedRows === totalRows;
+          headerCheckbox.indeterminate = checkedRows > 0 && checkedRows < totalRows;
+        }
+      });
+    });
+  }
+
 }
 
 function updateIgnoreCountBadge() {
@@ -4159,6 +4195,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const searchInput = document.getElementById('ignoreManagerSearch');
   if (searchInput) {
     searchInput.addEventListener('input', (e)=> renderIgnoreManagerTable(e.target.value));
+  }
+  const headerSelectAll = document.getElementById('ignoreSelectAll');
+  if (headerSelectAll) {
+    headerSelectAll.addEventListener('change', ()=>{
+      const tbody = document.querySelector('#ignoreManagerTable tbody');
+      if (!tbody) return;
+      const checked = headerSelectAll.checked;
+      tbody.querySelectorAll('.ignore-row-checkbox').forEach(cb => {
+        cb.checked = checked;
+      });
+    });
   }
   const unignoreSelBtn = document.getElementById('ignoreUnignoreSelected');
   if (unignoreSelBtn) unignoreSelBtn.addEventListener('click', ()=>{

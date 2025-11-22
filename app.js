@@ -1410,6 +1410,7 @@ function refreshReminderCenter(){
   const qRaw = (qEl ? qEl.value : '').trim();
   const q = qRaw.toLowerCase();
   const qDigits = q.replace(/\D+/g,'');
+  const reminderTokens = qRaw ? qRaw.split(/\s+/).filter(Boolean) : [];
 
   const seen = new Set();
   const items = [];
@@ -1492,6 +1493,9 @@ function refreshReminderCenter(){
     return;
   }
 
+  const prevSearchTokens = Array.isArray(searchTokens) ? searchTokens.slice() : [];
+  searchTokens = reminderTokens;
+
   listEl.innerHTML = items.map(it => {
     const dueStr = fmtDate(it.due);
     let badgeClass = 'soon30';
@@ -1514,7 +1518,7 @@ function refreshReminderCenter(){
     return `
       <div class="rem-row" data-id="${escapeHtml(it.id || '')}" data-name="${escapeHtml(it.name || '')}">
         <div class="c-main">
-          <div class="title">${escapeHtml(it.name || '')}</div>
+          <div class="title">${highlightText(it.name || '')}</div>
           <div class="meta">
             <span class="badge ${badgeClass}">${badgeLabel}</span>
             ${notifiedBadge}
@@ -1527,11 +1531,11 @@ function refreshReminderCenter(){
         </div>
         <div class="c-cycle">
           <div>週期：${escapeHtml(cycleText)}</div>
-          <div class="muted">作業人員：${escapeHtml(staffStr)}</div>
+          <div class="muted">作業人員：${highlightText(staffStr)}</div>
         </div>
         <div class="c-contact">
-          <div>${escapeHtml(it.phone || '')}</div>
-          <div class="muted">${escapeHtml(it.address || '')}</div>
+          <div>${highlightPhone(it.phone || '')}</div>
+          <div class="muted">${highlightText(it.address || '')}</div>
         </div>
         <div class="c-actions">
           <button type="button" class="inline-btn" data-action="open">開啟訂單</button>
@@ -1541,6 +1545,9 @@ function refreshReminderCenter(){
       </div>
     `;
   }).join('');
+
+  searchTokens = prevSearchTokens;
+
 
   // 綁定 row 內的按鈕事件
   listEl.querySelectorAll('.rem-row').forEach(row => {

@@ -392,7 +392,7 @@ durationMinutes: +$('durationMinutes').value,
     function fillForm(o){
   
   renderPhotoUrlsFromString(o.photoUrls || '');
-  renderPhotoUrlLinks(o.photoUrls || '');renderPhotoUrlsFromString(o.photoUrls || '');
+  renderPhotoUrlLinks(o.photoUrls || '');
       $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
       $('id').value=o.id||''; $('staff').value=o.staff||staffList[0];
       $('date').value=o.date||''; $('time').value=o.time||'';
@@ -556,8 +556,57 @@ durationMinutes: +$('durationMinutes').value,
       <td class="right-align" data-label="總金額">${fmtCurrency(o.total||0)}</td>
       <td class="right-align" data-label="折後">${fmtCurrency(o.netTotal||0)}</td>
       <td data-label="來源">${escapeHtml(o.contactMethod||'')}</td>
+      <td class="attachments-cell" data-label="附加照片 / 檔案"></td>
       <td class="op-cell" data-label="操作"></td>
     `;
+
+    // 附加照片 / 檔案欄位：有網址時顯示📎按鈕
+    const attachTd = tr.querySelector('.attachments-cell');
+    if (attachTd) {
+      const urls = (o.photoUrls || '').trim();
+      if (urls) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'icon-btn';
+        btn.textContent = '📎';
+        btn.title = '查看附加照片 / 檔案連結';
+        btn.addEventListener('click', (ev)=>{
+          ev.stopPropagation();
+          // 載入這筆訂單資料
+          fillForm(o);
+          try {
+            renderPhotoUrlLinks(o.photoUrls || '');
+          } catch(e) {}
+
+          // 展開訂單表單手風琴
+          try {
+            const acc = document.getElementById('orderAccordion');
+            if (acc) acc.open = true;
+          } catch(e) {}
+
+          // 捲動到「清洗照片網址（可多筆）」那一塊
+          try {
+            setTimeout(() => {
+              let target = document.getElementById('photoUrlContainer');
+              if (!target) {
+                target = document.getElementById('photoUrlViewer') || document.querySelector('.photo-url-input');
+              }
+              if (target) {
+                const row = target.closest('.row') || target.closest('.col') || target;
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                const firstInput = row.querySelector('.photo-url-input');
+                if (firstInput) {
+                  firstInput.focus();
+                }
+              }
+            }, 30);
+          } catch(e) {}
+        });
+        attachTd.appendChild(btn);
+      } else {
+        attachTd.textContent = '';
+      }
+    }
 
     // status pill
     const st = o.status || '排定';
@@ -1001,6 +1050,85 @@ recalcTotals();
       save(KEY, orders); refreshTable(); fillForm({}); refreshContactsDatalist();
       window.scrollTo({top:0, behavior:'smooth'});
     }
+function quickCreateNextOrder(){
+  try {
+    const base = gatherForm ? gatherForm() : {};
+    const name = (base.customer || '').trim();
+    if (!name){
+      if (typeof Swal !== 'undefined' && Swal.fire){
+        Swal.fire('無法建立下一次', '請先填寫客戶姓名，或從訂單列表選擇一筆訂單再使用此功能。', 'info');
+      } else {
+        alert('請先填寫客戶姓名，或從訂單列表選擇一筆訂單再使用此功能。');
+      }
+      $('customer')?.focus();
+      return;
+    }
+
+    // 推算週期（優先使用表單上的提醒月份，其次使用客戶歷史設定，最後預設 12 個月）
+    let months = 0;
+    if (+base.reminderMonths > 0){
+      months = +base.reminderMonths;
+    } else {
+      try {
+        if (typeof reminderMonthsForCustomer === 'function'){
+          const m2 = reminderMonthsForCustomer(name);
+          if (m2) months = m2;
+        }
+      } catch (e){}
+    }
+    if (!months) months = 12;
+
+    // 決定基準日期：優先用目前訂單日期，否則用最後完成日期
+    let baseDateStr = base.date || '';
+    if (!baseDateStr){
+      try {
+        if (typeof lastCompletedDateForCustomer === 'function'){
+          const last = lastCompletedDateForCustomer(name);
+          if (last) baseDateStr = last;
+        }
+      } catch (e){}
+    }
+
+    let nextDateStr = '';
+    if (baseDateStr && typeof addMonths === 'function' && typeof fmtDate === 'function'){
+      const d = addMonths(baseDateStr, months);
+      if (d) nextDateStr = fmtDate(d);
+    }
+
+    const next = Object.assign({}, base);
+    // 新訂單應該有新的 ID 與狀態
+    next.id = '';
+    next.date = nextDateStr || '';
+    // 預設下一次為「排定」、尚未確認 / 報價 / 提醒
+    next.status = '排定';
+    next.confirmed = false;
+    next.quotationOk = false;
+    next.reminderNotified = false;
+    // 清掉可能存在的時間戳記欄位
+    delete next.createdAt;
+    delete next.completedAt;
+
+    fillForm(next);
+
+    if (typeof Swal !== 'undefined' && Swal.fire){
+      Swal.fire(
+        '已建立下一次訂單草稿',
+        nextDateStr
+          ? ('已根據目前資料建立下一次預約（預設日期：' + nextDateStr + '），請確認時間與內容後儲存。')
+          : '已根據目前資料建立下一次預約，請設定日期與時間後儲存。',
+        'success'
+      );
+    }
+  } catch (err){
+    console.error(err);
+    if (typeof Swal !== 'undefined' && Swal.fire){
+      Swal.fire('發生錯誤', '建立下一次訂單時發生錯誤，請稍後再試。', 'error');
+    } else {
+      alert('建立下一次訂單時發生錯誤。');
+    }
+  }
+}
+
     async function deleteOrder(){
       const id=$('id').value; if(!id) return;
       const ok = await showConfirm('刪除訂單', '確定要刪除這筆訂單嗎？');
@@ -1644,6 +1772,7 @@ function initViewTabs(){
       ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount']
         .forEach(id => $(id).addEventListener('input', recalcTotals));
       $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
+      $('quickNextBtn')?.addEventListener('click', quickCreateNextOrder);
 $('exportJson').addEventListener('click', exportJSON);
 $('importJson').addEventListener('click', importJSON);
       $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const ok = await showConfirm('清空所有訂單','確定要清空所有訂單資料嗎？此動作無法復原。'); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
@@ -1769,7 +1898,7 @@ $('lineId').addEventListener('blur', ()=>{
     
     
       // auto-open orderAccordion when buttons clicked
-      ;['saveBtn','resetBtn','copyLastBtn','copyFromHistoryBtn'].forEach(id=>{
+      ;['saveBtn','resetBtn','copyLastBtn','copyFromHistoryBtn','quickNextBtn'].forEach(id=>{
         $(id)?.addEventListener('click', ()=>{ $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'}); });
       });
     

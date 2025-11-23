@@ -1271,4 +1271,19 @@ label.pill:focus-within {
     white-space: nowrap !important;
   }
 }
-
+/* === Mobile: 操作欄的圖示橫向排列，避免像 456 直直一條 === */
+@media (max-width: 600px) {
+  #ordersTable td.keep-mobile[data-label="操作"] {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+  }
+  #ordersTable td.keep-mobile[data-label="操作"]::before {
+    margin-right: 8px;
+    flex: 0 0 auto;
+  }
+  #ordersTable td.keep-mobile[data-label="操作"] button {
+    display: inline-flex;
+    width: auto;
+  }
+}

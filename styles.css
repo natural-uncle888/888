@@ -1252,3 +1252,13 @@ label.pill:focus-within {
   font-size:14px;
 }
 
+
+
+/* === Mobile: force 狀況 / 確認 / 報價單 等 vtext 欄位改為橫式（123 樣式） === */
+@media (max-width: 600px) {
+  #ordersTable td.vtext {
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+    line-height: 1.4;
+  }
+}

@@ -297,13 +297,23 @@ th.col-total, td.col-total {
   }
 }
 
-/* === Desktop vertical character display for 客戶/狀況/確認/報價單 === */
+/* === Desktop vertical character display for 狀況/確認/報價單（客戶改為橫式） === */
 @media (min-width: 768px) {
-  td.vtext {
+  td.vtext:not([data-label="客戶"]) {
     writing-mode: vertical-rl;
     text-orientation: upright;
     line-height: 1.1;
   }
+}
+
+/* 客戶欄：橫式顯示＋不換行 */
+td[data-label="客戶"] {
+  white-space: nowrap;
+}
+
+/* 名字＋藍色歷史數字保持在同一行 */
+td[data-label="客戶"] .customer-badge {
+  white-space: nowrap;
 }
 
 

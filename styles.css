@@ -1251,3 +1251,24 @@ label.pill:focus-within {
   content:"⏰";
   font-size:14px;
 }
+
+
+/* === Mobile: make 狀況 / 確認 / 報價單 / 操作 row sections horizontal (orders table only) === */
+@media (max-width: 600px) {
+  #ordersTable td.keep-mobile[data-label="狀況"],
+  #ordersTable td.keep-mobile[data-label="確認"],
+  #ordersTable td.keep-mobile[data-label="報價單"],
+  #ordersTable td.keep-mobile[data-label="操作"] {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #ordersTable td.keep-mobile[data-label="狀況"]::before,
+  #ordersTable td.keep-mobile[data-label="確認"]::before,
+  #ordersTable td.keep-mobile[data-label="報價單"]::before,
+  #ordersTable td.keep-mobile[data-label="操作"]::before {
+    display: inline-block;
+    margin-bottom: 0;
+    margin-right: 8px;
+  }
+}

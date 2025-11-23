@@ -1254,11 +1254,11 @@ label.pill:focus-within {
 
 
 
-/* === Mobile: force 狀況 / 確認 / 報價單 等 vtext 欄位改為橫式（123 樣式） === */
-@media (max-width: 600px) {
-  #ordersTable td.vtext {
+/* === Mobile override: 狀況 / 確認 / 報價單 / 操作 的內容改為橫式顯示（僅手機訂單表格） === */
+@media (max-width: 700px) {
+  #ordersTable td.vtext,
+  #ordersTable td.vtext .checkpill {
     writing-mode: horizontal-tb !important;
     text-orientation: mixed !important;
-    line-height: 1.4;
   }
 }

@@ -243,7 +243,7 @@ th.col-total, td.col-total {
     box-sizing: border-box;
   }
   .toolbar .pill,
-  .toolbar label.pill {
+  label.pill {
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -258,14 +258,14 @@ th.col-total, td.col-total {
     margin: 0;
     width: 100% !important;
   }
-  .toolbar label.pill input[type="checkbox"] {
+  label.pill input[type="checkbox"] {
     margin-right: 8px;
     width: 22px;
     height: 22px;
     accent-color: #2563eb;
     flex-shrink: 0;
   }
-  .toolbar label.pill span {
+  label.pill span {
     flex: 1 1 0;
     min-width: 0;
     overflow: hidden;
@@ -885,7 +885,7 @@ td[data-label="客戶"] .customer-badge {
 
 /* === Improved pill-button controls for reminder checkboxes === */
 /* Make the entire pill area act like a button and easier to tap/click */
-.toolbar label.pill {
+label.pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -900,7 +900,7 @@ td[data-label="客戶"] .customer-badge {
 }
 
 /* Hide the native checkbox but keep it in the DOM for accessibility & JS */
-.toolbar label.pill input[type="checkbox"] {
+label.pill input[type="checkbox"] {
   position: absolute !important;
   left: 8px;
   width: 18px;
@@ -913,7 +913,7 @@ td[data-label="客戶"] .customer-badge {
 }
 
 /* Style the visible label text area */
-.toolbar label.pill span {
+label.pill span {
   display:inline-block;
   padding:6px 10px;
   border-radius: 999px;
@@ -924,21 +924,21 @@ td[data-label="客戶"] .customer-badge {
 }
 
 /* Hover / pointer feedback */
-.toolbar label.pill:hover {
+label.pill:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(16,24,40,0.08);
 }
 
 /* Checked state (uses sibling selector since input comes before span) */
-.toolbar label.pill input[type="checkbox"]:checked + span {
+label.pill input[type="checkbox"]:checked + span {
   background: #ecfdf5;
   border-color: #a7f3d0;
   color: #059669;
 }
 
 /* Subtle focus style for keyboard users */
-.toolbar label.pill input[type="checkbox"]:focus + span,
-.toolbar label.pill:focus-within {
+label.pill input[type="checkbox"]:focus + span,
+label.pill:focus-within {
   outline: 3px solid rgba(37,99,235,0.12);
   outline-offset: 3px;
 }
@@ -965,8 +965,8 @@ td[data-label="客戶"] .customer-badge {
 
 /* Mobile: make pills full width for easier tapping */
 @media (max-width: 768px) {
-  .toolbar label.pill { width: 100%; justify-content: flex-start; }
-  .toolbar label.pill span { width: auto; }
+  label.pill { width: 100%; justify-content: flex-start; }
+  label.pill span { width: auto; }
 }
 
 
@@ -1231,7 +1231,7 @@ td[data-label="客戶"] .customer-badge {
   padding:6px 12px;
   border-radius:999px;
   border:1px solid rgba(37,99,235,0.15);
-  background:linear-gradient(135deg, var(--primary) 0%, #4f46e5 50%, var(--accent) 100%);
+  background:var(--primary);
   color:#fff;
   font-size:13px;
   font-weight:500;

@@ -1262,11 +1262,18 @@ label.pill:focus-within {
     text-orientation: mixed !important;
   }
 }
-
 /* 手機版強制把 vtext 改回橫排（避免一開始被當成桌機斷點） */
 @media (max-width: 700px) {
   #ordersTable td.vtext {
     writing-mode: horizontal-tb !important;
     text-orientation: mixed !important;
+  }
+}
+/* === Mobile: prevent wrapping of 確認/報價單等內容，固定橫向顯示（123 樣式） === */
+@media (max-width: 600px) {
+  #ordersTable td[data-label="狀況"] *,
+  #ordersTable td[data-label="確認"] *,
+  #ordersTable td[data-label="報價單"] * {
+    white-space: nowrap !important;
   }
 }

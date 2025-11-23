@@ -198,13 +198,25 @@ mark {
 }
 
 @media (max-width: 600px) {
-  /* Turn the big table into stacked cards */
-  table { border: 0; }
-  table thead { display: none; }
-  table tr { display: block; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 8px; box-shadow: var(--shadow); }
-  table td { display: block; border: none; padding: 8px; text-align: left; }
-  table td.right-align { text-align: left; }
-  table td::before {
+  /* Turn the orders table into stacked cards (only #ordersTable) */
+  #ordersTable { border: 0; }
+  #ordersTable thead { display: none; }
+  #ordersTable tr {
+    display: block;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: var(--shadow);
+  }
+  #ordersTable td {
+    display: block;
+    border: none;
+    padding: 8px;
+    text-align: left;
+  }
+  #ordersTable td.right-align { text-align: left; }
+  #ordersTable td::before {
     content: attr(data-label);
     font-weight: 600;
     display: block;
@@ -225,8 +237,8 @@ th.col-total, td.col-total {
 }
 
 @media (max-width: 600px) {
-  table td { display: none !important; }
-  table td.keep-mobile { display: block !important; }
+  #ordersTable td { display: none !important; }
+  #ordersTable td.keep-mobile { display: block !important; }
 }
 
 
@@ -1252,40 +1264,3 @@ label.pill:focus-within {
   font-size:14px;
 }
 
-
-
-/* === Mobile: 狀況 / 確認 / 報價單 / 操作 四欄固定 123 樣式（上標題下內容，內容橫排不拆字） === */
-@media (max-width: 700px) {
-  /* 讓整個欄位恢復橫向書寫 */
-  #ordersTable td.keep-mobile[data-label="狀況"],
-  #ordersTable td.keep-mobile[data-label="確認"],
-  #ordersTable td.keep-mobile[data-label="報價單"],
-  #ordersTable td.keep-mobile[data-label="操作"] {
-    writing-mode: horizontal-tb !important;
-    text-orientation: mixed !important;
-  }
-
-  /* 內容（pill / 按鈕）一律不換行，排成一行 */
-  #ordersTable td.keep-mobile[data-label="狀況"] *,
-  #ordersTable td.keep-mobile[data-label="確認"] *,
-  #ordersTable td.keep-mobile[data-label="報價單"] *,
-  #ordersTable td.keep-mobile[data-label="操作"] * {
-    white-space: nowrap !important;
-  }
-}
-/* === Mobile: 操作欄的圖示橫向排列，避免像 456 直直一條 === */
-@media (max-width: 600px) {
-  #ordersTable td.keep-mobile[data-label="操作"] {
-    display: flex !important;
-    align-items: center;
-    gap: 8px;
-  }
-  #ordersTable td.keep-mobile[data-label="操作"]::before {
-    margin-right: 8px;
-    flex: 0 0 auto;
-  }
-  #ordersTable td.keep-mobile[data-label="操作"] button {
-    display: inline-flex;
-    width: auto;
-  }
-}

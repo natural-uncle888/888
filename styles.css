@@ -1252,22 +1252,23 @@ label.pill:focus-within {
   font-size:14px;
 }
 
-
-
-/* === Mobile override: 狀況 / 確認 / 報價單 / 操作 的內容改為橫式顯示（僅手機訂單表格） === */
+/* === Mobile: 狀況 / 確認 / 報價單 / 操作 四欄固定 123 樣式（上標題下內容，內容橫排不拆字） === */
 @media (max-width: 700px) {
-  #ordersTable td.vtext,
-  #ordersTable td.vtext .checkpill {
+  /* 讓整個欄位恢復橫向書寫 */
+  #ordersTable td.keep-mobile[data-label="狀況"],
+  #ordersTable td.keep-mobile[data-label="確認"],
+  #ordersTable td.keep-mobile[data-label="報價單"],
+  #ordersTable td.keep-mobile[data-label="操作"] {
     writing-mode: horizontal-tb !important;
     text-orientation: mixed !important;
   }
-}
-/* === Mobile: prevent wrapping of 確認/報價單等內容，固定橫向顯示（123 樣式） === */
-@media (max-width: 600px) {
-  #ordersTable td[data-label="狀況"] *,
-  #ordersTable td[data-label="確認"] *,
-  #ordersTable td[data-label="報價單"] *,
-  #ordersTable td[data-label="操作"] * {
+
+  /* 內容（pill / 按鈕）一律不換行，排成一行 */
+  #ordersTable td.keep-mobile[data-label="狀況"] *,
+  #ordersTable td.keep-mobile[data-label="確認"] *,
+  #ordersTable td.keep-mobile[data-label="報價單"] *,
+  #ordersTable td.keep-mobile[data-label="操作"] * {
     white-space: nowrap !important;
   }
 }
+

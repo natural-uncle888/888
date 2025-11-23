@@ -1262,3 +1262,11 @@ label.pill:focus-within {
     text-orientation: mixed !important;
   }
 }
+
+/* 手機版強制把 vtext 改回橫排（避免一開始被當成桌機斷點） */
+@media (max-width: 700px) {
+  #ordersTable td.vtext {
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+  }
+}

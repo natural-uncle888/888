@@ -556,13 +556,12 @@ durationMinutes: +$('durationMinutes').value,
       <td class="right-align" data-label="總金額">${fmtCurrency(o.total||0)}</td>
       <td class="right-align" data-label="折後">${fmtCurrency(o.netTotal||0)}</td>
       <td data-label="來源">${escapeHtml(o.contactMethod||'')}</td>
-      <td class="attachments-cell" data-label="附加照片 / 檔案"></td>
       <td class="op-cell" data-label="操作"></td>
     `;
 
-    // 附加照片 / 檔案欄位：有網址時顯示📎按鈕
-    const attachTd = tr.querySelector('.attachments-cell');
-    if (attachTd) {
+    // 附加照片 / 檔案欄位：有網址時顯示📎按鈕（現在顯示在「操作」欄位）
+    const opCell = tr.querySelector('.op-cell');
+    if (opCell) {
       const urls = (o.photoUrls || '').trim();
       if (urls) {
         const btn = document.createElement('button');
@@ -602,9 +601,7 @@ durationMinutes: +$('durationMinutes').value,
             }, 30);
           } catch(e) {}
         });
-        attachTd.appendChild(btn);
-      } else {
-        attachTd.textContent = '';
+        opCell.appendChild(btn);
       }
     }
 

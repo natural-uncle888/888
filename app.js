@@ -311,47 +311,59 @@ function nextDueDateForCustomer(name){
 }
 
 // ---------- Pricing (extracted constants) ----------
-const PRICING = {
+const PRICING_KEY = 'yl_clean_pricing_v1';
+
+const DEFAULT_PRICING = {
   acSplit: { unit: 1800, bulk3plus: 1500 },
   acDuct: { unit: 2800 },
   washerTop: { withAC: 1800, withoutAC: 2000 },
   waterTank: { unit: 1000 },
-  pipesAmount: { passthrough: true }, // already in TWD
+  pipesAmount: { passthrough: true },
   antiMold: { unit: 300, bulk5plus: 250 },
   ozone: { unit: 200 },
   transformerCount: { unit: 500 },
   longSplitCount: { unit: 300 },
   onePieceTray: { unit: 500 },
-  // 滿額規則（目前未使用，可於此調整）
   thresholds: {
     // example: freeShippingOver: 5000
   }
 };
 
-function calcTotal(f){
-  const acSplit=+f.acSplit||0, acDuct=+f.acDuct||0, washerTop=+f.washerTop||0, waterTank=+f.waterTank||0;
-  const pipesAmount=+f.pipesAmount||0, antiMold=+f.antiMold||0, ozone=+f.ozone||0, transformerCount=+f.transformerCount||0;
-  const longSplitCount=+f.longSplitCount||0, onePieceTray=+f.onePieceTray||0;
+let pricingConfig = load(PRICING_KEY, JSON.parse(JSON.stringify(DEFAULT_PRICING)));
 
-  const splitUnit = acSplit>=3 ? PRICING.acSplit.bulk3plus : PRICING.acSplit.unit;
+function calcTotal(f){
+  const cfg = pricingConfig || DEFAULT_PRICING;
+
+  const acSplit = +f.acSplit || 0;
+  const acDuct = +f.acDuct || 0;
+  const washerTop = +f.washerTop || 0;
+  const waterTank = +f.waterTank || 0;
+  const pipesAmount = +f.pipesAmount || 0;
+  const antiMold = +f.antiMold || 0;
+  const ozone = +f.ozone || 0;
+  const transformerCount = +f.transformerCount || 0;
+  const longSplitCount = +f.longSplitCount || 0;
+  const onePieceTray = +f.onePieceTray || 0;
+
+  const splitUnit = acSplit >= 3 ? cfg.acSplit.bulk3plus : cfg.acSplit.unit;
   const splitTotal = acSplit * splitUnit;
 
-  const ductTotal = acDuct * PRICING.acDuct.unit;
+  const ductTotal = acDuct * cfg.acDuct.unit;
 
-  const washerUnit = (acSplit + acDuct) > 0 ? PRICING.washerTop.withAC : PRICING.washerTop.withoutAC;
+  const washerUnit = (acSplit + acDuct) > 0 ? cfg.washerTop.withAC : cfg.washerTop.withoutAC;
   const washerTotal = washerTop * washerUnit;
 
-  const tankTotal = waterTank * PRICING.waterTank.unit;
+  const tankTotal = waterTank * cfg.waterTank.unit;
 
-  const pipesTotal = Math.max(0, pipesAmount); // passthrough
+  const pipesTotal = Math.max(0, pipesAmount);
 
-  const antiMoldUnit = antiMold >= 5 ? PRICING.antiMold.bulk5plus : PRICING.antiMold.unit;
+  const antiMoldUnit = antiMold >= 5 ? cfg.antiMold.bulk5plus : cfg.antiMold.unit;
   const antiMoldTotal = antiMold * antiMoldUnit;
 
-  const ozoneTotal = ozone * PRICING.ozone.unit;
-  const transformerTotal = transformerCount * PRICING.transformerCount.unit;
-  const longSplitTotal = longSplitCount * PRICING.longSplitCount.unit;
-  const onePieceTotal = onePieceTray * PRICING.onePieceTray.unit;
+  const ozoneTotal = ozone * cfg.ozone.unit;
+  const transformerTotal = transformerCount * cfg.transformerCount.unit;
+  const longSplitTotal = longSplitCount * cfg.longSplitCount.unit;
+  const onePieceTotal = onePieceTray * cfg.onePieceTray.unit;
 
   const total = splitTotal + ductTotal + washerTotal + tankTotal + pipesTotal + antiMoldTotal + ozoneTotal + transformerTotal + longSplitTotal + onePieceTotal;
   return Math.max(0, Math.round(total));
@@ -1923,7 +1935,113 @@ $('lineId').addEventListener('blur', ()=>{
       initViewTabs();
     }
 
-    // ---------- Boot ----------
+    
+// ---------- Pricing Settings Logic ----------
+function initPricingLogic(){
+  const modal = document.getElementById('pricingModal');
+  const openBtn = document.getElementById('openPricingBtn');
+  if (!modal || !openBtn) return;
+
+  const closeBtn = document.getElementById('pricingCloseBtn');
+  const saveBtn = document.getElementById('savePricingBtn');
+  const resetBtn = document.getElementById('resetPricingBtn');
+  const backdrop = modal.querySelector('.modal-backdrop');
+
+  const fieldMap = {
+    acSplit_unit: ['acSplit','unit'],
+    acSplit_bulk3plus: ['acSplit','bulk3plus'],
+    acDuct_unit: ['acDuct','unit'],
+    washerTop_withAC: ['washerTop','withAC'],
+    washerTop_withoutAC: ['washerTop','withoutAC'],
+    waterTank_unit: ['waterTank','unit'],
+    ozone_unit: ['ozone','unit'],
+    transformerCount_unit: ['transformerCount','unit'],
+    onePieceTray_unit: ['onePieceTray','unit'],
+    antiMold_unit: ['antiMold','unit'],
+    antiMold_bulk5plus: ['antiMold','bulk5plus'],
+    longSplitCount_unit: ['longSplitCount','unit']
+  };
+
+  function deepGet(obj, path, fallback){
+    let cur = obj;
+    for (let i=0;i<path.length;i++){
+      if (!cur || typeof cur !== 'object') return fallback;
+      cur = cur[path[i]];
+    }
+    return (typeof cur === 'number') ? cur : fallback;
+  }
+
+  function deepSet(obj, path, value){
+    let cur = obj;
+    for (let i=0;i<path.length-1;i++){
+      const k = path[i];
+      if (!cur[k] || typeof cur[k] !== 'object') cur[k] = {};
+      cur = cur[k];
+    }
+    cur[path[path.length-1]] = value;
+  }
+
+  function syncFormFromConfig(){
+    const cfg = pricingConfig || DEFAULT_PRICING;
+    Object.keys(fieldMap).forEach(key => {
+      const input = document.getElementById('price_' + key);
+      if (!input) return;
+      const path = fieldMap[key];
+      const defVal = deepGet(DEFAULT_PRICING, path, 0);
+      const val = deepGet(cfg, path, defVal);
+      input.value = val != null ? val : '';
+    });
+  }
+
+  function buildConfigFromForm(){
+    const base = JSON.parse(JSON.stringify(DEFAULT_PRICING));
+    Object.keys(fieldMap).forEach(key => {
+      const input = document.getElementById('price_' + key);
+      if (!input) return;
+      const raw = input.value;
+      const path = fieldMap[key];
+      const defVal = deepGet(DEFAULT_PRICING, path, 0);
+      let num = Number(raw);
+      if (!Number.isFinite(num) || num <= 0) num = defVal;
+      deepSet(base, path, num);
+    });
+    return base;
+  }
+
+  function openModal(){
+    syncFormFromConfig();
+    modal.setAttribute('aria-hidden','false');
+  }
+
+  function closeModal(){
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  openBtn.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (backdrop) backdrop.addEventListener('click', closeModal);
+
+  if (resetBtn){
+    resetBtn.addEventListener('click', () => {
+      pricingConfig = JSON.parse(JSON.stringify(DEFAULT_PRICING));
+      save(PRICING_KEY, pricingConfig);
+      syncFormFromConfig();
+    });
+  }
+
+  if (saveBtn){
+    saveBtn.addEventListener('click', () => {
+      pricingConfig = buildConfigFromForm();
+      save(PRICING_KEY, pricingConfig);
+      closeModal();
+      try{
+        recalcTotals();
+      }catch(e){}
+    });
+  }
+}
+
+// ---------- Boot ----------
     (function boot(){
       setTimeout(refreshDueSoonPanel, 0);
 
@@ -1950,7 +2068,7 @@ $('lineId').addEventListener('blur', ()=>{
         }
       }catch(e){}
 
-      initYearMonth(); initStaffSelects(); initContactSelect(); initCheckboxes(); initExpenseCats();
+      initYearMonth(); initStaffSelects(); initContactSelect(); initCheckboxes(); initExpenseCats(); initPricingLogic();
       attachEvents(); refreshContactsDatalist(); fillForm({}); fillExpForm({}); refreshTable();
       try { if(typeof makeOrdersTableResizable === 'function') makeOrdersTableResizable(); } catch(e){}
       refreshExpense();

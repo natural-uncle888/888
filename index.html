@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="zh-Hant">
 <head>
 <link href="styles.css" rel="stylesheet"/>
@@ -10,34 +9,12 @@
 <script defer="True" src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-.photo-url-input {
-  width: 100%;
-  max-width: 520px;
-  margin-bottom: 4px;
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-#photoUrlContainer .photo-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-#addPhotoUrlBtn.btn.btn-blue {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-#photoUrlViewer a {
-  word-break: break-all;
-  overflow-wrap: anywhere;
-  display: block;
-}
-</style></head>
+.photo-url-input { width: 100%; max-width: 520px; margin-bottom: 4px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; }
+#photoUrlContainer .photo-row { display: flex; align-items: center; gap: 8px; }
+#addPhotoUrlBtn.btn.btn-blue { background-color: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+#photoUrlViewer a { word-break: break-all; overflow-wrap: anywhere; display: block; }
+</style>
+</head>
 <body>
 <header>
 <div class="wrap toolbar">
@@ -70,54 +47,41 @@
 <label class="pill" style="gap:8px">
 <input checked="" id="showUndated" type="checkbox"/>
 <span>顯示未排期</span>
-
 </label>
 <div class="pill">
 <strong>搜尋</strong>
 <input id="searchInput" placeholder="姓名 / 電話 / 地址" style="width:220px" type="text"/>
 </div>
-<div class="right"><button class="accent" id="gdriveBackupBtn" onclick="initGoogleBackup()">☁️Google</button>
+<div class="right">
+<button class="accent" id="openPricingBtn">💰價格設定</button>
+<button class="accent" id="gdriveBackupBtn" onclick="initGoogleBackup()">☁️Google</button>
 <button class="accent" id="newBtn">新增訂單</button>
 <button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
-
 <button id="newExpenseBtn">新增花費</button>
 <button id="exportJson">匯出JSON</button>
-<button id="exportXlsx">匯出Excel</button>
 <button class="warn" id="importJson">匯入JSON</button>
 <button class="danger" id="clearAll">清空資料</button></div>
 </div>
 </header>
 <main class="wrap stack" style="margin-top:16px">
-  <!-- 視圖切換：訂單 / 提醒中心 -->
   <div class="view-tabs">
     <button class="view-tab is-active" type="button" data-view="main">訂單 / 花費</button>
     <button class="view-tab" type="button" data-view="reminder">提醒中心</button>
   </div>
 
-  <!-- 主畫面：原本的訂單列表 + 表單 + 花費等 -->
   <div id="mainMode" class="view-panel view-main is-active">
-
-<!-- 訂單列表（上） -->
 <section class="card">
 <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
 <h2>訂單列表</h2>
 <div class="header-actions" style="display:flex; align-items:center; gap:4px; flex-shrink:0;"><select aria-label="統計年份選擇" id="yearStatSelect" style="height:32px; margin-right:12px; padding:4px 8px; font-size:14px; max-width:120px;"></select>
-<button aria-controls="yearSummary" aria-expanded="false" class="small-toggle" id="toggleYearBtn" style=" min-width:80px; white-space:nowrap;" title="切換年度統計 (預設收起)">
-      年度統計 ▾
-    </button>
+<button aria-controls="yearSummary" aria-expanded="false" class="small-toggle" id="toggleYearBtn" style=" min-width:80px; white-space:nowrap;" title="切換年度統計 (預設收起)">年度統計 ▾</button>
 </div>
 </div>
 <div class="body">
-<div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
-<div></div>
-<div style="display:flex; gap:8px; align-items:center;">
-</div>
-</div>
 <div class="sum" id="yearSummary" style="padding-top: 4px; margin-bottom: 16px;"></div>
 <div class="sum" id="summary"></div>
 <div class="hr"></div>
 <div style="overflow:auto;margin-top:8px">
-<!-- 快到期提醒區塊 -->
 <div class="card due-panel" id="dueSoonPanel">
 <div class="card-title-row">
   <div class="card-title">快到期提醒（30 天內）</div>
@@ -129,21 +93,7 @@
 <table id="ordersTable">
 <thead>
 <tr>
-<th>#</th>
-<th>日期</th>
-<th>時間</th>
-<th>作業人員</th>
-<th>客戶</th>
-<th>電話</th>
-<th class="col-slot">時段</th>
-<th>地址</th>
-<th class="col-status">狀況</th>
-<th>確認</th>
-<th>報價單</th>
-<th class="right-align col-total">總金額</th>
-<th class="right-align">折後</th>
-<th>來源</th>
-<th>操作</th>
+<th>#</th><th>日期</th><th>時間</th><th>作業人員</th><th>客戶</th><th>電話</th><th class="col-slot">時段</th><th>地址</th><th class="col-status">狀況</th><th>確認</th><th>報價單</th><th class="right-align col-total">總金額</th><th class="right-align">折後</th><th>來源</th><th>操作</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -151,7 +101,6 @@
 </div>
 </div>
 </section>
-<!-- 訂單表單（中） -->
 <details class="accordion" id="orderAccordion"><summary><span id="formTitle">新增 / 編輯訂單</span>
   <button id="toggleLayoutEditBtn" style="font-size:13px;padding:6px 8px;border-radius:6px;margin-left:8px;" type="button">編輯布局</button>
 <button id="saveLayoutBtn" style="display:none;font-size:13px;padding:6px 8px;border-radius:6px;margin-left:6px;" type="button">儲存布局</button>
@@ -163,103 +112,46 @@
 <div class="col" style="grid-column:span 6">
 <label>作業人員</label>
 <div class="toolbar" style="gap:8px">
-<select id="staff"><option value="透天屋"></option><option value="大樓(有電梯)"></option><option value="大樓(無電梯)"></option><option value="其他(可自行輸入)"></option></select>
+<select id="staff"><option value="透天屋"></option></select>
 <button class="inline-btn" id="addStaffBtn" type="button">新增人員</button>
 </div>
 </div>
-<div class="col" style="grid-column:span 3">
-<label>日期（可留空，之後再填）</label>
-<input id="date" type="date"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>時間</label>
-<input id="time" type="time"/>
-</div>
-<div class="col" style="grid-column:span 7">
-<label>清洗地址</label>
-<input id="address" placeholder="地址" type="text"/>
-</div>
+<div class="col" style="grid-column:span 3"><label>日期（可留空，之後再填）</label><input id="date" type="date"/></div>
+<div class="col" style="grid-column:span 3"><label>時間</label><input id="time" type="time"/></div>
+<div class="col" style="grid-column:span 7"><label>清洗地址</label><input id="address" placeholder="地址" type="text"/></div>
 </div>
 <div class="row">
 <div class="col" style="grid-column:span 6">
-<label>姓名（支援通訊錄）</label>
-<input id="customer" list="contactsDL" placeholder="客戶姓名" type="text"/>
-<datalist id="contactsDL"></datalist>
-<div class="tiny">選既有客戶會自動帶出電話/地址</div>
+<label>姓名（支援通訊錄）</label><input id="customer" list="contactsDL" placeholder="客戶姓名" type="text"/><datalist id="contactsDL"></datalist><div class="tiny">選既有客戶會自動帶出電話/地址</div>
 </div>
 <div class="col" style="grid-column:span 3">
-  <label>LINE or Fackbook ID</label>
-  <div id="lineIdContainer">
-    <div class="lineid-row"><input class="lineid-input" id="lineId" type="text"/></div>
-  </div>
-  <button id="addLineIdBtn" type="button" class="btn-add-id">＋ 新增 ID</button>
+  <label>LINE or Fackbook ID</label><div id="lineIdContainer"><div class="lineid-row"><input class="lineid-input" id="lineId" type="text"/></div></div><button id="addLineIdBtn" type="button" class="btn-add-id">＋ 新增 ID</button>
 </div>
 <div class="col" style="grid-column:span 3">
-<label>電話</label>
-<div id="phoneContainer">
-<input class="phone-input" placeholder="輸入電話" type="text"/>
-</div>
-<button id="addPhoneBtn" type="button">＋新增電話</button>
+<label>電話</label><div id="phoneContainer"><input class="phone-input" placeholder="輸入電話" type="text"/></div><button id="addPhoneBtn" type="button">＋新增電話</button>
 </div>
 <div class="col" style="grid-column:span 6">
 <label>居住地型態</label>
 <div class="toolbar" style="gap:8px">
-<select id="residenceType">
-<option value="">（未選擇）</option>
-<option value="透天屋">透天屋</option>
-<option value="大樓(有電梯)">大樓(有電梯)</option>
-<option value="大樓(無電梯)">大樓(無電梯)</option>
-<option value="其他">其他（可自行輸入）</option>
-</select>
+<select id="residenceType"><option value="">（未選擇）</option><option value="透天屋">透天屋</option><option value="大樓(有電梯)">大樓(有電梯)</option><option value="大樓(無電梯)">大樓(無電梯)</option><option value="其他">其他（可自行輸入）</option></select>
 <input class="hidden" id="residenceOther" placeholder="請輸入其他型態" type="text"/>
 </div>
 </div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-<label>安排時段（可複選）</label>
-<div class="checkbox-group" id="slotGroup"></div>
-<input class="hidden tiny" id="slotNote" placeholder="請輸入指定日期／時段（如 10/10 上午 或 10/12 9:00–12:00）" type="text"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>方便聯繫時間（可複選）</label>
-<div class="checkbox-group" id="contactTimesGroup"></div>
-<input class="hidden tiny" id="contactTimeNote" placeholder="請輸入指定時間（如 9:00–12:00 或 週三晚上）" type="text"/>
-</div>
-<div class="col" style="grid-column:span 8">
-<label>與我司聯繫方式</label>
-<div class="toolbar" style="gap:8px">
-<select id="contactMethod"></select>
-<button class="inline-btn" id="addContactMethod" type="button">新增聯繫方式</button>
-</div>
-</div>
-<div class="col" style="grid-column:span 4">
-<label>狀況</label>
-<select id="status">
-<option value="排定">排定</option>
-<option value="完成">完成</option>
-<option value="未完成">未完成</option>
-</select>
-</div>
+<div class="col" style="grid-column:span 6"><label>安排時段（可複選）</label><div class="checkbox-group" id="slotGroup"></div><input class="hidden tiny" id="slotNote" placeholder="請輸入指定日期／時段" type="text"/></div>
+<div class="col" style="grid-column:span 6"><label>方便聯繫時間（可複選）</label><div class="checkbox-group" id="contactTimesGroup"></div><input class="hidden tiny" id="contactTimeNote" placeholder="請輸入指定時間" type="text"/></div>
+<div class="col" style="grid-column:span 8"><label>與我司聯繫方式</label><div class="toolbar" style="gap:8px"><select id="contactMethod"></select><button class="inline-btn" id="addContactMethod" type="button">新增聯繫方式</button></div></div>
+<div class="col" style="grid-column:span 4"><label>狀況</label><select id="status"><option value="排定">排定</option><option value="完成">完成</option><option value="未完成">未完成</option></select></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-<label>冷氣位於樓層（可複選）</label>
-<div class="checkbox-group" id="acFloors"></div>
-<div class="hidden" id="acFloorAboveWrap"><input id="acFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>洗衣機位於樓層（可複選）</label>
-<div class="checkbox-group" id="washerFloors"></div>
-<div class="hidden" id="washerFloorAboveWrap"><input id="washerFloorAbove" placeholder="請輸入實際樓層（例：6F、7F…）" type="text"/></div>
-</div>
+<div class="col" style="grid-column:span 6"><label>冷氣位於樓層（可複選）</label><div class="checkbox-group" id="acFloors"></div><div class="hidden" id="acFloorAboveWrap"><input id="acFloorAbove" placeholder="請輸入實際樓層（例：6F...）" type="text"/></div></div>
+<div class="col" style="grid-column:span 6"><label>洗衣機位於樓層（可複選）</label><div class="checkbox-group" id="washerFloors"></div><div class="hidden" id="washerFloorAboveWrap"><input id="washerFloorAbove" placeholder="請輸入實際樓層（例：6F...）" type="text"/></div></div>
 <div class="col" style="grid-column:span 6">
 <div class="toolbar" id="reminderToolbar" style="gap:8px; align-items:center; flex-wrap:wrap">
 <label class="pill"><input checked="" id="reminderEnabled" type="checkbox"/> <span>啟用提醒</span></label>
-<label class="muted">提醒週期（月）</label>
-<input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
-<label class="muted">下次提醒</label>
-<input class="tiny" disabled="" id="nextReminder" type="text"/>
+<label class="muted">提醒週期（月）</label><input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
+<label class="muted">下次提醒</label><input class="tiny" disabled="" id="nextReminder" type="text"/>
 <label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
 <label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
 </div>
@@ -268,106 +160,43 @@
 <div class="hr"></div>
 <h3 style="margin:0 0 8px">清洗項目與價格</h3>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">分離式冷氣室內機（每台1800；滿3台每台1500）</span></b></label>
-<input id="acSplit" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>吊隱式冷氣（每台2800）</label>
-<input id="acDuct" min="0" step="1" type="number" value="0"/>
-</div>
+<div class="col" style="grid-column:span 6"><label><b><span style="color:red;font-size:15px">分離式冷氣室內機</span></b></label><input id="acSplit" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6"><label>吊隱式冷氣</label><input id="acDuct" min="0" step="1" type="number" value="0"/></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">直立式洗衣機（每台2000；若同單含冷氣室內機則每台1800）</span></b></label>
-<input id="washerTop" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>水塔（每顆1000）</label>
-<input id="waterTank" min="0" step="1" type="number" value="0"/>
-</div>
+<div class="col" style="grid-column:span 6"><label><b><span style="color:red;font-size:15px">直立式洗衣機</span></b></label><input id="washerTop" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6"><label>水塔</label><input id="waterTank" min="0" step="1" type="number" value="0"/></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-<label>自來水管（自訂金額，未稅總額）</label>
-<input id="pipesAmount" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label><b><span style="color:red;font-size:15px">防霉噴劑（每台300；滿5台每台250）</span></b></label>
-<input id="antiMold" min="0" step="1" type="number" value="0"/>
-</div>
+<div class="col" style="grid-column:span 6"><label>自來水管（自訂金額，未稅總額）</label><input id="pipesAmount" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6"><label><b><span style="color:red;font-size:15px">防霉噴劑</span></b></label><input id="antiMold" min="0" step="1" type="number" value="0"/></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-<label>臭氧殺菌（每間200）</label>
-<input id="ozone" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>變形金剛機型（每台加500）</label>
-<input id="transformerCount" min="0" step="1" type="number" value="0"/>
-</div>
+<div class="col" style="grid-column:span 6"><label>臭氧殺菌</label><input id="ozone" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6"><label>變形金剛機型</label><input id="transformerCount" min="0" step="1" type="number" value="0"/></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6">
-<label>分離式室內機長度 &gt; 182cm（每台加300）</label>
-<input id="longSplitCount" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 6">
-<label>一體式水盤（每台加500）</label>
-<input id="onePieceTray" min="0" step="1" type="number" value="0"/>
-</div>
+<div class="col" style="grid-column:span 6"><label>分離式室內機長度 &gt; 182cm</label><input id="longSplitCount" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6"><label>一體式水盤</label><input id="onePieceTray" min="0" step="1" type="number" value="0"/></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 12">
-<label>備註</label>
-<textarea id="note" placeholder="其他補充事項"></textarea>
+<div class="col" style="grid-column:span 12"><label>備註</label><textarea id="note" placeholder="其他補充事項"></textarea></div>
 </div>
-</div>
-
 <div class="row">
-  <div class="col" style="grid-column:span 12">
-    <label>預約冷氣品牌（可複選）</label>
-    <div class="checkbox-group" id="acBrandGroup"></div>
-    <input class="hidden tiny" id="acBrandOtherText" placeholder="請輸入其他品牌" type="text"/>
-  </div>
+  <div class="col" style="grid-column:span 12"><label>預約冷氣品牌（可複選）</label><div class="checkbox-group" id="acBrandGroup"></div><input class="hidden tiny" id="acBrandOtherText" placeholder="請輸入其他品牌" type="text"/></div>
 </div>
-<div class="row" id="photoUrlBlock"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button><div class="tiny">貼入網址，完成後可點選開啟清洗前後照片頁面</div></div></div>
+<div class="row" id="photoUrlBlock"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button></div></div>
 <div class="hr"></div>
 <div class="row">
-<div class="col" style="grid-column:span 4">
-<!-- 改為可點擊整區塊的 checkbox (big-toggle) -->
-<label class="big-toggle" for="confirmed">
-  <input id="confirmed" name="confirmed" type="checkbox" aria-label="客人確認安排時間" />
-  <span class="big-toggle-text">客人確認安排時間</span>
-</label>
-</div>
-<div class="col" style="grid-column:span 4">
-<label class="big-toggle" for="quotationOk">
-  <input id="quotationOk" name="quotationOk" type="checkbox" aria-label="客人確認報價單" />
-  <span class="big-toggle-text">客人確認報價單</span>
-</label>
-</div>
-<div class="col right-align" style="grid-column:span 4">
-<button class="inline-btn" id="recalc" type="button">重新計算金額</button>
-</div>
+<div class="col" style="grid-column:span 4"><label class="big-toggle" for="confirmed"><input id="confirmed" name="confirmed" type="checkbox" aria-label="客人確認安排時間" /><span class="big-toggle-text">客人確認安排時間</span></label></div>
+<div class="col" style="grid-column:span 4"><label class="big-toggle" for="quotationOk"><input id="quotationOk" name="quotationOk" type="checkbox" aria-label="客人確認報價單" /><span class="big-toggle-text">客人確認報價單</span></label></div>
+<div class="col right-align" style="grid-column:span 4"><button class="inline-btn" id="recalc" type="button">重新計算金額</button></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 3">
-<label>總金額（自動）</label>
-<input id="total" readonly="" type="number"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>額外加價（手動輸入）</label>
-<input id="extraCharge" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>折扣金額（可輸入）</label>
-<input id="discount" min="0" step="1" type="number" value="0"/>
-</div>
-<div class="col" style="grid-column:span 3">
-<label>折後總金額（自動）</label>
-<input id="netTotal" readonly="" type="number"/>
-</div>
+<div class="col" style="grid-column:span 3"><label>總金額（自動）</label><input id="total" readonly="" type="number"/></div>
+<div class="col" style="grid-column:span 3"><label>額外加價（手動輸入）</label><input id="extraCharge" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 3"><label>折扣金額（可輸入）</label><input id="discount" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 3"><label>折後總金額（自動）</label><input id="netTotal" readonly="" type="number"/></div>
 </div>
 <div class="hr"></div>
 <div class="toolbar">
@@ -384,7 +213,6 @@
 </div>
 </form>
 </div></details>
-<!-- 支出模組（下）以手風琴呈現 -->
 <details class="accordion" id="expenseAcc">
 <summary>本月花費（可展開/收合）</summary>
 <div class="content">
@@ -399,18 +227,7 @@
 <button class="danger" id="expClear">清空花費</button>
 </div>
 <div style="overflow:auto">
-<table id="expenseTable">
-<thead>
-<tr>
-<th>#</th>
-<th>日期</th>
-<th>類別</th>
-<th>說明</th>
-<th class="right-align">金額</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
+<table id="expenseTable"><thead><tr><th>#</th><th>日期</th><th>類別</th><th>說明</th><th class="right-align">金額</th></tr></thead><tbody></tbody></table>
 </div>
 </div>
 </section>
@@ -420,112 +237,91 @@
 <form id="expenseForm">
 <input id="expId" type="hidden"/>
 <div class="row">
-<div class="col" style="grid-column:span 4">
-<label>日期</label>
-<input id="expDate" type="date"/>
+<div class="col" style="grid-column:span 4"><label>日期</label><input id="expDate" type="date"/></div>
+<div class="col" style="grid-column:span 4"><label>類別</label><div class="toolbar" style="gap:8px"><select id="expCategory"></select><button class="inline-btn" id="addExpCat" type="button">新增類別</button></div></div>
+<div class="col" style="grid-column:span 4"><label>金額</label><input id="expAmount" min="0" step="1" type="number" value="0"/></div>
 </div>
-<div class="col" style="grid-column:span 4">
-<label>類別</label>
-<div class="toolbar" style="gap:8px">
-<select id="expCategory"></select>
-<button class="inline-btn" id="addExpCat" type="button">新增類別</button>
-</div>
-</div>
-<div class="col" style="grid-column:span 4">
-<label>金額</label>
-<input id="expAmount" min="0" step="1" type="number" value="0"/>
-</div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 12">
-<label>說明</label>
-<input id="expNote" placeholder="例如：材料、加油、停車、工具維修…" type="text"/>
-</div>
-</div>
-<div class="toolbar">
-<button class="primary" id="expSave" type="submit">儲存花費</button>
-<button id="expReset" type="button">清空表單</button>
-<div class="right">
-<button class="danger" disabled="" id="expDelete" type="button">刪除此筆花費</button>
-</div>
-</div>
+<div class="row"><div class="col" style="grid-column:span 12"><label>說明</label><input id="expNote" placeholder="例如：材料、加油..." type="text"/></div></div>
+<div class="toolbar"><button class="primary" id="expSave" type="submit">儲存花費</button><button id="expReset" type="button">清空表單</button><div class="right"><button class="danger" disabled="" id="expDelete" type="button">刪除此筆花費</button></div></div>
 </form>
 </div>
 </aside>
 </div>
 </div>
 </details>
-
-  </div> <!-- /#mainMode -->
-
-  <!-- 提醒中心：獨立頁 -->
-  <section id="reminderCenterSection" class="card view-panel view-reminder" style="display:none">
-    <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-      <h2>提醒中心</h2>
-      <div class="header-actions" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-        <div class="pill">
-          <strong>顯示範圍</strong>
-          <select id="reminderRange">
-            <option value="overdue">僅逾期</option>
-            <option value="7">7 天內</option>
-            <option value="30" selected>30 天內</option>
-            <option value="60">60 天內</option>
-            <option value="all">全部未來</option>
-          </select>
-        </div>
-        <div class="pill">
-          <strong>作業人員</strong>
-          <select id="reminderStaffFilter">
-            <option value="">全部</option>
-          </select>
-        </div>
-        <div class="pill">
-          <strong>搜尋</strong>
-          <input id="reminderSearch" type="search" placeholder="姓名 / 電話 / 地址"/>
-        </div>
-        <label class="pill">
-          <input id="reminderOnlyUnnotified" type="checkbox" checked/>
-          <span>只看尚未通知</span>
-        </label>
-        <label class="pill">
-          <input id="reminderShowMuted" type="checkbox"/>
-          <span>顯示靜音客戶</span>
-        </label>
-        <button type="button" class="btn btn-reminder" id="btnOpenIgnoreManager" title="管理忽略清單">
-          管理忽略名單
-        </button>
-      </div>
-    </div>
-    <div class="body">
-      <div id="reminderStats" class="muted" style="margin-bottom:8px;font-size:14px;">
-        目前沒有提醒資料。
-      </div>
-      <div class="hr"></div>
-      <div id="reminderList" class="reminder-center-list">
-        <!-- 由 JS (refreshReminderCenter) 產生 -->
-      </div>
-    </div>
-  </section>
-</main>
-
-<input accept=".json" class="hidden" id="filePicker" type="file"/>
-<input accept=".json" class="hidden" id="filePickerExp" type="file"/>
-<template id="expRowTpl">
-<tr>
-<td class="small muted"></td>
-<td></td><td></td><td></td><td class="right-align"></td>
-</tr>
-</template>
-<script src="https://apis.google.com/js/api.js"></script>
-<div>
-<!-- ✅ 載入 Google OAuth SDK -->
-<script async="" defer="" src="https://accounts.google.com/gsi/client"></script>
-<!-- ✅ 加在 refreshTable 的每筆訂單操作欄位中 -->
-<!-- ✅ 表單中新增：工作時長欄位 -->
-<!-- ✅ gatherForm() 中補上 -->
 </div>
 
-<!-- Input Modal for adding staff/contact (custom styled) -->
+<section id="reminderCenterSection" class="card view-panel view-reminder" style="display:none">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+    <h2>提醒中心</h2>
+    <div class="header-actions" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+      <div class="pill"><strong>顯示範圍</strong><select id="reminderRange"><option value="overdue">僅逾期</option><option value="7">7 天內</option><option value="30" selected>30 天內</option><option value="60">60 天內</option><option value="all">全部未來</option></select></div>
+      <div class="pill"><strong>作業人員</strong><select id="reminderStaffFilter"><option value="">全部</option></select></div>
+      <div class="pill"><strong>搜尋</strong><input id="reminderSearch" type="search" placeholder="姓名 / 電話 / 地址"/></div>
+      <label class="pill"><input id="reminderOnlyUnnotified" type="checkbox" checked/><span>只看尚未通知</span></label>
+      <label class="pill"><input id="reminderShowMuted" type="checkbox"/><span>顯示靜音客戶</span></label>
+      <button type="button" class="btn btn-reminder" id="btnOpenIgnoreManager" title="管理忽略清單">管理忽略名單</button>
+    </div>
+  </div>
+  <div class="body">
+    <div id="reminderStats" class="muted" style="margin-bottom:8px;font-size:14px;">目前沒有提醒資料。</div>
+    <div class="hr"></div>
+    <div id="reminderList" class="reminder-center-list"></div>
+  </div>
+</section>
+</main>
+<input accept=".json" class="hidden" id="filePicker" type="file"/>
+<input accept=".json" class="hidden" id="filePickerExp" type="file"/>
+<script src="https://apis.google.com/js/api.js"></script>
+<script async="" defer="" src="https://accounts.google.com/gsi/client"></script>
+
+<div aria-hidden="true" class="modal" id="pricingModal">
+  <div class="modal-backdrop" data-close="true"></div>
+  <div class="modal-panel" style="max-width:600px;">
+    <header class="modal-header">
+      <h3>價格設定 (修改後僅影響新計算)</h3>
+      <button aria-label="關閉" class="btn-small" id="pricingCloseBtn">✕</button>
+    </header>
+    <div class="modal-body" style="padding:16px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div>
+          <h4 style="margin:0 0 8px;border-bottom:1px solid #eee;padding-bottom:4px">分離式冷氣</h4>
+          <label>每台單價 <input id="price_acSplit_unit" type="number" class="form-input"></label>
+          <label>滿3台單價 <input id="price_acSplit_bulk3plus" type="number" class="form-input"></label>
+          <label>長度>182cm 加價 <input id="price_longSplitCount_unit" type="number" class="form-input"></label>
+        </div>
+        <div>
+          <h4 style="margin:0 0 8px;border-bottom:1px solid #eee;padding-bottom:4px">吊隱式冷氣</h4>
+          <label>每台單價 <input id="price_acDuct_unit" type="number" class="form-input"></label>
+        </div>
+        <div>
+          <h4 style="margin:0 0 8px;border-bottom:1px solid #eee;padding-bottom:4px">直立式洗衣機</h4>
+          <label>含冷氣(合購)單價 <input id="price_washerTop_withAC" type="number" class="form-input"></label>
+          <label>不含冷氣單價 <input id="price_washerTop_withoutAC" type="number" class="form-input"></label>
+        </div>
+        <div>
+           <h4 style="margin:0 0 8px;border-bottom:1px solid #eee;padding-bottom:4px">其他項目</h4>
+           <label>水塔 (每顆) <input id="price_waterTank_unit" type="number" class="form-input"></label>
+           <label>臭氧殺菌 (每間) <input id="price_ozone_unit" type="number" class="form-input"></label>
+           <label>變形金剛 (每台) <input id="price_transformerCount_unit" type="number" class="form-input"></label>
+           <label>一體式水盤 (每台) <input id="price_onePieceTray_unit" type="number" class="form-input"></label>
+        </div>
+        <div style="grid-column: span 2;">
+           <h4 style="margin:0 0 8px;border-bottom:1px solid #eee;padding-bottom:4px">防霉噴劑</h4>
+           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+             <label>每台單價 <input id="price_antiMold_unit" type="number" class="form-input"></label>
+             <label>滿5台單價 <input id="price_antiMold_bulk5plus" type="number" class="form-input"></label>
+           </div>
+        </div>
+      </div>
+    </div>
+    <footer class="modal-footer" style="padding:16px; display:flex; justify-content:flex-end; gap:10px;">
+      <button class="btn danger" id="resetPricingBtn">恢復預設值</button>
+      <button class="btn primary" id="savePricingBtn">儲存設定</button>
+    </footer>
+  </div>
+</div>
+
 <div aria-hidden="true" class="modal input-modal" id="inputModal">
   <div class="modal-backdrop" data-close="true"></div>
   <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="inputModalTitle">
@@ -544,7 +340,6 @@
   </div>
 </div>
 <script defer="" src="app.js"></script>
-<!-- Customer History Modal (added by assistant) -->
 <div aria-hidden="true" class="modal" id="historyModal">
 <div class="modal-backdrop" data-close="true"></div>
 <div class="modal-panel">
@@ -556,34 +351,15 @@
 <div class="history-controls">
 <input id="historySearch" placeholder="搜尋清洗項目或備註..."/>
 <button class="btn-small" id="historyExportCsv">匯出 CSV</button>
-<select id="historySort">
-<option value="desc">依時間（新→舊）</option>
-<option value="asc">依時間（舊→新）</option>
-</select>
+<select id="historySort"><option value="desc">依時間（新→舊）</option><option value="asc">依時間（舊→新）</option></select>
 </div>
 <div class="history-table-wrap">
-<table class="table" id="historyTable">
-<thead>
-<tr>
-<th>姓名</th>
-<th>清洗時間</th>
-<th>電話</th>
-<th>清洗項目</th>
-<th>地址</th>
-<th>備註</th>
-<th>操作</th>
-</tr>
-</thead>
-<tbody id="historyTableBody"></tbody>
-</table>
+<table class="table" id="historyTable"><thead><tr><th>姓名</th><th>清洗時間</th><th>電話</th><th>清洗項目</th><th>地址</th><th>備註</th><th>操作</th></tr></thead><tbody id="historyTableBody"></tbody></table>
 <div id="historyEmpty" style="display:none">目前沒有歷史紀錄</div>
 </div>
 </section>
 </div>
 </div>
-<!-- End Customer History Modal -->
-
-<!-- assistant-added: sync .checked class for big-toggle labels (fallback for browsers without :has) -->
 <script>
 (function(){
   try {
@@ -594,20 +370,12 @@
       const sync = () => label.classList.toggle('checked', !!input.checked);
       sync();
       input.addEventListener('change', sync);
-      // also sync on any programmatic changes if needed
       const observer = new MutationObserver(sync);
       observer.observe(input, { attributes: true, attributeFilter: ['checked'] });
     });
-  } catch(e){
-    console.warn('big-toggle sync failed', e);
-  }
+  } catch(e){ console.warn('big-toggle sync failed', e); }
 })();
 </script>
-<!-- /assistant-added -->
-
-
-
-<!-- Ignore Manager Modal -->
 <div aria-hidden="true" class="modal" id="ignoreManagerModal">
   <div class="modal-backdrop" data-close="true"></div>
   <div class="modal-panel" style="max-width:1000px; max-height:80vh; overflow:auto;">
@@ -624,23 +392,12 @@
       </div>
       <div style="overflow:auto; max-height:60vh;">
         <table  id="ignoreManagerTable" class="ignore-manager-table" class="table" style="width:100%; border-collapse:collapse;">
-          
-          <thead>
-            <tr>
-              <th style="width:36px; text-align:center;">
-  <input type="checkbox" id="ignoreSelectAll"/>
-</th>
-              <th class="no-wrap">日期</th><th class="no-wrap">姓名</th><th class="no-wrap">電話</th><th>地址</th><th class="no-wrap">操作</th>
-            </tr>
-          </thead>
-    
-          <tbody></tbody>
+          <thead><tr><th style="width:36px; text-align:center;"><input type="checkbox" id="ignoreSelectAll"/></th><th class="no-wrap">日期</th><th class="no-wrap">姓名</th><th class="no-wrap">電話</th><th>地址</th><th class="no-wrap">操作</th></tr></thead><tbody></tbody>
         </table>
       </div>
     </section>
   </div>
 </div>
-<!-- Generic Confirm Modal -->
 <div id="genericConfirmModal" class="confirm-modal" aria-hidden="true" role="dialog">
   <div class="confirm-panel">
     <h3 id="genericConfirmTitle">確認</h3>
@@ -651,8 +408,6 @@
     </div>
   </div>
 </div>
-
-<!-- Generic Alert Modal -->
 <div id="genericAlertModal" class="confirm-modal" aria-hidden="true" role="alertdialog">
   <div class="confirm-panel">
     <h3 id="genericAlertTitle">提示</h3>
@@ -662,8 +417,5 @@
     </div>
   </div>
 </div>
-
 </body>
 </html>
-<!-- 加入 Google API SDK -->
-<script async="" defer="" src="https://accounts.google.com/gsi/client"></script>

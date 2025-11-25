@@ -1289,37 +1289,12 @@ label.pill:focus-within {
     width: auto;
   }
 }
-
-
-/* === Mobile override: keep 忽略清單管理 (ignoreManagerTable) as normal horizontal table === */
-@media (max-width: 600px) {
-  /* Restore standard table layout for ignore manager */
-  #ignoreManagerTable,
-  .ignore-manager-table {
-    border-collapse: collapse;
-    border-spacing: 0;
-  }
-  #ignoreManagerTable thead,
-  .ignore-manager-table thead {
-    display: table-header-group;
-  }
-  #ignoreManagerTable tr,
-  .ignore-manager-table tr {
-    display: table-row;
-    margin-bottom: 0;
-    border: none;
-    padding: 0;
-    box-shadow: none;
-  }
-  #ignoreManagerTable td,
-  .ignore-manager-table td {
-    display: table-cell !important;
-    border-bottom: 1px solid var(--border);
-    padding: 8px;
-    text-align: left;
-  }
-  #ignoreManagerTable td::before,
-  .ignore-manager-table td::before {
-    content: none !important;
-  }
+/* 點擊地址開啟 Google 地圖 */
+.addr-link {
+  text-decoration: underline;
+  cursor: pointer;
+}
+.addr-link:hover {
+  text-decoration: underline;
+  opacity: .85;
 }

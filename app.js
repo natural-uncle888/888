@@ -138,6 +138,21 @@ function hasAnyPhone(){
     let contacts = load(CONTACTS_KEY, []); // {id,name,phone,address,lineId}
     function normalizePhone(p){ return (p||'').replace(/\D+/g,''); }
 
+
+// Helper: build Google Maps navigation URL from address
+function buildGoogleMapsUrl(address){
+  if(!address) return '';
+  try{
+    const q = encodeURIComponent((address || '').trim());
+    if(!q) return '';
+    // 使用 Google Maps 導航，用目前位置 -> 目的地址
+    return 'https://www.google.com/maps/dir/?api=1&destination=' + q;
+  }catch(e){
+    return '';
+  }
+}
+
+
 // ---------- Validation ----------
 function isValidTwMobile(p){
   // Accept forms like 0912345678 or 0912-345-678
@@ -311,59 +326,47 @@ function nextDueDateForCustomer(name){
 }
 
 // ---------- Pricing (extracted constants) ----------
-const PRICING_KEY = 'yl_clean_pricing_v1';
-
-const DEFAULT_PRICING = {
+const PRICING = {
   acSplit: { unit: 1800, bulk3plus: 1500 },
   acDuct: { unit: 2800 },
   washerTop: { withAC: 1800, withoutAC: 2000 },
   waterTank: { unit: 1000 },
-  pipesAmount: { passthrough: true },
+  pipesAmount: { passthrough: true }, // already in TWD
   antiMold: { unit: 300, bulk5plus: 250 },
   ozone: { unit: 200 },
   transformerCount: { unit: 500 },
   longSplitCount: { unit: 300 },
   onePieceTray: { unit: 500 },
+  // 滿額規則（目前未使用，可於此調整）
   thresholds: {
     // example: freeShippingOver: 5000
   }
 };
 
-let pricingConfig = load(PRICING_KEY, JSON.parse(JSON.stringify(DEFAULT_PRICING)));
-
 function calcTotal(f){
-  const cfg = pricingConfig || DEFAULT_PRICING;
+  const acSplit=+f.acSplit||0, acDuct=+f.acDuct||0, washerTop=+f.washerTop||0, waterTank=+f.waterTank||0;
+  const pipesAmount=+f.pipesAmount||0, antiMold=+f.antiMold||0, ozone=+f.ozone||0, transformerCount=+f.transformerCount||0;
+  const longSplitCount=+f.longSplitCount||0, onePieceTray=+f.onePieceTray||0;
 
-  const acSplit = +f.acSplit || 0;
-  const acDuct = +f.acDuct || 0;
-  const washerTop = +f.washerTop || 0;
-  const waterTank = +f.waterTank || 0;
-  const pipesAmount = +f.pipesAmount || 0;
-  const antiMold = +f.antiMold || 0;
-  const ozone = +f.ozone || 0;
-  const transformerCount = +f.transformerCount || 0;
-  const longSplitCount = +f.longSplitCount || 0;
-  const onePieceTray = +f.onePieceTray || 0;
-
-  const splitUnit = acSplit >= 3 ? cfg.acSplit.bulk3plus : cfg.acSplit.unit;
+  const splitUnit = acSplit>=3 ? PRICING.acSplit.bulk3plus : PRICING.acSplit.unit;
   const splitTotal = acSplit * splitUnit;
 
-  const ductTotal = acDuct * cfg.acDuct.unit;
+  const ductTotal = acDuct * PRICING.acDuct.unit;
 
-  const washerUnit = (acSplit + acDuct) > 0 ? cfg.washerTop.withAC : cfg.washerTop.withoutAC;
+  const washerUnit = (acSplit + acDuct) > 0 ? PRICING.washerTop.withAC : PRICING.washerTop.withoutAC;
   const washerTotal = washerTop * washerUnit;
 
-  const tankTotal = waterTank * cfg.waterTank.unit;
+  const tankTotal = waterTank * PRICING.waterTank.unit;
 
-  const pipesTotal = Math.max(0, pipesAmount);
+  const pipesTotal = Math.max(0, pipesAmount); // passthrough
 
-  const antiMoldUnit = antiMold >= 5 ? cfg.antiMold.bulk5plus : cfg.antiMold.unit;
+  const antiMoldUnit = antiMold >= 5 ? PRICING.antiMold.bulk5plus : PRICING.antiMold.unit;
   const antiMoldTotal = antiMold * antiMoldUnit;
 
-  const ozoneTotal = ozone * cfg.ozone.unit;
-  const transformerTotal = transformerCount * cfg.transformerCount.unit;
-  const longSplitTotal = longSplitCount * cfg.longSplitCount.unit;
-  const onePieceTotal = onePieceTray * cfg.onePieceTray.unit;
+  const ozoneTotal = ozone * PRICING.ozone.unit;
+  const transformerTotal = transformerCount * PRICING.transformerCount.unit;
+  const longSplitTotal = longSplitCount * PRICING.longSplitCount.unit;
+  const onePieceTotal = onePieceTray * PRICING.onePieceTray.unit;
 
   const total = splitTotal + ductTotal + washerTotal + tankTotal + pipesTotal + antiMoldTotal + ozoneTotal + transformerTotal + longSplitTotal + onePieceTotal;
   return Math.max(0, Math.round(total));
@@ -446,291 +449,282 @@ durationMinutes: +$('durationMinutes').value,
     // ---------- Table & quick status ----------
     function nextStatus(s){ const i=STATUS_FLOW.indexOf(s); return STATUS_FLOW[(i+1)%STATUS_FLOW.length]; }
     function refreshTable(){
-  // Enhanced search: tokens -> filter every token across fields, score by relevance, sort by score, and set searchTokens for highlighting
-  const y = +$('yearSel').value, m = +$('monthSel').value, staffF = $('staffFilter').value, statusF = $('statusFilter').value, showUndated = $('showUndated').checked;
-  const tbody = $('ordersTable')?.querySelector('tbody');
-  if(!tbody) return;
-  tbody.innerHTML = '';
-  const q = ($('searchInput')?.value || '').trim();
-  // raw tokens for highlighting (preserve original token text)
-  const rawTokens = q ? q.split(/\s+/).filter(Boolean) : [];
-  // normalized tokens for matching (lowercase, remove spaces/dashes)
-  const tokens = rawTokens.map(t => t.toLowerCase().replace(/\s|-/g,''));
-  // phone digit tokens: only use when >= 3 digits to avoid false positives
-  const digitTokens = tokens.map(t => { const d = t.replace(/\D+/g,''); return d.length >= 3 ? d : null; });
+      // Enhanced search: tokens -> filter every token across fields, score by relevance
+      const y = +$('yearSel').value, m = +$('monthSel').value, staffF = $('staffFilter').value, statusF = $('statusFilter').value, showUndated = $('showUndated').checked;
+      const tbody = $('ordersTable')?.querySelector('tbody');
+      if(!tbody) return;
+      tbody.innerHTML = '';
+      const q = ($('searchInput')?.value || '').trim();
+      // raw tokens for highlighting
+      const rawTokens = q ? q.split(/\s+/).filter(Boolean) : [];
+      // normalized tokens for matching
+      const tokens = rawTokens.map(t => t.toLowerCase().replace(/\s|-/g,''));
+      const digitTokens = tokens.map(t => { const d = t.replace(/\D+/g,''); return d.length >= 3 ? d : null; });
 
-  // expose tokens for highlight helpers (they use global searchTokens)
-  searchTokens = rawTokens.slice();
+      // expose tokens for highlight helpers
+      searchTokens = rawTokens.slice();
 
-  const range = $('completedRange')?.value || '';
-  const now = Date.now();
+      const range = $('completedRange')?.value || '';
+      const now = Date.now();
 
-  function normalizeForMatch(s){ return (s||'').toLowerCase(); }
-  function scoreForOrder(o){
-    const customer = normalizeForMatch(o.customer||'');
-    const address = normalizeForMatch(o.address||'');
-    const phone = normalizePhone(o.phone || '');
-    let score = 0;
-    for(let i=0;i<tokens.length;i++){
-      const t = tokens[i];
-      const dt = digitTokens[i];
-      if(!t) continue;
-      if(customer.includes(t)){
-        score += 6;
-        if(customer.startsWith(t)) score += 4; // prefix boost
+      function normalizeForMatch(s){ return (s||'').toLowerCase(); }
+      function scoreForOrder(o){
+        const customer = normalizeForMatch(o.customer||'');
+        const address = normalizeForMatch(o.address||'');
+        const phone = normalizePhone(o.phone || '');
+        let score = 0;
+        for(let i=0;i<tokens.length;i++){
+          const t = tokens[i];
+          const dt = digitTokens[i];
+          if(!t) continue;
+          if(customer.includes(t)){
+            score += 6;
+            if(customer.startsWith(t)) score += 4;
+          }
+          if(address.includes(t)){
+            score += 2;
+          }
+          if(dt && phone.includes(dt)){
+            score += 12;
+          }
+          if((o.customer||'').toLowerCase() === t) score += 8;
+        }
+        return score;
       }
-      if(address.includes(t)){
-        score += 2;
-      }
-      if(dt && phone.includes(dt)){
-        score += 12;
-      }
-      // small bonus if full exact customer match
-      if((o.customer||'').toLowerCase() === t) score += 8;
-    }
-    return score;
-  }
 
-  function matchesFilter(o){
-    if(tokens.length === 0) return true;
-    const customer = normalizeForMatch(o.customer||'');
-    const address = normalizeForMatch(o.address||'');
-    const phone = normalizePhone(o.phone || '');
-    return tokens.every((t,i) => {
-      const dt = digitTokens[i];
-      if(dt){
-        return customer.includes(t) || address.includes(t) || phone.includes(dt);
-      } else {
-        return customer.includes(t) || address.includes(t);
-      }
-    });
-  }
-
-  // Apply year/month/staff/status/showUndated filters and the search filter/matching
-  const filtered = (orders || []).filter(o => {
-    const s1 = !staffF || o.staff === staffF;
-    const s2 = !statusF || o.status === statusF;
-    const condRange = !range || (o.completedAt && (now - new Date(o.completedAt).getTime()) <= (+range)*24*60*60*1000);
-    if(!s1 || !s2 || !condRange) return false;
-    // If there's a search query, search across ALL orders (respecting staff/status/range),
-    // otherwise only include orders in the selected year/month (or undated if showUndated).
-    if(tokens.length > 0){
-      return matchesFilter(o);
-    }
-    if(!o.date) return showUndated && matchesFilter(o);
-    const d = new Date(o.date);
-    const ym = (d.getFullYear() === y && (d.getMonth()+1) === m);
-    return ym && matchesFilter(o);
-  }).map(o => ({ order: o, score: scoreForOrder(o) }));
-  // Sorting: if there is a query, sort by score desc (tie-breaker by date/time desc)
-  if(tokens.length === 0){
-    filtered.sort((a,b) => {
-      // default sort by date asc then time asc (preserve prior behavior)
-      if(!a.order.date && b.order.date) return -1;
-      if(a.order.date && !b.order.date) return 1;
-      const dc = (a.order.date||'9999-99-99').localeCompare(b.order.date||'9999-99-99');
-      if(dc !== 0) return dc;
-      if(!a.order.time && b.order.time) return -1;
-      if(a.order.time && !b.order.time) return 1;
-      return (a.order.time||'').localeCompare(b.order.time||'');
-    });
-  } else {
-    filtered.sort((a,b) => {
-      if(b.score !== a.score) return b.score - a.score;
-      // tie-breaker: most recent date/time first
-      const da = a.order.date ? new Date(a.order.date).getTime() : 0;
-      const db = b.order.date ? new Date(b.order.date).getTime() : 0;
-      if(db !== da) return db - da;
-      return (b.order.time||'').localeCompare(a.order.time||'');
-    });
-  }
-
-  // Render rows with highlighting (use existing highlightText/highlightPhone helpers)
-  filtered.forEach((item, idx) => {
-    const o = item.order;
-    const tr = document.createElement('tr');
-
-    const dateCell = o.date ? escapeHtml(o.date) : '<span class="badge-soft">未排期</span>';
-    tr.innerHTML = `
-      <td class="small muted" data-label="#">${idx+1}</td>
-      <td class="editable" data-label="日期">${dateCell}</td>
-      <td class="editable" data-label="時間">${o.time ? escapeHtml(o.time) : '<span class="badge-soft">未排定</span>'}</td>
-      <td class="staff-cell" data-label="作業人員">
-        ${o.staff==='自然大叔' ? '<img src="https://res.cloudinary.com/dijzndzw2/image/upload/v1757176751/logo-3_hddq08.png" alt="自然大叔" class="staff-icon">' : escapeHtml(o.staff||'')}
-      </td>
-      <td class="vtext" data-label="客戶"><span class="copy-target">${escapeHtml(o.customer||'')}</span><button class="copy-btn" aria-label="複製客戶姓名" title="複製">📋</button></td>
-      <td data-label="電話"><span class="copy-target">${escapeHtml(o.phone||'')}</span><button class="copy-btn" aria-label="複製電話" title="複製">📋</button></td>
-      <td data-label="時段">${(o.slots||[]).join('、')}</td>
-      <td data-label="地址"><span class="copy-target">${escapeHtml(o.address||'')}</span><button class="copy-btn" aria-label="複製地址" title="複製">📋</button></td>
-      <td class="vtext" data-label="狀況"></td>
-      <td class="toggle-confirm vtext" data-label="確認"></td>
-      <td class="toggle-quote vtext" data-label="報價單"></td>
-      <td class="right-align" data-label="總金額">${fmtCurrency(o.total||0)}</td>
-      <td class="right-align" data-label="折後">${fmtCurrency(o.netTotal||0)}</td>
-      <td data-label="來源">${escapeHtml(o.contactMethod||'')}</td>
-      <td class="op-cell" data-label="操作"></td>
-    `;
-
-    // 附加照片 / 檔案欄位：有網址時顯示📎按鈕（現在顯示在「操作」欄位）
-    const opCell = tr.querySelector('.op-cell');
-    if (opCell) {
-      const urls = (o.photoUrls || '').trim();
-      if (urls) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'icon-btn';
-        btn.textContent = '📎';
-        btn.title = '查看附加照片 / 檔案連結';
-        btn.addEventListener('click', (ev)=>{
-          ev.stopPropagation();
-          // 載入這筆訂單資料
-          fillForm(o);
-          try {
-            renderPhotoUrlLinks(o.photoUrls || '');
-          } catch(e) {}
-
-          // 展開訂單表單手風琴
-          try {
-            const acc = document.getElementById('orderAccordion');
-            if (acc) acc.open = true;
-          } catch(e) {}
-
-          // 捲動到「清洗照片網址（可多筆）」那一塊
-          try {
-            setTimeout(() => {
-              let target = document.getElementById('photoUrlContainer');
-              if (!target) {
-                target = document.getElementById('photoUrlViewer') || document.querySelector('.photo-url-input');
-              }
-              if (target) {
-                const row = target.closest('.row') || target.closest('.col') || target;
-                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                const firstInput = row.querySelector('.photo-url-input');
-                if (firstInput) {
-                  firstInput.focus();
-                }
-              }
-            }, 30);
-          } catch(e) {}
+      function matchesFilter(o){
+        if(tokens.length === 0) return true;
+        const customer = normalizeForMatch(o.customer||'');
+        const address = normalizeForMatch(o.address||'');
+        const phone = normalizePhone(o.phone || '');
+        return tokens.every((t,i) => {
+          const dt = digitTokens[i];
+          if(dt){
+            return customer.includes(t) || address.includes(t) || phone.includes(dt);
+          } else {
+            return customer.includes(t) || address.includes(t);
+          }
         });
-        opCell.appendChild(btn);
+      }
+
+      const filtered = (orders || []).filter(o => {
+        const s1 = !staffF || o.staff === staffF;
+        const s2 = !statusF || o.status === statusF;
+        const condRange = !range || (o.completedAt && (now - new Date(o.completedAt).getTime()) <= (+range)*24*60*60*1000);
+        if(!s1 || !s2 || !condRange) return false;
+        
+        if(tokens.length > 0){
+          return matchesFilter(o);
+        }
+        if(!o.date) return showUndated && matchesFilter(o);
+        const d = new Date(o.date);
+        const ym = (d.getFullYear() === y && (d.getMonth()+1) === m);
+        return ym && matchesFilter(o);
+      }).map(o => ({ order: o, score: scoreForOrder(o) }));
+
+      if(tokens.length === 0){
+        filtered.sort((a,b) => {
+          if(!a.order.date && b.order.date) return -1;
+          if(a.order.date && !b.order.date) return 1;
+          const dc = (a.order.date||'9999-99-99').localeCompare(b.order.date||'9999-99-99');
+          if(dc !== 0) return dc;
+          if(!a.order.time && b.order.time) return -1;
+          if(a.order.time && !b.order.time) return 1;
+          return (a.order.time||'').localeCompare(b.order.time||'');
+        });
+      } else {
+        filtered.sort((a,b) => {
+          if(b.score !== a.score) return b.score - a.score;
+          const da = a.order.date ? new Date(a.order.date).getTime() : 0;
+          const db = b.order.date ? new Date(b.order.date).getTime() : 0;
+          if(db !== da) return db - da;
+          return (b.order.time||'').localeCompare(a.order.time||'');
+        });
+      }
+
+      filtered.forEach((item, idx) => {
+        const o = item.order;
+        const tr = document.createElement('tr');
+
+        const dateCell = o.date ? escapeHtml(o.date) : '<span class="badge-soft">未排期</span>';
+        tr.innerHTML = `
+          <td class="small muted" data-label="#">${idx+1}</td>
+          <td class="editable" data-label="日期">${dateCell}</td>
+          <td class="editable" data-label="時間">${o.time ? escapeHtml(o.time) : '<span class="badge-soft">未排定</span>'}</td>
+          <td class="staff-cell" data-label="作業人員">
+            ${o.staff==='自然大叔' ? '<img src="https://res.cloudinary.com/dijzndzw2/image/upload/v1757176751/logo-3_hddq08.png" alt="自然大叔" class="staff-icon">' : escapeHtml(o.staff||'')}
+          </td>
+          <td class="vtext" data-label="客戶"><span class="copy-target">${escapeHtml(o.customer||'')}</span><button class="copy-btn" aria-label="複製客戶姓名" title="複製">📋</button></td>
+          <td data-label="電話"><span class="copy-target">${escapeHtml(o.phone||'')}</span><button class="copy-btn" aria-label="複製電話" title="複製">📋</button></td>
+          <td data-label="時段">${(o.slots||[]).join('、')}</td>
+          <td data-label="地址"><span class="copy-target">${escapeHtml(o.address||'')}</span><button class="copy-btn" aria-label="複製地址" title="複製">📋</button></td>
+          <td class="vtext" data-label="狀況"></td>
+          <td class="toggle-confirm vtext" data-label="確認"></td>
+          <td class="toggle-quote vtext" data-label="報價單"></td>
+          <td class="right-align" data-label="總金額">${fmtCurrency(o.total||0)}</td>
+          <td class="right-align" data-label="折後">${fmtCurrency(o.netTotal||0)}</td>
+          <td data-label="來源">${escapeHtml(o.contactMethod||'')}</td>
+          <td class="op-cell" data-label="操作"></td>
+        `;
+
+        // 附加照片按鈕
+        const opCell = tr.querySelector('.op-cell');
+        if (opCell) {
+          const urls = (o.photoUrls || '').trim();
+          if (urls) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'icon-btn';
+            btn.textContent = '📎';
+            btn.title = '查看附加照片 / 檔案連結';
+            btn.addEventListener('click', (ev)=>{
+              ev.stopPropagation();
+              fillForm(o);
+              try { renderPhotoUrlLinks(o.photoUrls || ''); } catch(e) {}
+              try {
+                const acc = document.getElementById('orderAccordion');
+                if (acc) acc.open = true;
+              } catch(e) {}
+              try {
+                setTimeout(() => {
+                  let target = document.getElementById('photoUrlContainer');
+                  if (!target) target = document.getElementById('photoUrlViewer') || document.querySelector('.photo-url-input');
+                  if (target) {
+                    const row = target.closest('.row') || target.closest('.col') || target;
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const firstInput = row.querySelector('.photo-url-input');
+                    if (firstInput) firstInput.focus();
+                  }
+                }, 30);
+              } catch(e) {}
+            });
+            opCell.appendChild(btn);
+          }
+        }
+
+        // status pill
+        const st = o.status || '排定';
+        const span = document.createElement('span');
+        span.className = 'status ' + (st==='排定'?'P排定': st==='完成'?'C完成':'N未完成');
+        span.textContent = st;
+        span.title = '點一下快速切換狀況' + (o.completedAt ? ('\n完成於：' + new Date(o.completedAt).toLocaleString()) : '');
+        span.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const i = orders.findIndex(x => x.id === o.id);
+          if(i >= 0){
+            const prev = orders[i].status || '排定';
+            const next = nextStatus(prev);
+            orders[i].status = next;
+            if(next === '完成'){ orders[i].completedAt = new Date().toISOString(); orders[i].locked = true; }
+            else { orders[i].completedAt = undefined; orders[i].locked = false; }
+            save(KEY, orders);
+            refreshTable();
+          }
+        });
+        tr.children[8].appendChild(span);
+
+        // click to open
+        tr.addEventListener('click', ()=>{ fillForm(o); });
+
+        // inline edit
+        const dateTd = tr.children[1];
+        const timeTd = tr.children[2];
+        dateTd.addEventListener('click', (ev)=>{ ev.stopPropagation(); startInlineEdit(dateTd, 'date', o); });
+        timeTd.addEventListener('click', (ev)=>{ ev.stopPropagation(); startInlineEdit(timeTd, 'time', o); });
+
+        // highlight
+        tr.children[4].innerHTML = highlightText(o.customer||'');
+        tr.children[5].innerHTML = highlightPhone(o.phone||'');
+        // 地址欄位將在下面重新處理
+
+        // render confirm/quote toggles
+        const ctd = tr.querySelector('.toggle-confirm');
+        const qtd = tr.querySelector('.toggle-quote');
+        const cspan = renderTogglePill(ctd, !!o.confirmed, '已確認', '未確認');
+        const qspan = renderTogglePill(qtd, !!o.quotationOk, '已確認', '未確認');
+        cspan.addEventListener('click', (ev)=>{ ev.stopPropagation(); const i=orders.findIndex(x=>x.id===o.id); if(i>=0){ orders[i].confirmed = !orders[i].confirmed; save(KEY, orders); refreshTable(); }});
+        qspan.addEventListener('click', (ev)=>{ ev.stopPropagation(); const i=orders.findIndex(x=>x.id===o.id); if(i>=0){ orders[i].quotationOk = !orders[i].quotationOk; save(KEY, orders); refreshTable(); }});
+
+        // op buttons
+        const op = tr.querySelector('.op-cell');
+        const calBtn2 = document.createElement('button'); calBtn2.className='icon-btn'; calBtn2.textContent='📅';
+        calBtn2.title = '加入 Google 日曆';
+        calBtn2.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleUploadWithAuth(o); });
+        op.appendChild(calBtn2);
+        const delBtn = document.createElement('button'); delBtn.className='icon-btn danger'; delBtn.textContent='刪';
+        delBtn.addEventListener('click', async (ev)=>{ ev.stopPropagation(); if (typeof showConfirm === 'function' ? await showConfirm('此頁面說明','確定要刪除此訂單嗎？','確定','取消') : confirm('確定要刪除此訂單嗎？')) { orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
+        op.appendChild(delBtn);
+
+        // mobile classes
+        try {
+          tr.children[1]?.classList.add('keep-mobile');
+          tr.children[2]?.classList.add('keep-mobile');
+          tr.children[4]?.classList.add('keep-mobile');
+          tr.children[5]?.classList.add('keep-mobile');
+          tr.children[7]?.classList.add('keep-mobile');
+          tr.querySelector('.toggle-confirm')?.classList.add('keep-mobile');
+          tr.querySelector('.toggle-quote')?.classList.add('keep-mobile');
+          tr.children[12]?.classList.add('keep-mobile');
+          tr.querySelector('.op-cell')?.classList.add('keep-mobile');
+
+          tr.children[6]?.classList.add('col-slot');
+          tr.children[8]?.classList.add('col-status');
+          tr.children[11]?.classList.add('col-total');
+        } catch(err){ /* noop */ }
+
+        // append floor info AND google maps link to address cell
+        try {
+          const addrTd = tr.children[7];
+          const acList = Array.isArray(o.acFloors) ? o.acFloors.slice() : [];
+          const wList = Array.isArray(o.washerFloors) ? o.washerFloors.slice() : [];
+          const acExtra = (acList.includes('5F以上') && (o.acFloorAbove||'').trim()) ? `（實際：${(o.acFloorAbove||'').trim()}）` : '';
+          const wExtra = (wList.includes('5F以上') && (o.washerFloorAbove||'').trim()) ? `（實際：${(o.washerFloorAbove||'').trim()}）` : '';
+          const parts = [];
+          if(acList.length) parts.push(`冷氣：${acList.join('、')}${acExtra}`);
+          if(wList.length) parts.push(`洗衣：${wList.join('、')}${wExtra}`);
+          const note = parts.length ? `<div class="floor-note">${parts.join('｜')}</div>` : '';
+
+          // --- 地圖連結邏輯 ---
+          const addrVal = o.address || '';
+          const addrDisplay = highlightText(addrVal); 
+          const mapUrl = addrVal ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrVal)}` : '';
+          const addrHtml = mapUrl 
+            ? `<a href="${mapUrl}" target="_blank" rel="noopener noreferrer" style="color:inherit; text-decoration:underline; text-decoration-style:dashed; text-underline-offset:4px; text-decoration-color:#9ca3af;" title="開啟 Google Maps" onclick="event.stopPropagation();">${addrDisplay}</a>` 
+            : addrDisplay;
+
+          // 重新組合（保留複製功能）
+          addrTd.innerHTML = `<span class="copy-target">${addrHtml}</span><button class="copy-btn" aria-label="複製地址" title="複製">📋</button>${note}`;
+          // ------------------
+
+        } catch(err) { /* noop */ }
+
+        tr.dataset.orderId = o.id || o._id || '';
+        tbody.appendChild(tr);
+      });
+
+      try { refreshDueSoonPanel(); } catch(e){ /* ignore */ }
+
+      // Summary
+      const sumEl = $('summary'); if(sumEl) sumEl.innerHTML = '';
+      const monthly = orders.filter(o=> o.date && (new Date(o.date).getFullYear()===y) && (new Date(o.date).getMonth()+1===m));
+      const count = monthly.length;
+      const total = monthly.reduce((a,b)=>a+(+b.total||0),0);
+      const net = monthly.reduce((a,b)=>a+(+b.netTotal||0),0);
+      const done = monthly.filter(o=>o.status==='完成').length;
+      const pending = monthly.filter(o=>o.status!=='完成').length;
+      const undatedCount = orders.filter(o=>!o.date).length;
+      const monthExpense = expenses.filter(e=>{ if(!e.date) return false; const d=new Date(e.date); return d.getFullYear()===y && (d.getMonth()+1)===m; }).reduce((a,b)=>a+(+b.amount||0),0);
+      const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='box';box.innerHTML=`<div class="small muted">${t}</div><div class="number">${v}</div>${h?`<div class="small muted">${h}</div>`:''}`;return box;};
+      if(sumEl){
+        sumEl.appendChild(mk('本月訂單數', count));
+        sumEl.appendChild(mk('本月總金額', fmtCurrency(total)));
+        sumEl.appendChild(mk('本月折後總金額', fmtCurrency(net)));
+        sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense)));
+        sumEl.appendChild(mk('本月淨收入', fmtCurrency(Math.max(0, net - monthExpense))));
+        sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
+        if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
       }
     }
-
-    // status pill
-    const st = o.status || '排定';
-    const span = document.createElement('span');
-    span.className = 'status ' + (st==='排定'?'P排定': st==='完成'?'C完成':'N未完成');
-    span.textContent = st;
-    span.title = '點一下快速切換狀況' + (o.completedAt ? ('\n完成於：' + new Date(o.completedAt).toLocaleString()) : '');
-    span.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const i = orders.findIndex(x => x.id === o.id);
-      if(i >= 0){
-        const prev = orders[i].status || '排定';
-        const next = nextStatus(prev);
-        orders[i].status = next;
-        if(next === '完成'){ orders[i].completedAt = new Date().toISOString(); orders[i].locked = true; }
-        else { orders[i].completedAt = undefined; orders[i].locked = false; }
-        save(KEY, orders);
-        refreshTable();
-      }
-    });
-    tr.children[8].appendChild(span);
-
-    // click to open
-    tr.addEventListener('click', ()=>{ fillForm(o); });
-
-    // inline edit for date/time
-    const dateTd = tr.children[1];
-    const timeTd = tr.children[2];
-    dateTd.addEventListener('click', (ev)=>{ ev.stopPropagation(); startInlineEdit(dateTd, 'date', o); });
-    timeTd.addEventListener('click', (ev)=>{ ev.stopPropagation(); startInlineEdit(timeTd, 'time', o); });
-
-    // highlight customer / phone / address using global searchTokens
-    tr.children[4].innerHTML = highlightText(o.customer||'');
-    tr.children[5].innerHTML = highlightPhone(o.phone||'');
-    tr.children[7].innerHTML = highlightText(o.address||'');
-
-    // render confirm/quote toggles
-    const ctd = tr.querySelector('.toggle-confirm');
-    const qtd = tr.querySelector('.toggle-quote');
-    const cspan = renderTogglePill(ctd, !!o.confirmed, '已確認', '未確認');
-    const qspan = renderTogglePill(qtd, !!o.quotationOk, '已確認', '未確認');
-    cspan.addEventListener('click', (ev)=>{ ev.stopPropagation(); const i=orders.findIndex(x=>x.id===o.id); if(i>=0){ orders[i].confirmed = !orders[i].confirmed; save(KEY, orders); refreshTable(); }});
-    qspan.addEventListener('click', (ev)=>{ ev.stopPropagation(); const i=orders.findIndex(x=>x.id===o.id); if(i>=0){ orders[i].quotationOk = !orders[i].quotationOk; save(KEY, orders); refreshTable(); }});
-
-    // op buttons
-    const op = tr.querySelector('.op-cell');
-    const calBtn2 = document.createElement('button'); calBtn2.className='icon-btn'; calBtn2.textContent='📅';
-    calBtn2.title = '加入 Google 日曆';
-    calBtn2.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleUploadWithAuth(o); });
-    op.appendChild(calBtn2);
-    const delBtn = document.createElement('button'); delBtn.className='icon-btn danger'; delBtn.textContent='刪';
-    delBtn.addEventListener('click', async (ev)=>{ ev.stopPropagation(); if (typeof showConfirm === 'function' ? await showConfirm('此頁面說明','確定要刪除此訂單嗎？','確定','取消') : confirm('確定要刪除此訂單嗎？')) { orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
-    op.appendChild(delBtn);
-
-    // mobile keep list classes and hidden column classes (try/catch to avoid crashes)
-    try {
-      tr.children[1]?.classList.add('keep-mobile');
-      tr.children[2]?.classList.add('keep-mobile');
-      tr.children[4]?.classList.add('keep-mobile');
-      tr.children[5]?.classList.add('keep-mobile');
-      tr.children[7]?.classList.add('keep-mobile');
-      tr.querySelector('.toggle-confirm')?.classList.add('keep-mobile');
-      tr.querySelector('.toggle-quote')?.classList.add('keep-mobile');
-      tr.children[12]?.classList.add('keep-mobile');
-      tr.querySelector('.op-cell')?.classList.add('keep-mobile');
-
-      tr.children[6]?.classList.add('col-slot');
-      tr.children[8]?.classList.add('col-status');
-      tr.children[11]?.classList.add('col-total');
-    } catch(err){ /* noop */ }
-
-    // append floor info to address cell
-    try {
-      const addrTd = tr.children[7];
-      const acList = Array.isArray(o.acFloors) ? o.acFloors.slice() : [];
-      const wList = Array.isArray(o.washerFloors) ? o.washerFloors.slice() : [];
-      const acExtra = (acList.includes('5F以上') && (o.acFloorAbove||'').trim()) ? `（實際：${(o.acFloorAbove||'').trim()}）` : '';
-      const wExtra = (wList.includes('5F以上') && (o.washerFloorAbove||'').trim()) ? `（實際：${(o.washerFloorAbove||'').trim()}）` : '';
-      const parts = [];
-      if(acList.length) parts.push(`冷氣：${acList.join('、')}${acExtra}`);
-      if(wList.length) parts.push(`洗衣：${wList.join('、')}${wExtra}`);
-      const note = parts.length ? `<div class="floor-note">${parts.join('｜')}</div>` : '';
-      addrTd.innerHTML = `${escapeHtml(o.address||'')}${note}`;
-    } catch(err) { /* noop */ }
-
-    tr.dataset.orderId = o.id || o._id || '';
-    tbody.appendChild(tr);
-  });
-
-  // Summary updates (reuse original summary logic)
-  try {
-    refreshDueSoonPanel();
-  } catch(e){ /* ignore */ }
-
-  const sumEl = $('summary'); if(sumEl) sumEl.innerHTML = '';
-  const monthly = orders.filter(o=> o.date && (new Date(o.date).getFullYear()===y) && (new Date(o.date).getMonth()+1===m));
-  const count = monthly.length;
-  const total = monthly.reduce((a,b)=>a+(+b.total||0),0);
-  const net = monthly.reduce((a,b)=>a+(+b.netTotal||0),0);
-  const done = monthly.filter(o=>o.status==='完成').length;
-  const pending = monthly.filter(o=>o.status!=='完成').length;
-  const undatedCount = orders.filter(o=>!o.date).length;
-  const monthExpense = expenses.filter(e=>{ if(!e.date) return false; const d=new Date(e.date); return d.getFullYear()===y && (d.getMonth()+1)===m; }).reduce((a,b)=>a+(+b.amount||0),0);
-  const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='box';box.innerHTML=`<div class="small muted">${t}</div><div class="number">${v}</div>${h?`<div class="small muted">${h}</div>`:''}`;return box;};
-  if(sumEl){
-    sumEl.appendChild(mk('本月訂單數', count));
-    sumEl.appendChild(mk('本月總金額', fmtCurrency(total)));
-    sumEl.appendChild(mk('本月折後總金額', fmtCurrency(net)));
-    sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense)));
-    sumEl.appendChild(mk('本月淨收入', fmtCurrency(Math.max(0, net - monthExpense))));
-    sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
-    if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
-  }
-}
-
     
     // ---------- Calendar Exports ----------
     function toTwo(n){ return n.toString().padStart(2,'0'); }
@@ -1935,113 +1929,7 @@ $('lineId').addEventListener('blur', ()=>{
       initViewTabs();
     }
 
-    
-// ---------- Pricing Settings Logic ----------
-function initPricingLogic(){
-  const modal = document.getElementById('pricingModal');
-  const openBtn = document.getElementById('openPricingBtn');
-  if (!modal || !openBtn) return;
-
-  const closeBtn = document.getElementById('pricingCloseBtn');
-  const saveBtn = document.getElementById('savePricingBtn');
-  const resetBtn = document.getElementById('resetPricingBtn');
-  const backdrop = modal.querySelector('.modal-backdrop');
-
-  const fieldMap = {
-    acSplit_unit: ['acSplit','unit'],
-    acSplit_bulk3plus: ['acSplit','bulk3plus'],
-    acDuct_unit: ['acDuct','unit'],
-    washerTop_withAC: ['washerTop','withAC'],
-    washerTop_withoutAC: ['washerTop','withoutAC'],
-    waterTank_unit: ['waterTank','unit'],
-    ozone_unit: ['ozone','unit'],
-    transformerCount_unit: ['transformerCount','unit'],
-    onePieceTray_unit: ['onePieceTray','unit'],
-    antiMold_unit: ['antiMold','unit'],
-    antiMold_bulk5plus: ['antiMold','bulk5plus'],
-    longSplitCount_unit: ['longSplitCount','unit']
-  };
-
-  function deepGet(obj, path, fallback){
-    let cur = obj;
-    for (let i=0;i<path.length;i++){
-      if (!cur || typeof cur !== 'object') return fallback;
-      cur = cur[path[i]];
-    }
-    return (typeof cur === 'number') ? cur : fallback;
-  }
-
-  function deepSet(obj, path, value){
-    let cur = obj;
-    for (let i=0;i<path.length-1;i++){
-      const k = path[i];
-      if (!cur[k] || typeof cur[k] !== 'object') cur[k] = {};
-      cur = cur[k];
-    }
-    cur[path[path.length-1]] = value;
-  }
-
-  function syncFormFromConfig(){
-    const cfg = pricingConfig || DEFAULT_PRICING;
-    Object.keys(fieldMap).forEach(key => {
-      const input = document.getElementById('price_' + key);
-      if (!input) return;
-      const path = fieldMap[key];
-      const defVal = deepGet(DEFAULT_PRICING, path, 0);
-      const val = deepGet(cfg, path, defVal);
-      input.value = val != null ? val : '';
-    });
-  }
-
-  function buildConfigFromForm(){
-    const base = JSON.parse(JSON.stringify(DEFAULT_PRICING));
-    Object.keys(fieldMap).forEach(key => {
-      const input = document.getElementById('price_' + key);
-      if (!input) return;
-      const raw = input.value;
-      const path = fieldMap[key];
-      const defVal = deepGet(DEFAULT_PRICING, path, 0);
-      let num = Number(raw);
-      if (!Number.isFinite(num) || num <= 0) num = defVal;
-      deepSet(base, path, num);
-    });
-    return base;
-  }
-
-  function openModal(){
-    syncFormFromConfig();
-    modal.setAttribute('aria-hidden','false');
-  }
-
-  function closeModal(){
-    modal.setAttribute('aria-hidden','true');
-  }
-
-  openBtn.addEventListener('click', openModal);
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  if (backdrop) backdrop.addEventListener('click', closeModal);
-
-  if (resetBtn){
-    resetBtn.addEventListener('click', () => {
-      pricingConfig = JSON.parse(JSON.stringify(DEFAULT_PRICING));
-      save(PRICING_KEY, pricingConfig);
-      syncFormFromConfig();
-    });
-  }
-
-  if (saveBtn){
-    saveBtn.addEventListener('click', () => {
-      pricingConfig = buildConfigFromForm();
-      save(PRICING_KEY, pricingConfig);
-      closeModal();
-      try{
-        recalcTotals();
-      }catch(e){}
-    });
-  }
-}
-
-// ---------- Boot ----------
+    // ---------- Boot ----------
     (function boot(){
       setTimeout(refreshDueSoonPanel, 0);
 
@@ -2068,7 +1956,7 @@ function initPricingLogic(){
         }
       }catch(e){}
 
-      initYearMonth(); initStaffSelects(); initContactSelect(); initCheckboxes(); initExpenseCats(); initPricingLogic();
+      initYearMonth(); initStaffSelects(); initContactSelect(); initCheckboxes(); initExpenseCats();
       attachEvents(); refreshContactsDatalist(); fillForm({}); fillExpForm({}); refreshTable();
       try { if(typeof makeOrdersTableResizable === 'function') makeOrdersTableResizable(); } catch(e){}
       refreshExpense();
@@ -4627,3 +4515,39 @@ function getLineIds(){
     }
   }catch(e){}
 })();
+
+
+// === 地址欄位 Google 地圖一鍵導航 ===
+document.addEventListener('DOMContentLoaded', () => {
+  try{
+    const addrInput = document.getElementById('address');
+    if(!addrInput) return;
+    if(document.getElementById('addressNavBtn')) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'addressNavBtn';
+    btn.className = 'btn-small';
+    btn.textContent = '🧭 Google 導航';
+    btn.title = '用 Google 地圖導航';
+
+    // 在地址輸入框後面插入按鈕
+    addrInput.insertAdjacentElement('afterend', btn);
+
+    btn.addEventListener('click', () => {
+      const addr = (addrInput.value || '').trim();
+      if(!addr){
+        alert('請先輸入地址');
+        return;
+      }
+      const url = buildGoogleMapsUrl(addr);
+      if(!url){
+        alert('無法產生 Google 地圖網址，請確認地址是否正確');
+        return;
+      }
+      window.open(url, '_blank', 'noopener');
+    });
+  }catch(e){
+    console.error('init address Google Maps nav failed', e);
+  }
+});

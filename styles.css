@@ -1298,3 +1298,135 @@ label.pill:focus-within {
   text-decoration: underline;
   opacity: .85;
 }
+/* =========================================
+   手機版卡片視圖優化 (Mobile Card View)
+   ========================================= */
+@media (max-width: 768px) {
+
+  /* 1. 重置表格結構為區塊顯示 (Block) */
+  #ordersTable, 
+  #ordersTable tbody, 
+  #ordersTable tr, 
+  #ordersTable td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 2. 隱藏原本的表頭 (Thead) */
+  #ordersTable thead {
+    display: none;
+  }
+
+  /* 3. 將每一列 (TR) 變成一張卡片 */
+  #ordersTable tbody tr {
+    position: relative;
+    margin-bottom: 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;       /* 圓角 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06); /* 陰影 */
+    padding: 12px 16px;        /* 卡片內距 */
+    overflow: hidden;          /* 避免內容溢出圓角 */
+  }
+
+  /* 4. 將每一個儲存格 (TD) 變成卡片內的一行 (Flex) */
+  #ordersTable td {
+    display: flex;
+    justify-content: space-between; /* 標籤靠左，內容靠右 */
+    align-items: center;
+    border: none;       /* 移除原本表格線 */
+    border-bottom: 1px dashed #f3f4f6; /* 改用虛線分隔 */
+    padding: 10px 0;
+    text-align: right;  /* 內容預設靠右 */
+    min-height: 44px;   /* 增加點擊高度 */
+    font-size: 15px;
+  }
+  
+  /* 移除最後一行的底線 */
+  #ordersTable td:last-child {
+    border-bottom: none;
+  }
+
+  /* 5. 利用 data-label 屬性自動產生標籤 (Label) */
+  #ordersTable td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #6b7280;     /* 標籤顏色 (淺灰) */
+    margin-right: auto; /* 將標籤推到最左邊 */
+    padding-right: 12px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  /* --- 特殊欄位優化 --- */
+
+  /* [編號] 欄位：不太重要，設為絕對定位放在卡片左上角，或者隱藏 */
+  #ordersTable td[data-label="#"] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: auto;
+    background: #f3f4f6;
+    border-bottom: none;
+    padding: 4px 12px;
+    border-bottom-left-radius: 8px;
+    font-size: 12px;
+    color: #999;
+    justify-content: center;
+  }
+  #ordersTable td[data-label="#"]::before { content: "#"; margin-right: 4px; }
+
+  /* [客戶] 與 [地址]：內容可能很長，改為垂直排列 (標籤在上，內容在下) */
+  #ordersTable td[data-label="客戶"],
+  #ordersTable td[data-label="地址"],
+  #ordersTable td[data-label="備註"] {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 6px;
+  }
+  
+  /* 強調客戶姓名 */
+  #ordersTable td[data-label="客戶"] {
+    padding-top: 24px; /* 避開右上角的 # 編號 */
+  }
+  #ordersTable td[data-label="客戶"] .copy-target {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  /* [地址] 增加連結感 */
+  #ordersTable td[data-label="地址"] a {
+    color: #2563eb;
+    text-decoration: none;
+    line-height: 1.4;
+  }
+
+  /* [操作] 欄位：固定在卡片底部，滿版背景 */
+  #ordersTable td.op-cell {
+    display: flex !important; /* 強制覆蓋可能的 hidden */
+    flex-wrap: wrap;
+    justify-content: flex-end; /* 按鈕靠右 */
+    gap: 12px;
+    background: #f9fafb; /* 淺灰背景區隔 */
+    margin: 12px -16px -12px -16px; /* 負邊距讓背景填滿卡片底部 */
+    padding: 12px 16px;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: none;
+  }
+  
+  /* 加大操作按鈕，手指好按 */
+  #ordersTable td.op-cell button {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  /* 強制顯示所有原本可能被 JS 隱藏的欄位 (除了特定的) */
+  .col-slot, .col-total { display: flex !important; }
+  
+  /* 隱藏不必要的欄位 (視需求調整) */
+  /* 例如：如果你不想在卡片顯示「折後總金額」，可以取消註解下面這行 */
+  /* #ordersTable td[data-label="總金額"] { display: none !important; } */
+}

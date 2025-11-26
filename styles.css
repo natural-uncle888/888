@@ -1697,3 +1697,30 @@ label.pill:focus-within {
   width:16px;
   height:16px;
 }
+
+
+/* === 提醒中心：手機版排版優化 === */
+@media (max-width: 600px){
+  #reminderCenterSection .card-header{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  #reminderCenterSection .card-header h2{
+    align-self: flex-start;
+    padding-left: 4px;
+  }
+  #reminderCenterSection .header-actions{
+    width: 100%;
+    justify-content: flex-start;
+  }
+  #reminderCenterSection .header-actions .pill,
+  #reminderCenterSection .header-actions .btn-reminder{
+    width: 100%;
+  }
+  #reminderCenterSection .header-actions .pill{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+}

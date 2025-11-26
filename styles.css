@@ -1746,3 +1746,62 @@ label.pill:focus-within {
     min-width: 0;
   }
 }
+
+
+/* 忽略清單管理 - 工具列排版 */
+.ignore-toolbar{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-bottom:8px;
+}
+
+.ignore-search-input{
+  flex:1 1 auto;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  min-width:0;
+}
+
+.ignore-toolbar__actions{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.ignore-toolbar__actions .btn-small{
+  white-space:nowrap;
+}
+
+/* 表格外框 */
+.ignore-table-wrapper{
+  overflow:auto;
+  max-height:60vh;
+}
+
+/* 手機排版調整 */
+@media (max-width: 600px){
+  #ignoreManagerModal .modal-panel{
+    width:100%;
+    max-width:100%;
+    margin:0;
+    border-radius:12px;
+  }
+
+  .ignore-toolbar{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .ignore-toolbar__actions{
+    flex-direction:row;
+    flex-wrap:wrap;
+    justify-content:flex-start;
+  }
+
+  .ignore-toolbar__actions .btn-small{
+    flex:0 0 calc(50% - 4px);
+    text-align:center;
+  }
+}

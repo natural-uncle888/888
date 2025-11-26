@@ -473,14 +473,16 @@
       <button aria-label="關閉" class="btn-small" id="ignoreCloseBtn">✕</button>
     </header>
     <section class="modal-body">
-      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-        <input id="ignoreManagerSearch" placeholder="搜尋 ID/姓名/電話/地址" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border);"/>
-        <button id="ignoreExportBtn" class="btn-small">匯出 CSV</button>
-        <button id="ignoreUnignoreSelected" class="btn-small">取消忽略選取</button>
-        <button id="ignoreClearBtn" class="btn-small danger">清空所有</button>
+      <div class="ignore-toolbar">
+        <input id="ignoreManagerSearch" class="ignore-search-input" placeholder="搜尋 ID / 姓名 / 電話 / 地址"/>
+        <div class="ignore-toolbar__actions">
+          <button id="ignoreExportBtn" class="btn-small">匯出 CSV</button>
+          <button id="ignoreUnignoreSelected" class="btn-small">取消忽略選取</button>
+          <button id="ignoreClearBtn" class="btn-small danger">清空所有</button>
+        </div>
       </div>
-      <div style="overflow:auto; max-height:60vh;">
-        <table  id="ignoreManagerTable" class="ignore-manager-table" class="table" style="width:100%; border-collapse:collapse;">
+      <div class="ignore-table-wrapper" style="overflow:auto; max-height:60vh;">
+<table  id="ignoreManagerTable" class="ignore-manager-table" class="table" style="width:100%; border-collapse:collapse;">
           <thead><tr><th style="width:36px; text-align:center;"><input type="checkbox" id="ignoreSelectAll"/></th><th class="no-wrap">日期</th><th class="no-wrap">姓名</th><th class="no-wrap">電話</th><th>地址</th><th class="no-wrap">操作</th></tr></thead><tbody></tbody>
         </table>
       </div>

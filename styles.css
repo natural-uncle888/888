@@ -1713,10 +1713,13 @@ label.pill:focus-within {
   #reminderCenterSection .header-actions{
     width: 100%;
     justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   #reminderCenterSection .header-actions .pill,
   #reminderCenterSection .header-actions .btn-reminder{
-    width: 100%;
+    flex: 0 0 calc(50% - 4px);
+    max-width: calc(50% - 4px);
   }
   #reminderCenterSection .header-actions .pill{
     display: flex;

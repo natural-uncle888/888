@@ -1855,6 +1855,30 @@ label.pill:focus-within {
   #ignoreManagerTable{
     width:auto;
     min-width:640px;
+    border-collapse:collapse;
     table-layout:auto;
+  }
+  #ignoreManagerTable thead{
+    display:table-header-group !important;
+  }
+  #ignoreManagerTable tbody{
+    display:table-row-group !important;
+  }
+  #ignoreManagerTable tr{
+    display:table-row !important;
+    margin:0 !important;
+    padding:0 !important;
+    border:none !important;
+    box-shadow:none !important;
+  }
+  #ignoreManagerTable th,
+  #ignoreManagerTable td{
+    display:table-cell !important;
+    padding:6px 8px !important;
+    white-space:nowrap;
+    vertical-align:middle;
+  }
+  #ignoreManagerTable td::before{
+    content:none !important;
   }
 }

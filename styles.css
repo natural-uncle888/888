@@ -1299,3 +1299,120 @@ label.pill:focus-within {
   opacity: .85;
 }
 
+
+/* === 設定頁面排版 === */
+.settings-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+}
+.settings-group{
+  flex:1 1 260px;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  background:#f9fafb;
+}
+.settings-group h3{
+  margin:0 0 8px;
+  font-size:15px;
+}
+.settings-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+
+/* === 提醒中心標題不換行 === */
+.view-reminder .card-header h2{
+  white-space: nowrap;
+}
+
+/* === 設定頁按鈕美化 === */
+.settings-group button{
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 14px;
+  border: 1px solid rgba(148,163,184,0.8);
+  background: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+.settings-group button:hover{
+  box-shadow: 0 1px 4px rgba(15,23,42,0.18);
+  transform: translateY(-1px);
+}
+
+/* 套用與工具列相同的色系 */
+.settings-group .accent{
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.settings-group .accent:hover{
+  background: #047857;
+}
+
+.settings-group .warn{
+  background: #f97316;
+  color: #111827;
+  border-color: #fb923c;
+}
+.settings-group .warn:hover{
+  background: #ea580c;
+}
+
+.settings-group .danger{
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+.settings-group .danger:hover{
+  background: #b91c1c;
+}
+
+
+/* === 價格設定視窗：底部按鈕美化 === */
+#pricingModal .modal-footer .btn{
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 14px;
+  border: 1px solid rgba(148,163,184,0.85);
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.15);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease, border-color 0.15s ease;
+}
+
+#pricingModal .modal-footer .btn:hover{
+  box-shadow: 0 4px 10px rgba(15,23,42,0.22);
+  transform: translateY(-1px);
+}
+
+#pricingModal .modal-footer .btn:active{
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(15,23,42,0.18);
+}
+
+/* 依不同用途套用色彩 */
+#pricingModal .modal-footer .danger{
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+#pricingModal .modal-footer .danger:hover{
+  background: #b91c1c;
+}
+
+#pricingModal .modal-footer .primary{
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+#pricingModal .modal-footer .primary:hover{
+  background: #1e40af;
+}

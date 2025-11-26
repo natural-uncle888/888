@@ -16,58 +16,57 @@
 </style>
 </head>
 <body>
-<header>
-<div class="wrap toolbar">
-<div class="pill">
-<strong>月份</strong>
-<select id="yearSel"><option value="自然大叔"></option></select>
-<select id="monthSel"></select>
-</div>
-<div class="pill">
-<strong>作業人員</strong>
-<select id="staffFilter"></select>
-</div>
-<div class="pill">
-<strong>狀況</strong>
-<select id="statusFilter">
-<option value="">全部</option>
-<option value="排定">排定</option>
-<option value="完成">完成</option>
-<option value="未完成">未完成</option>
-</select>
-</div>
-<div class="pill">
-<strong>完成時間</strong>
-<select id="completedRange">
-<option value="">全部</option>
-<option value="7">近7天</option>
-<option value="30">近30天</option>
-</select>
-</div>
-<label class="pill" style="gap:8px">
-<input checked="" id="showUndated" type="checkbox"/>
-<span>顯示未排期</span>
-</label>
-<div class="pill">
-<strong>搜尋</strong>
-<input id="searchInput" placeholder="姓名 / 電話 / 地址" style="width:220px" type="text"/>
-</div>
-<div class="right">
-<button class="accent" id="openPricingBtn">💰價格設定</button>
-<button class="accent" id="gdriveBackupBtn" onclick="initGoogleBackup()">☁️Google</button>
-<button class="accent" id="newBtn">新增訂單</button>
-<button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
-<button id="newExpenseBtn">新增花費</button>
-<button id="exportJson">匯出JSON</button>
-<button class="warn" id="importJson">匯入JSON</button>
-<button class="danger" id="clearAll">清空資料</button></div>
-</div>
-</header>
-<main class="wrap stack" style="margin-top:16px">
-  <div class="view-tabs">
-    <button class="view-tab is-active" type="button" data-view="main">訂單 / 花費</button>
-    <button class="view-tab" type="button" data-view="reminder">提醒中心</button>
+<header id="scheduleHeader">
+  <div class="wrap toolbar">
+    <div class="pill">
+      <strong>月份</strong>
+      <select id="yearSel"><option value="自然大叔"></option></select>
+      <select id="monthSel"></select>
+    </div>
+    <div class="pill">
+      <strong>作業人員</strong>
+      <select id="staffFilter"></select>
+    </div>
+    <div class="pill">
+      <strong>狀況</strong>
+      <select id="statusFilter">
+        <option value="">全部</option>
+        <option value="排定">排定</option>
+        <option value="完成">完成</option>
+        <option value="未完成">未完成</option>
+      </select>
+    </div>
+    <div class="pill">
+      <strong>完成時間</strong>
+      <select id="completedRange">
+        <option value="">全部</option>
+        <option value="7">近7天</option>
+        <option value="30">近30天</option>
+      </select>
+    </div>
+    <label class="pill" style="gap:8px">
+      <input id="showUndated" type="checkbox" checked/>
+      <span>顯示未排期</span>
+    </label>
+    <div class="pill">
+      <strong>搜尋</strong>
+      <input id="searchInput" type="text" placeholder="姓名 / 電話 / 地址" style="width:220px"/>
+    </div>
+    <div class="right">
+      <button class="accent" id="newBtn" type="button">新增訂單</button>
+      <button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
+      <button id="newExpenseBtn" type="button">新增花費</button>
+    </div>
   </div>
+</header>
+
+<main class="wrap stack" style="margin-top:16px">
+    <div class="view-tabs">
+    <button class="view-tab is-active" type="button" data-view="main">📋 排程</button>
+    <button class="view-tab" type="button" data-view="reminder">⏰ 提醒</button>
+    <button class="view-tab" type="button" data-view="settings">⚙️ 設定</button>
+  </div>
+
 
   <div id="mainMode" class="view-panel view-main is-active">
 <section class="card">
@@ -269,11 +268,49 @@
     <div id="reminderList" class="reminder-center-list"></div>
   </div>
 </section>
+
+  <section id="settingsPanel" class="card view-panel view-settings" style="display:none">
+    <div class="card-header">
+      <h2>系統設定</h2>
+    </div>
+    <div class="body settings-grid">
+      <section class="settings-group">
+        <h3>價格設定</h3>
+        <p>管理冷氣 / 洗衣機等項目的預設價格。</p>
+        <button class="accent" id="openPricingBtn" type="button">💰價格設定</button>
+      </section>
+
+      <section class="settings-group">
+        <h3>匯出 / 匯入</h3>
+        <p>備份或還原本機資料（JSON）。</p>
+        <div class="settings-actions">
+          <button id="exportJson" type="button">匯出 JSON</button>
+          <button class="warn" id="importJson" type="button">匯入 JSON</button>
+          <button class="danger" id="clearAll" type="button">清空全部資料</button>
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h3>雲端備份</h3>
+        <p>使用 Google Drive 備份與還原資料。</p>
+        <button class="accent" id="gdriveBackupBtn" type="button" onclick="initGoogleBackup()">☁️ Google 備份 / 還原</button>
+      </section>
+    </div>
+  </section>
 </main>
 <input accept=".json" class="hidden" id="filePicker" type="file"/>
 <input accept=".json" class="hidden" id="filePickerExp" type="file"/>
 <script src="https://apis.google.com/js/api.js"></script>
 <script async="" defer="" src="https://accounts.google.com/gsi/client"></script>
+<script defer src="app.core.js"></script>
+<script defer src="app.reminder.js"></script>
+<script defer src="app.pricing.js"></script>
+<script defer src="app.form.js"></script>
+<script defer src="app.table.js"></script>
+<script defer src="app.expense.js"></script>
+<script defer src="app.views.js"></script>
+<script defer src="app.google.js"></script>
+<script defer src="app.js"></script>
 
 <div aria-hidden="true" class="modal" id="pricingModal">
   <div class="modal-backdrop" data-close="true"></div>
@@ -339,7 +376,6 @@
     </footer>
   </div>
 </div>
-<script defer="" src="app.js"></script>
 <div aria-hidden="true" class="modal" id="historyModal">
 <div class="modal-backdrop" data-close="true"></div>
 <div class="modal-panel">

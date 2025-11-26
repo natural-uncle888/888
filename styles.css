@@ -1814,3 +1814,31 @@ label.pill:focus-within {
     display:none;
   }
 }
+
+
+/* 忽略清單管理：在手機還原為正常表格（不要套用全域 card table 樣式） */
+@media (max-width: 600px){
+  #ignoreManagerTable{
+    border-collapse: collapse;
+    width: 100%;
+  }
+  #ignoreManagerTable thead{
+    display: table-header-group;
+  }
+  #ignoreManagerTable tr{
+    display: table-row;
+    margin: 0;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+  #ignoreManagerTable td{
+    display: table-cell;
+    padding: 6px 8px;
+    border: none;
+    text-align: left;
+  }
+  #ignoreManagerTable td::before{
+    content: none;
+  }
+}

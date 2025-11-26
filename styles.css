@@ -1677,3 +1677,27 @@ label.pill:focus-within {
     grid-column:span 4;
   }
 }
+
+
+/* Header 單一按鈕行為 */
+.header-item--action{
+  display:flex;
+  justify-content:flex-end;
+}
+
+/* 顯示未排期：綠色橢圓膠囊置中 */
+.header-item[data-header-id="showUndated"] .pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:4px 12px;
+  border-radius:999px;
+  background:#dcfce7;
+  color:#065f46;
+}
+
+.header-item[data-header-id="showUndated"] .pill input[type="checkbox"]{
+  width:16px;
+  height:16px;
+}

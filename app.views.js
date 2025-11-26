@@ -496,7 +496,9 @@ const DEFAULT_HEADER_LAYOUT = [
   { id: 'completedRange', span: 6, enabled: true, label: '完成時間' },
   { id: 'showUndated', span: 6, enabled: true, label: '顯示未排期' },
   { id: 'search',     span: 12, enabled: true, label: '搜尋' },
-  { id: 'actions',    span: 12, enabled: true, label: '新增 / 報價 / 花費' }
+  { id: 'newOrder',   span: 12, enabled: true, label: '新增訂單' },
+  { id: 'newQuotation', span: 12, enabled: true, label: '新增報價單' },
+  { id: 'newExpense', span: 12, enabled: true, label: '新增花費' }
 ];
 
 function loadHeaderLayout(){

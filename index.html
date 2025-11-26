@@ -64,12 +64,14 @@
         <input id="searchInput" type="text" placeholder="姓名 / 電話 / 地址" style="width:220px"/>
       </div>
     </div>
-    <div class="header-item header-item--actions" data-header-id="actions">
-      <div class="right">
-        <button class="accent" id="newBtn" type="button">新增訂單</button>
-        <button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
-        <button id="newExpenseBtn" type="button">新增花費</button>
-      </div>
+    <div class="header-item header-item--action" data-header-id="newOrder">
+      <button class="accent" id="newBtn" type="button">新增訂單</button>
+    </div>
+    <div class="header-item header-item--action" data-header-id="newQuotation">
+      <button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
+    </div>
+    <div class="header-item header-item--action" data-header-id="newExpense">
+      <button id="newExpenseBtn" type="button">新增花費</button>
     </div>
   </div>
 

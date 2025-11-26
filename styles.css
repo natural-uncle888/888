@@ -1842,3 +1842,49 @@ label.pill:focus-within {
     content: none;
   }
 }
+/* 忽略清單管理：手機版強制使用正常表格樣式 */
+@media (max-width: 600px){
+
+  /* 整張表維持 table layout */
+  #ignoreManagerTable{
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  #ignoreManagerTable thead{
+    display: table-header-group !important;
+  }
+
+  #ignoreManagerTable tbody{
+    display: table-row-group !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  #ignoreManagerTable tr{
+    display: table-row !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  #ignoreManagerTable th,
+  #ignoreManagerTable td{
+    display: table-cell !important;
+    padding: 6px 8px !important;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  /* 不要套用「卡片模式」的 data-label */
+  #ignoreManagerTable td::before{
+    content: none !important;
+  }
+
+  /* 讓表格區看得到幾列資料，不要被壓扁在下方 */
+  .ignore-table-wrapper{
+    max-height: 50vh;
+  }
+}

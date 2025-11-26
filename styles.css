@@ -1805,3 +1805,12 @@ label.pill:focus-within {
     text-align:center;
   }
 }
+
+
+/* 忽略清單管理：在小螢幕隱藏地址欄，避免內容被擠成直排 */
+@media (max-width: 900px){
+  #ignoreManagerTable th:nth-child(5),
+  #ignoreManagerTable td:nth-child(5){
+    display:none;
+  }
+}

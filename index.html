@@ -16,58 +16,99 @@
 </style>
 </head>
 <body>
-<header>
-<div class="wrap toolbar">
-<div class="pill">
-<strong>月份</strong>
-<select id="yearSel"><option value="自然大叔"></option></select>
-<select id="monthSel"></select>
-</div>
-<div class="pill">
-<strong>作業人員</strong>
-<select id="staffFilter"></select>
-</div>
-<div class="pill">
-<strong>狀況</strong>
-<select id="statusFilter">
-<option value="">全部</option>
-<option value="排定">排定</option>
-<option value="完成">完成</option>
-<option value="未完成">未完成</option>
-</select>
-</div>
-<div class="pill">
-<strong>完成時間</strong>
-<select id="completedRange">
-<option value="">全部</option>
-<option value="7">近7天</option>
-<option value="30">近30天</option>
-</select>
-</div>
-<label class="pill" style="gap:8px">
-<input checked="" id="showUndated" type="checkbox"/>
-<span>顯示未排期</span>
-</label>
-<div class="pill">
-<strong>搜尋</strong>
-<input id="searchInput" placeholder="姓名 / 電話 / 地址" style="width:220px" type="text"/>
-</div>
-<div class="right">
-<button class="accent" id="openPricingBtn">💰價格設定</button>
-<button class="accent" id="gdriveBackupBtn" onclick="initGoogleBackup()">☁️Google</button>
-<button class="accent" id="newBtn">新增訂單</button>
-<button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
-<button id="newExpenseBtn">新增花費</button>
-<button id="exportJson">匯出JSON</button>
-<button class="warn" id="importJson">匯入JSON</button>
-<button class="danger" id="clearAll">清空資料</button></div>
-</div>
-</header>
-<main class="wrap stack" style="margin-top:16px">
-  <div class="view-tabs">
-    <button class="view-tab is-active" type="button" data-view="main">訂單 / 花費</button>
-    <button class="view-tab" type="button" data-view="reminder">提醒中心</button>
+<header id="scheduleHeader">
+  <div class="wrap toolbar header-toolbar">
+    <div class="header-item" data-header-id="yearMonth">
+      <div class="pill">
+        <strong>月份</strong>
+        <select id="yearSel"><option value="自然大叔"></option></select>
+        <select id="monthSel"></select>
+      </div>
+    </div>
+    <div class="header-item" data-header-id="staff">
+      <div class="pill">
+        <strong>作業人員</strong>
+        <select id="staffFilter"></select>
+      </div>
+    </div>
+    <div class="header-item" data-header-id="status">
+      <div class="pill">
+        <strong>狀況</strong>
+        <select id="statusFilter">
+          <option value="">全部</option>
+          <option value="排定">排定</option>
+          <option value="完成">完成</option>
+          <option value="未完成">未完成</option>
+        </select>
+      </div>
+    </div>
+    <div class="header-item" data-header-id="completedRange">
+      <div class="pill">
+        <strong>完成時間</strong>
+        <select id="completedRange">
+          <option value="">全部</option>
+          <option value="7">近7天</option>
+          <option value="30">近30天</option>
+        </select>
+      </div>
+    </div>
+    <div class="header-item" data-header-id="showUndated">
+      <label class="pill" style="gap:8px">
+        <input id="showUndated" type="checkbox" checked/>
+        <span>顯示未排期</span>
+      </label>
+    </div>
+    <div class="header-item" data-header-id="search">
+      <div class="pill">
+        <strong>搜尋</strong>
+        <input id="searchInput" type="text" placeholder="姓名 / 電話 / 地址" style="width:220px"/>
+      </div>
+    </div>
+    <div class="header-item header-item--action" data-header-id="newOrder">
+      <button class="accent" id="newBtn" type="button">新增訂單</button>
+    </div>
+    <div class="header-item header-item--action" data-header-id="newQuotation">
+      <button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
+    </div>
+    <div class="header-item header-item--action" data-header-id="newExpense">
+      <button id="newExpenseBtn" type="button">新增花費</button>
+    </div>
   </div>
+
+  <div class="header-layout-bar">
+    <button id="headerLayoutToggle" type="button" class="header-layout-toggle">
+      編輯工具列
+    </button>
+  </div>
+
+  <section id="headerLayoutEditor" class="header-layout-editor" hidden>
+    <div class="header-layout-editor__inner">
+      <div class="header-layout-editor__title-row">
+        <h2>手機工具列布局</h2>
+        <button type="button" id="headerLayoutClose" class="header-layout-close">關閉</button>
+      </div>
+      <p class="header-layout-editor__hint">
+        只會影響手機畫面（寬度小於 600px）。可調整顯示順序與寬度（整列 / 半列）。
+      </p>
+      <div id="headerLayoutList" class="header-layout-list">
+        <!-- JS 動態產生每個項目 -->
+      </div>
+      <div class="header-layout-footer">
+        <button type="button" id="headerLayoutReset" class="btn ghost">重設預設布局</button>
+        <button type="button" id="headerLayoutSave" class="btn primary">儲存布局</button>
+      </div>
+    </div>
+  </section>
+</header>
+
+
+<main class="wrap stack" style="margin-top:16px">
+    <div class="view-tabs">
+    <button class="view-tab is-active" type="button" data-view="main">📋 排程</button>
+    <button class="view-tab" type="button" data-view="reminder">⏰ 提醒</button>
+    <button class="view-tab" type="button" data-view="settings">⚙️ 設定</button>
+  </div>
+
 
   <div id="mainMode" class="view-panel view-main is-active">
 <section class="card">
@@ -108,6 +149,9 @@
 </summary><div class="content">
 <form id="orderForm">
 <input id="id" type="hidden"/>
+<details class="order-section" open>
+  <summary class="order-section__summary">一、排程與客戶資料</summary>
+
 <div class="row">
 <div class="col" style="grid-column:span 6">
 <label>作業人員</label>
@@ -151,12 +195,16 @@
 <div class="toolbar" id="reminderToolbar" style="gap:8px; align-items:center; flex-wrap:wrap">
 <label class="pill"><input checked="" id="reminderEnabled" type="checkbox"/> <span>啟用提醒</span></label>
 <label class="muted">提醒週期（月）</label><input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
-<label class="muted">下次提醒</label><input class="tiny" disabled="" id="nextReminder" type="text"/>
+
 <label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
 <label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
 </div>
 </div>
 </div>
+</details>
+
+<details class="order-section" open>
+  <summary class="order-section__summary">二、清洗項目與備註</summary>
 <div class="hr"></div>
 <h3 style="margin:0 0 8px">清洗項目與價格</h3>
 <div class="row">
@@ -186,6 +234,10 @@
   <div class="col" style="grid-column:span 12"><label>預約冷氣品牌（可複選）</label><div class="checkbox-group" id="acBrandGroup"></div><input class="hidden tiny" id="acBrandOtherText" placeholder="請輸入其他品牌" type="text"/></div>
 </div>
 <div class="row" id="photoUrlBlock"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button></div></div>
+</details>
+
+<details class="order-section" open>
+  <summary class="order-section__summary">三、金額與確認</summary>
 <div class="hr"></div>
 <div class="row">
 <div class="col" style="grid-column:span 4"><label class="big-toggle" for="confirmed"><input id="confirmed" name="confirmed" type="checkbox" aria-label="客人確認安排時間" /><span class="big-toggle-text">客人確認安排時間</span></label></div>
@@ -202,8 +254,6 @@
 <div class="toolbar">
 <button class="primary" id="saveBtn" type="submit">儲存訂單</button>
 <button id="resetBtn" type="button">清空表單</button>
-<button id="copyLastBtn" type="button">複製上一筆</button>
-<button id="copyFromHistoryBtn" type="button">從客戶舊單帶入</button>
 <button id="quickNextBtn" type="button">快速新增下一次</button>
 <div class="right">
 <span class="lock-badge" id="lockInfo"></span>
@@ -211,6 +261,8 @@
 <button class="danger" disabled="" id="deleteBtn" type="button">刪除此訂單</button>
 </div>
 </div>
+</details>
+
 </form>
 </div></details>
 <details class="accordion" id="expenseAcc">
@@ -257,7 +309,7 @@
     <div class="header-actions" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
       <div class="pill"><strong>顯示範圍</strong><select id="reminderRange"><option value="overdue">僅逾期</option><option value="7">7 天內</option><option value="30" selected>30 天內</option><option value="60">60 天內</option><option value="all">全部未來</option></select></div>
       <div class="pill"><strong>作業人員</strong><select id="reminderStaffFilter"><option value="">全部</option></select></div>
-      <div class="pill"><strong>搜尋</strong><input id="reminderSearch" type="search" placeholder="姓名 / 電話 / 地址"/></div>
+      <div class="pill pill-search"><strong>搜尋</strong><input id="reminderSearch" type="search" placeholder="姓名 / 電話 / 地址"/></div>
       <label class="pill"><input id="reminderOnlyUnnotified" type="checkbox" checked/><span>只看尚未通知</span></label>
       <label class="pill"><input id="reminderShowMuted" type="checkbox"/><span>顯示靜音客戶</span></label>
       <button type="button" class="btn btn-reminder" id="btnOpenIgnoreManager" title="管理忽略清單">管理忽略名單</button>
@@ -269,6 +321,35 @@
     <div id="reminderList" class="reminder-center-list"></div>
   </div>
 </section>
+
+  <section id="settingsPanel" class="card view-panel view-settings" style="display:none">
+    <div class="card-header">
+      <h2>系統設定</h2>
+    </div>
+    <div class="body settings-grid">
+      <section class="settings-group">
+        <h3>價格設定</h3>
+        <p>管理冷氣 / 洗衣機等項目的預設價格。</p>
+        <button class="accent" id="openPricingBtn" type="button">💰價格設定</button>
+      </section>
+
+      <section class="settings-group">
+        <h3>匯出 / 匯入</h3>
+        <p>備份或還原本機資料（JSON）。</p>
+        <div class="settings-actions">
+          <button id="exportJson" type="button">匯出 JSON</button>
+          <button class="warn" id="importJson" type="button">匯入 JSON</button>
+          <button class="danger" id="clearAll" type="button">清空全部資料</button>
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h3>雲端備份</h3>
+        <p>使用 Google Drive 備份與還原資料。</p>
+        <button class="accent" id="gdriveBackupBtn" type="button" onclick="initGoogleBackup()">☁️ Google 備份 / 還原</button>
+      </section>
+    </div>
+  </section>
 </main>
 <input accept=".json" class="hidden" id="filePicker" type="file"/>
 <input accept=".json" class="hidden" id="filePickerExp" type="file"/>
@@ -392,14 +473,16 @@
       <button aria-label="關閉" class="btn-small" id="ignoreCloseBtn">✕</button>
     </header>
     <section class="modal-body">
-      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-        <input id="ignoreManagerSearch" placeholder="搜尋 ID/姓名/電話/地址" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border);"/>
-        <button id="ignoreExportBtn" class="btn-small">匯出 CSV</button>
-        <button id="ignoreUnignoreSelected" class="btn-small">取消忽略選取</button>
-        <button id="ignoreClearBtn" class="btn-small danger">清空所有</button>
+      <div class="ignore-toolbar">
+        <input id="ignoreManagerSearch" class="ignore-search-input" placeholder="搜尋 ID / 姓名 / 電話 / 地址"/>
+        <div class="ignore-toolbar__actions">
+          <button id="ignoreExportBtn" class="btn-small">匯出 CSV</button>
+          <button id="ignoreUnignoreSelected" class="btn-small">取消忽略選取</button>
+          <button id="ignoreClearBtn" class="btn-small danger">清空所有</button>
+        </div>
       </div>
       <div class="ignore-table-wrapper" style="overflow:auto; max-height:60vh;">
-        <table  id="ignoreManagerTable" class="ignore-manager-table" class="table" style="width:100%; border-collapse:collapse;">
+<table  id="ignoreManagerTable" class="ignore-manager-table" class="table" style="width:100%; border-collapse:collapse;">
           <thead><tr><th style="width:36px; text-align:center;"><input type="checkbox" id="ignoreSelectAll"/></th><th class="no-wrap">日期</th><th class="no-wrap">姓名</th><th class="no-wrap">電話</th><th>地址</th><th class="no-wrap">操作</th></tr></thead><tbody></tbody>
         </table>
       </div>

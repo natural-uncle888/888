@@ -52,6 +52,7 @@ function refreshDueSoonPanel(){
         due: nd,
         days,
         notified: !!flags.notified,
+        staff: latest.staff || '',
         phone: latest.phone || '',
         address: latest.address || '',
         last: lastCompletedDateForCustomer(name) || '',
@@ -99,7 +100,8 @@ function refreshDueSoonPanel(){
       statusText = `還有 ${it.days} 天`;
     }
     const notifiedText = it.notified ? '（已通知）' : '';
-    const meta = `下次提醒：${dueStr}（${statusText}）${notifiedText}`;
+    const staffLabel = it.staff ? `｜作業人員：${it.staff}` : '';
+    const meta = `下次提醒：${dueStr}（${statusText}）${notifiedText}${staffLabel}`;
     const safeName = escapeHtml(it.name || '');
     const safeMeta = escapeHtml(meta);
 
@@ -413,9 +415,42 @@ function refreshReminderCenter(){
 }
 
 
+
+
+function openReminderCenter(options){
+  options = options || {};
+  // 切換到提醒分頁
+  if (typeof setActiveView === 'function') {
+    setActiveView('reminder');
+  }
+
+  // 套用篩選條件
+  try {
+    var rangeSel = document.getElementById('reminderRange');
+    if (rangeSel && options.range) {
+      rangeSel.value = String(options.range);
+    }
+    var searchEl = document.getElementById('reminderSearch');
+    if (searchEl && typeof options.search === 'string') {
+      searchEl.value = options.search;
+    }
+    var onlyUnEl = document.getElementById('reminderOnlyUnnotified');
+    if (onlyUnEl && typeof options.onlyPending === 'boolean') {
+      onlyUnEl.checked = options.onlyPending;
+    }
+  } catch(e){ /* ignore */ }
+
+  // 重新渲染提醒中心
+  if (typeof refreshReminderCenter === 'function') {
+    refreshReminderCenter();
+  }
+}
+
 function setActiveView(view){
   const mainMode = document.getElementById('mainMode');
   const reminderSection = document.getElementById('reminderCenterSection');
+  const settingsSection = document.getElementById('settingsPanel');
+  const header = document.getElementById('scheduleHeader') || document.querySelector('header');
   const tabs = document.querySelectorAll('.view-tab');
 
   tabs.forEach(btn => {
@@ -427,16 +462,234 @@ function setActiveView(view){
     }
   });
 
-  if (mainMode && reminderSection){
-    if (view === 'reminder'){
-      mainMode.style.display = 'none';
-      reminderSection.style.display = '';
+  if (view === 'reminder'){
+    if (mainMode) mainMode.style.display = 'none';
+    if (reminderSection) reminderSection.style.display = '';
+    if (settingsSection) settingsSection.style.display = 'none';
+    if (header) header.style.display = 'none';
+    if (typeof refreshReminderCenter === 'function') {
       refreshReminderCenter();
-    } else {
-      mainMode.style.display = '';
-      reminderSection.style.display = 'none';
     }
+  } else if (view === 'settings'){
+    if (mainMode) mainMode.style.display = 'none';
+    if (reminderSection) reminderSection.style.display = 'none';
+    if (settingsSection) settingsSection.style.display = '';
+    if (header) header.style.display = 'none';
+  } else {
+    // 預設為排程頁
+    if (mainMode) mainMode.style.display = '';
+    if (reminderSection) reminderSection.style.display = 'none';
+    if (settingsSection) settingsSection.style.display = 'none';
+    if (header) header.style.display = '';
   }
+}
+
+
+
+// ---------- Header Layout (手機工具列布局) ----------
+const HEADER_LAYOUT_KEY = 'headerLayoutMobile_v1';
+
+const DEFAULT_HEADER_LAYOUT = [
+  { id: 'yearMonth',  span: 6, enabled: true,  label: '年份 / 月份' },
+  { id: 'staff',      span: 6, enabled: true,  label: '作業人員' },
+  { id: 'status',     span: 6, enabled: true,  label: '狀況' },
+  { id: 'completedRange', span: 6, enabled: true, label: '完成時間' },
+  { id: 'showUndated', span: 6, enabled: true, label: '顯示未排期' },
+  { id: 'search',     span: 12, enabled: true, label: '搜尋' },
+  { id: 'newOrder',   span: 12, enabled: true, label: '新增訂單' },
+  { id: 'newQuotation', span: 12, enabled: true, label: '新增報價單' },
+  { id: 'newExpense', span: 12, enabled: true, label: '新增花費' }
+];
+
+function loadHeaderLayout(){
+  try{
+    const raw = localStorage.getItem(HEADER_LAYOUT_KEY);
+    if (!raw) return DEFAULT_HEADER_LAYOUT.slice();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.length) return DEFAULT_HEADER_LAYOUT.slice();
+    const map = {};
+    DEFAULT_HEADER_LAYOUT.forEach(it => { map[it.id] = it; });
+    const merged = parsed
+      .filter(p => map[p.id])
+      .map(p => ({
+        id: p.id,
+        span: p.span === 6 ? 6 : 12,
+        enabled: p.enabled !== false,
+        label: map[p.id].label
+      }));
+    DEFAULT_HEADER_LAYOUT.forEach(it => {
+      if (!merged.some(m => m.id === it.id)){
+        merged.push(Object.assign({}, it));
+      }
+    });
+    return merged;
+  }catch(e){
+    return DEFAULT_HEADER_LAYOUT.slice();
+  }
+}
+
+function saveHeaderLayout(layout){
+  try{
+    localStorage.setItem(HEADER_LAYOUT_KEY, JSON.stringify(layout));
+  }catch(e){}
+}
+
+function applyHeaderLayout(layout){
+  const isMobile = window.innerWidth <= 600;
+  const items = document.querySelectorAll('.header-toolbar .header-item');
+  items.forEach(el => {
+    const id = el.getAttribute('data-header-id');
+    const cfg = layout.find(it => it.id === id) || null;
+    if (!cfg){
+      el.style.order = '';
+      el.classList.remove('span-6','span-4');
+      el.style.display = '';
+      return;
+    }
+    if (!isMobile){
+      el.style.order = '';
+      el.classList.remove('span-6','span-4');
+      el.style.display = cfg.enabled === false ? 'none' : '';
+      return;
+    }
+    el.style.order = String(layout.indexOf(cfg) * 10);
+    el.classList.toggle('span-6', cfg.span === 6);
+    el.classList.toggle('span-4', cfg.span === 4);
+    el.style.display = cfg.enabled === false ? 'none' : '';
+  });
+}
+
+function buildHeaderLayoutEditor(){
+  const listEl = document.getElementById('headerLayoutList');
+  if (!listEl) return;
+  const layout = loadHeaderLayout();
+  listEl.innerHTML = '';
+  layout.forEach((cfg, index) => {
+    const row = document.createElement('div');
+    row.className = 'header-layout-row';
+    row.dataset.id = cfg.id;
+
+    const left = document.createElement('label');
+    left.className = 'header-layout-row__label';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = cfg.enabled !== false;
+    checkbox.dataset.role = 'enabled';
+    left.appendChild(checkbox);
+    left.appendChild(document.createTextNode(cfg.label));
+
+    const controls = document.createElement('div');
+    controls.className = 'header-layout-row__controls';
+
+    const spanSel = document.createElement('select');
+    spanSel.dataset.role = 'span';
+    spanSel.innerHTML = '<option value="12">整列</option><option value="6">半列</option>';
+    spanSel.value = (cfg.span === 6 ? '6' : '12');
+
+    const upBtn = document.createElement('button');
+    upBtn.type = 'button';
+    upBtn.textContent = '上移';
+    upBtn.dataset.role = 'up';
+
+    const downBtn = document.createElement('button');
+    downBtn.type = 'button';
+    downBtn.textContent = '下移';
+    downBtn.dataset.role = 'down';
+
+    controls.appendChild(spanSel);
+    controls.appendChild(upBtn);
+    controls.appendChild(downBtn);
+
+    row.appendChild(left);
+    row.appendChild(controls);
+
+    listEl.appendChild(row);
+  });
+}
+
+function readHeaderLayoutFromEditor(){
+  const listEl = document.getElementById('headerLayoutList');
+  if (!listEl) return DEFAULT_HEADER_LAYOUT.slice();
+  const current = loadHeaderLayout();
+  const ids = Array.from(listEl.querySelectorAll('.header-layout-row')).map(r => r.dataset.id);
+  const next = [];
+  ids.forEach(id => {
+    const base = current.find(it => it.id === id) || DEFAULT_HEADER_LAYOUT.find(it => it.id === id);
+    if (!base) return;
+    const row = listEl.querySelector('.header-layout-row[data-id="' + id + '"]');
+    if (!row) return;
+    const enabledInput = row.querySelector('input[type="checkbox"][data-role="enabled"]');
+    const spanSel = row.querySelector('select[data-role="span"]');
+    next.push({
+      id: id,
+      label: base.label,
+      enabled: enabledInput ? enabledInput.checked : true,
+      span: spanSel && spanSel.value === '6' ? 6 : 12
+    });
+  });
+  return next;
+}
+
+function initHeaderLayoutEditor(){
+  const toggleBtn = document.getElementById('headerLayoutToggle');
+  const editor = document.getElementById('headerLayoutEditor');
+  const closeBtn = document.getElementById('headerLayoutClose');
+  const resetBtn = document.getElementById('headerLayoutReset');
+  const saveBtn = document.getElementById('headerLayoutSave');
+  if (!toggleBtn || !editor) return;
+
+  const openEditor = ()=>{
+    buildHeaderLayoutEditor();
+    editor.hidden = false;
+  };
+  const closeEditor = ()=>{
+    editor.hidden = true;
+  };
+
+  toggleBtn.addEventListener('click', ()=>{
+    if (editor.hidden){
+      openEditor();
+    }else{
+      closeEditor();
+    }
+  });
+  closeBtn && closeBtn.addEventListener('click', closeEditor);
+
+  resetBtn && resetBtn.addEventListener('click', ()=>{
+    saveHeaderLayout(DEFAULT_HEADER_LAYOUT);
+    applyHeaderLayout(DEFAULT_HEADER_LAYOUT);
+    buildHeaderLayoutEditor();
+  });
+
+  saveBtn && saveBtn.addEventListener('click', ()=>{
+    const layout = readHeaderLayoutFromEditor();
+    saveHeaderLayout(layout);
+    applyHeaderLayout(layout);
+    closeEditor();
+  });
+
+  const listEl = document.getElementById('headerLayoutList');
+  if (listEl){
+    listEl.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const role = btn.dataset.role;
+      if (role !== 'up' && role !== 'down') return;
+      const row = btn.closest('.header-layout-row');
+      if (!row) return;
+      if (role === 'up' && row.previousElementSibling){
+        row.parentNode.insertBefore(row, row.previousElementSibling);
+      }else if (role === 'down' && row.nextElementSibling){
+        row.parentNode.insertBefore(row.nextElementSibling, row);
+      }
+    });
+  }
+
+  // 初次套用（依現有設定）
+  applyHeaderLayout(loadHeaderLayout());
+  window.addEventListener('resize', ()=>{
+    applyHeaderLayout(loadHeaderLayout());
+  });
 }
 
 function initViewTabs(){
@@ -502,9 +755,6 @@ $('lineId').addEventListener('blur', ()=>{
         if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = c3.address||''; if ($('phone').dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
       });
       // removed: phone blur handler (replaced by delegation)
-// Recompute nextReminder when customer/reminderMonths change
-      $('customer').addEventListener('blur', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
-      $('reminderMonths').addEventListener('input', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
 
       // expenses
       $('expenseForm').addEventListener('submit', saveExpense);
@@ -525,30 +775,6 @@ $('lineId').addEventListener('blur', ()=>{
         save(KEY, orders);
         setFormLock(orders[i].locked);
       });
-
-      // 複製相關
-      function copyOrderToForm(o){
-        const t={...o};
-        delete t.id; t.status='排定'; t.confirmed=false; t.quotationOk=false; t.completedAt=undefined; t.locked=false; t.date=''; t.time='';
-        fillForm(t); recalcTotals();
-        $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
-      }
-      function copyOrderFrom(o){ copyOrderToForm(o); }
-      $('copyLastBtn').addEventListener('click', ()=>{
-        if(orders.length===0){ alert('目前沒有可複製的訂單'); return; }
-        const last = [...orders].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0];
-        if(!last){ alert('找不到上一筆'); return; }
-        copyOrderToForm(last);
-      });
-      $('copyFromHistoryBtn').addEventListener('click', ()=>{
-        const np = normalizePhone(getPhones());
-        let cand = null;
-        if(np){ cand = [...orders].filter(o=> normalizePhone(o.phone)===np).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
-        if(!cand && $('customer').value){ cand = [...orders].filter(o=> (o.customer||'')=== $('customer').value.trim()).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
-        if(!cand){ alert('找不到此客戶的舊單（請先輸入姓名或電話）'); return; }
-        copyOrderToForm(cand);
-      });
-
 
       // Accordion behavior: auto-collapse on small screens
       function adjustAccordion(){
@@ -585,8 +811,8 @@ $('lineId').addEventListener('blur', ()=>{
       });
     
     
-      // auto-open orderAccordion when buttons clicked
-      ;['saveBtn','resetBtn','copyLastBtn','copyFromHistoryBtn','quickNextBtn'].forEach(id=>{
+      // auto-open orderAccordion when主要按鈕被點擊
+      ;['saveBtn','resetBtn','quickNextBtn'].forEach(id=>{
         $(id)?.addEventListener('click', ()=>{ $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'}); });
       });
     
@@ -607,7 +833,11 @@ $('lineId').addEventListener('blur', ()=>{
 
       // 前往提醒中心（從首頁快到期區塊）
       $('btnOpenReminderCenter')?.addEventListener('click', ()=>{
-        if (typeof setActiveView === 'function') setActiveView('reminder');
+        if (typeof openReminderCenter === 'function') {
+          openReminderCenter({ range: '30', onlyPending: true });
+        } else if (typeof setActiveView === 'function') {
+          setActiveView('reminder');
+        }
       });
 
       $('exportXlsx')?.addEventListener('click', exportXLSX);

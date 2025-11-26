@@ -44,7 +44,7 @@ durationMinutes: +$('durationMinutes').value,
       setChecked('contactTime', o.contactTimes||[]); $('contactTimeNote').value=o.contactTimeNote||''; $('contactTimeNote').classList.toggle('hidden', !(o.contactTimes||[]).includes('時間指定'));
       setChecked('acFloor', o.acFloors||[]); setChecked('washerFloor', o.washerFloors||[]);
       updateAbove5Visibility();
-      (function(){ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; })();
+      ;
       $('contactMethod').value=o.contactMethod||contactList[0]; $('status').value=o.status||'排定';
       $('reminderEnabled').checked=(o.reminderEnabled!==undefined? !!o.reminderEnabled : true); $('reminderMonths').value=(o.reminderMonths!==undefined? +o.reminderMonths : 24);
       $('reminderNotified').checked=!!o.reminderNotified; $('reminderMuted').checked=!!o.reminderMuted;

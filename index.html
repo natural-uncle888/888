@@ -17,48 +17,88 @@
 </head>
 <body>
 <header id="scheduleHeader">
-  <div class="wrap toolbar">
-    <div class="pill">
-      <strong>月份</strong>
-      <select id="yearSel"><option value="自然大叔"></option></select>
-      <select id="monthSel"></select>
+  <div class="wrap toolbar header-toolbar">
+    <div class="header-item" data-header-id="yearMonth">
+      <div class="pill">
+        <strong>月份</strong>
+        <select id="yearSel"><option value="自然大叔"></option></select>
+        <select id="monthSel"></select>
+      </div>
     </div>
-    <div class="pill">
-      <strong>作業人員</strong>
-      <select id="staffFilter"></select>
+    <div class="header-item" data-header-id="staff">
+      <div class="pill">
+        <strong>作業人員</strong>
+        <select id="staffFilter"></select>
+      </div>
     </div>
-    <div class="pill">
-      <strong>狀況</strong>
-      <select id="statusFilter">
-        <option value="">全部</option>
-        <option value="排定">排定</option>
-        <option value="完成">完成</option>
-        <option value="未完成">未完成</option>
-      </select>
+    <div class="header-item" data-header-id="status">
+      <div class="pill">
+        <strong>狀況</strong>
+        <select id="statusFilter">
+          <option value="">全部</option>
+          <option value="排定">排定</option>
+          <option value="完成">完成</option>
+          <option value="未完成">未完成</option>
+        </select>
+      </div>
     </div>
-    <div class="pill">
-      <strong>完成時間</strong>
-      <select id="completedRange">
-        <option value="">全部</option>
-        <option value="7">近7天</option>
-        <option value="30">近30天</option>
-      </select>
+    <div class="header-item" data-header-id="completedRange">
+      <div class="pill">
+        <strong>完成時間</strong>
+        <select id="completedRange">
+          <option value="">全部</option>
+          <option value="7">近7天</option>
+          <option value="30">近30天</option>
+        </select>
+      </div>
     </div>
-    <label class="pill" style="gap:8px">
-      <input id="showUndated" type="checkbox" checked/>
-      <span>顯示未排期</span>
-    </label>
-    <div class="pill">
-      <strong>搜尋</strong>
-      <input id="searchInput" type="text" placeholder="姓名 / 電話 / 地址" style="width:220px"/>
+    <div class="header-item" data-header-id="showUndated">
+      <label class="pill" style="gap:8px">
+        <input id="showUndated" type="checkbox" checked/>
+        <span>顯示未排期</span>
+      </label>
     </div>
-    <div class="right">
-      <button class="accent" id="newBtn" type="button">新增訂單</button>
-      <button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
-      <button id="newExpenseBtn" type="button">新增花費</button>
+    <div class="header-item" data-header-id="search">
+      <div class="pill">
+        <strong>搜尋</strong>
+        <input id="searchInput" type="text" placeholder="姓名 / 電話 / 地址" style="width:220px"/>
+      </div>
+    </div>
+    <div class="header-item header-item--actions" data-header-id="actions">
+      <div class="right">
+        <button class="accent" id="newBtn" type="button">新增訂單</button>
+        <button class="accent" id="openQuotationBtn" type="button" onclick="window.open('https://unclequotation.netlify.app','_blank','noopener')">新增報價單</button>
+        <button id="newExpenseBtn" type="button">新增花費</button>
+      </div>
     </div>
   </div>
+
+  <div class="header-layout-bar">
+    <button id="headerLayoutToggle" type="button" class="header-layout-toggle">
+      編輯工具列
+    </button>
+  </div>
+
+  <section id="headerLayoutEditor" class="header-layout-editor" hidden>
+    <div class="header-layout-editor__inner">
+      <div class="header-layout-editor__title-row">
+        <h2>手機工具列布局</h2>
+        <button type="button" id="headerLayoutClose" class="header-layout-close">關閉</button>
+      </div>
+      <p class="header-layout-editor__hint">
+        只會影響手機畫面（寬度小於 600px）。可調整顯示順序與寬度（整列 / 半列）。
+      </p>
+      <div id="headerLayoutList" class="header-layout-list">
+        <!-- JS 動態產生每個項目 -->
+      </div>
+      <div class="header-layout-footer">
+        <button type="button" id="headerLayoutReset" class="btn ghost">重設預設布局</button>
+        <button type="button" id="headerLayoutSave" class="btn primary">儲存布局</button>
+      </div>
+    </div>
+  </section>
 </header>
+
 
 <main class="wrap stack" style="margin-top:16px">
     <div class="view-tabs">

@@ -1727,3 +1727,22 @@ label.pill:focus-within {
     justify-content: space-between;
   }
 }
+
+
+@media (max-width: 600px){
+  #reminderCenterSection .header-actions .pill-search{
+    flex: 0 0 100%;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  #reminderCenterSection .header-actions .pill-search #reminderSearch{
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  #reminderCenterSection #reminderSearch{
+    min-width: 0;
+  }
+}

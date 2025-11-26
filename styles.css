@@ -1685,16 +1685,12 @@ label.pill:focus-within {
   justify-content:flex-end;
 }
 
-/* 顯示未排期：綠色橢圓膠囊置中 */
+/* 顯示未排期：僅調整文字在膠囊內置中對齊 */
 .header-item[data-header-id="showUndated"] .pill{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:6px;
-  padding:4px 12px;
-  border-radius:999px;
-  background:#dcfce7;
-  color:#065f46;
 }
 
 .header-item[data-header-id="showUndated"] .pill input[type="checkbox"]{

@@ -135,7 +135,6 @@ function initPricingLogic(){
 
       initYearMonth(); initStaffSelects(); initContactSelect(); initCheckboxes(); initExpenseCats(); initPricingLogic();
       attachEvents(); refreshContactsDatalist(); fillForm({}); fillExpForm({}); refreshTable();
-      try { if (typeof initHeaderLayoutEditor === 'function') { initHeaderLayoutEditor(); } if (typeof applyHeaderLayout === 'function') { applyHeaderLayout(loadHeaderLayout()); } } catch(e) {}
       try { if(typeof makeOrdersTableResizable === 'function') makeOrdersTableResizable(); } catch(e){}
       refreshExpense();
     })();

@@ -52,6 +52,7 @@ function refreshDueSoonPanel(){
         due: nd,
         days,
         notified: !!flags.notified,
+        staff: latest.staff || '',
         phone: latest.phone || '',
         address: latest.address || '',
         last: lastCompletedDateForCustomer(name) || '',
@@ -99,7 +100,8 @@ function refreshDueSoonPanel(){
       statusText = `還有 ${it.days} 天`;
     }
     const notifiedText = it.notified ? '（已通知）' : '';
-    const meta = `下次提醒：${dueStr}（${statusText}）${notifiedText}`;
+    const staffLabel = it.staff ? `｜作業人員：${it.staff}` : '';
+    const meta = `下次提醒：${dueStr}（${statusText}）${notifiedText}${staffLabel}`;
     const safeName = escapeHtml(it.name || '');
     const safeMeta = escapeHtml(meta);
 
@@ -413,6 +415,37 @@ function refreshReminderCenter(){
 }
 
 
+
+
+function openReminderCenter(options){
+  options = options || {};
+  // 切換到提醒分頁
+  if (typeof setActiveView === 'function') {
+    setActiveView('reminder');
+  }
+
+  // 套用篩選條件
+  try {
+    var rangeSel = document.getElementById('reminderRange');
+    if (rangeSel && options.range) {
+      rangeSel.value = String(options.range);
+    }
+    var searchEl = document.getElementById('reminderSearch');
+    if (searchEl && typeof options.search === 'string') {
+      searchEl.value = options.search;
+    }
+    var onlyUnEl = document.getElementById('reminderOnlyUnnotified');
+    if (onlyUnEl && typeof options.onlyPending === 'boolean') {
+      onlyUnEl.checked = options.onlyPending;
+    }
+  } catch(e){ /* ignore */ }
+
+  // 重新渲染提醒中心
+  if (typeof refreshReminderCenter === 'function') {
+    refreshReminderCenter();
+  }
+}
+
 function setActiveView(view){
   const mainMode = document.getElementById('mainMode');
   const reminderSection = document.getElementById('reminderCenterSection');
@@ -514,9 +547,6 @@ $('lineId').addEventListener('blur', ()=>{
         if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = c3.address||''; if ($('phone').dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
       });
       // removed: phone blur handler (replaced by delegation)
-// Recompute nextReminder when customer/reminderMonths change
-      $('customer').addEventListener('blur', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
-      $('reminderMonths').addEventListener('input', ()=>{ const name=$('customer').value; const months=(+$('reminderMonths').value||24); const last=lastCompletedDateForCustomer(name); const nd=(last && months)? addMonths(last, months): null; $('nextReminder').value = nd ? fmtDate(nd) : ''; });
 
       // expenses
       $('expenseForm').addEventListener('submit', saveExpense);
@@ -537,30 +567,6 @@ $('lineId').addEventListener('blur', ()=>{
         save(KEY, orders);
         setFormLock(orders[i].locked);
       });
-
-      // 複製相關
-      function copyOrderToForm(o){
-        const t={...o};
-        delete t.id; t.status='排定'; t.confirmed=false; t.quotationOk=false; t.completedAt=undefined; t.locked=false; t.date=''; t.time='';
-        fillForm(t); recalcTotals();
-        $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
-      }
-      function copyOrderFrom(o){ copyOrderToForm(o); }
-      $('copyLastBtn').addEventListener('click', ()=>{
-        if(orders.length===0){ alert('目前沒有可複製的訂單'); return; }
-        const last = [...orders].sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0];
-        if(!last){ alert('找不到上一筆'); return; }
-        copyOrderToForm(last);
-      });
-      $('copyFromHistoryBtn').addEventListener('click', ()=>{
-        const np = normalizePhone(getPhones());
-        let cand = null;
-        if(np){ cand = [...orders].filter(o=> normalizePhone(o.phone)===np).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
-        if(!cand && $('customer').value){ cand = [...orders].filter(o=> (o.customer||'')=== $('customer').value.trim()).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''))[0]; }
-        if(!cand){ alert('找不到此客戶的舊單（請先輸入姓名或電話）'); return; }
-        copyOrderToForm(cand);
-      });
-
 
       // Accordion behavior: auto-collapse on small screens
       function adjustAccordion(){
@@ -597,8 +603,8 @@ $('lineId').addEventListener('blur', ()=>{
       });
     
     
-      // auto-open orderAccordion when buttons clicked
-      ;['saveBtn','resetBtn','copyLastBtn','copyFromHistoryBtn','quickNextBtn'].forEach(id=>{
+      // auto-open orderAccordion when主要按鈕被點擊
+      ;['saveBtn','resetBtn','quickNextBtn'].forEach(id=>{
         $(id)?.addEventListener('click', ()=>{ $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'}); });
       });
     
@@ -619,7 +625,11 @@ $('lineId').addEventListener('blur', ()=>{
 
       // 前往提醒中心（從首頁快到期區塊）
       $('btnOpenReminderCenter')?.addEventListener('click', ()=>{
-        if (typeof setActiveView === 'function') setActiveView('reminder');
+        if (typeof openReminderCenter === 'function') {
+          openReminderCenter({ range: '30', onlyPending: true });
+        } else if (typeof setActiveView === 'function') {
+          setActiveView('reminder');
+        }
       });
 
       $('exportXlsx')?.addEventListener('click', exportXLSX);

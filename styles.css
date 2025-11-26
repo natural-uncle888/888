@@ -1137,13 +1137,54 @@ label.pill:focus-within {
 .reminder-center-list .c-actions{
   display:flex;
   flex-direction:column;
-  gap:4px;
+  gap:8px;
   align-items:flex-end;
 }
+
+/* 提醒中心操作按鈕：加大、膠囊狀、更好按 */
 .reminder-center-list .c-actions .inline-btn{
-  padding:4px 8px;
-  font-size:12px;
-  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:110px;
+  padding:8px 14px;
+  font-size:13px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.9);
+  background:#ffffff;
+  color:#111827;
+  cursor:pointer;
+  box-shadow:0 1px 3px rgba(15,23,42,0.15);
+  transition:background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease, border-color 0.15s ease;
+}
+
+.reminder-center-list .c-actions .inline-btn:hover{
+  box-shadow:0 4px 10px rgba(15,23,42,0.22);
+  transform:translateY(-1px);
+}
+
+.reminder-center-list .c-actions .inline-btn:active{
+  transform:translateY(0);
+  box-shadow:0 1px 3px rgba(15,23,42,0.18);
+}
+
+/* 依功能給不同視覺：開啟訂單 / 已通知 / 不再提醒 */
+.reminder-center-list .c-actions .inline-btn[data-action="open"]{
+  background:#1d4ed8;
+  border-color:#1d4ed8;
+  color:#fff;
+}
+
+.reminder-center-list .c-actions .inline-btn[data-action="notified"]{
+  background:#f97316;
+  border-color:#fb923c;
+  color:#111827;
+}
+
+.reminder-center-list .c-actions .inline-btn[data-action="mute"]{
+  background:#fee2e2;
+  border-color:#fecaca;
+  color:#b91c1c;
 }
 .reminder-center-list .empty{
   padding:12px;
@@ -1415,4 +1456,49 @@ label.pill:focus-within {
 
 #pricingModal .modal-footer .primary:hover{
   background: #1e40af;
+}
+
+
+/* === 訂單表單子區塊 (可折疊) === */
+.order-section{
+  border-radius: 12px;
+  border: 1px solid rgba(148,163,184,0.6);
+  padding: 8px 12px 10px;
+  margin-bottom: 10px;
+  background: #f9fafb;
+}
+
+.order-section[open]{
+  background: #ffffff;
+}
+
+.order-section__summary{
+  list-style: none;
+  font-weight: 600;
+  font-size: 15px;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.order-section__summary::-webkit-details-marker{
+  display: none;
+}
+
+.order-section__summary::after{
+  content: '▾';
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 8px;
+  transition: transform 0.15s ease;
+}
+
+.order-section[open] .order-section__summary::after{
+  transform: rotate(-180deg);
+}
+
+.order-section > :not(.order-section__summary){
+  margin-top: 8px;
 }

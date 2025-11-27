@@ -131,6 +131,13 @@ function hasAnyPhone(){
     let staffList = load(STAFF_KEY, ['自然大叔']);
     let contactList = load(CONTACT_KEY, ['Line','Facebook粉絲團','直接線上預約','直接來電','裕良電器行','其他']);
     let expenses = load(EXP_KEY, []);
+
+    // 將關鍵資料也掛到 window，方便報表 / KPI 等模組存取
+    if (typeof window !== 'undefined') {
+      window.orders = orders;
+      window.expenses = expenses;
+    }
+
     let expCats = load(EXP_CAT_KEY, ['材料','加油','停車','工具/維修','其他']);
 
 

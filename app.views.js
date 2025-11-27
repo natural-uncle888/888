@@ -680,6 +680,7 @@ function initHeaderLayoutEditor(){
     saveHeaderLayout(layout);
     applyHeaderLayout(layout);
     closeEditor();
+    showLayoutSavedMessage();
   });
 
   const listEl = document.getElementById('headerLayoutList');
@@ -857,3 +858,36 @@ $('lineId').addEventListener('blur', ()=>{
       $('exportXlsx')?.addEventListener('click', exportXLSX);
       initViewTabs();
     }
+
+function showLayoutSavedMessage(){
+  // 使用 SweetAlert2（若可用）
+  if (window.Swal && Swal.fire){
+    Swal.fire({
+      icon: 'success',
+      title: '布局已儲存',
+      text: '手機工具列布局已更新，請在手機寬度下預覽效果。',
+      confirmButtonText: '好的',
+      confirmButtonColor: '#2563eb',
+      timer: 1800,
+      timerProgressBar: true
+    });
+    return;
+  }
+  // 退而求其次：自製小提示卡片
+  let toast = document.getElementById('layoutSavedToast');
+  if (!toast){
+    toast = document.createElement('div');
+    toast.id = 'layoutSavedToast';
+    toast.className = 'layout-toast layout-toast--success';
+    toast.innerHTML = '<div class="layout-toast__title">布局已儲存</div>' +
+                      '<div class="layout-toast__body">手機工具列布局已更新，請在手機寬度下預覽效果。</div>';
+    document.body.appendChild(toast);
+  }
+  toast.classList.add('is-visible');
+  if (toast._hideTimer){
+    clearTimeout(toast._hideTimer);
+  }
+  toast._hideTimer = setTimeout(()=>{
+    toast.classList.remove('is-visible');
+  }, 2000);
+}

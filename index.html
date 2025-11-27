@@ -159,6 +159,7 @@
 <details class="order-section" open>
   <summary class="order-section__summary">一、排程與客戶資料</summary>
 
+<h4 class="subsection-title">排程資訊</h4>
 <div class="row">
 <div class="col" style="grid-column:span 6">
 <label>作業人員</label>
@@ -171,6 +172,7 @@
 <div class="col" style="grid-column:span 3"><label>時間</label><input id="time" type="time"/></div>
 <div class="col" style="grid-column:span 7"><label>清洗地址</label><input id="address" placeholder="地址" type="text"/></div>
 </div>
+<h4 class="subsection-title">客戶基本資料</h4>
 <div class="row">
 <div class="col" style="grid-column:span 6">
 <label>姓名（支援通訊錄）</label><input id="customer" list="contactsDL" placeholder="客戶姓名" type="text"/><datalist id="contactsDL"></datalist><div class="tiny">選既有客戶會自動帶出電話/地址</div>
@@ -214,14 +216,32 @@
   <summary class="order-section__summary">二、清洗項目與備註</summary>
 <div class="hr"></div>
 <h3 style="margin:0 0 8px">清洗項目與價格</h3>
+
+<details class="item-group" open>
+  <summary class="item-group__summary">❄️ 冷氣清洗</summary>
+  <div class="item-group__body">
 <div class="row">
 <div class="col" style="grid-column:span 6"><label><b><span style="color:red;font-size:15px">分離式冷氣室內機</span></b></label><input id="acSplit" min="0" step="1" type="number" value="0"/></div>
 <div class="col" style="grid-column:span 6"><label>吊隱式冷氣</label><input id="acDuct" min="0" step="1" type="number" value="0"/></div>
 </div>
+
+  </div>
+</details>
+
+<details class="item-group" open>
+  <summary class="item-group__summary">🧺 洗衣機 / 水塔</summary>
+  <div class="item-group__body">
 <div class="row">
 <div class="col" style="grid-column:span 6"><label><b><span style="color:red;font-size:15px">直立式洗衣機</span></b></label><input id="washerTop" min="0" step="1" type="number" value="0"/></div>
 <div class="col" style="grid-column:span 6"><label>水塔</label><input id="waterTank" min="0" step="1" type="number" value="0"/></div>
 </div>
+
+  </div>
+</details>
+
+<details class="item-group" open>
+  <summary class="item-group__summary">✨ 其他服務 / 加值服務</summary>
+  <div class="item-group__body">
 <div class="row">
 <div class="col" style="grid-column:span 6"><label>自來水管（自訂金額，未稅總額）</label><input id="pipesAmount" min="0" step="1" type="number" value="0"/></div>
 <div class="col" style="grid-column:span 6"><label><b><span style="color:red;font-size:15px">防霉噴劑</span></b></label><input id="antiMold" min="0" step="1" type="number" value="0"/></div>
@@ -234,6 +254,9 @@
 <div class="col" style="grid-column:span 6"><label>分離式室內機長度 &gt; 182cm</label><input id="longSplitCount" min="0" step="1" type="number" value="0"/></div>
 <div class="col" style="grid-column:span 6"><label>一體式水盤</label><input id="onePieceTray" min="0" step="1" type="number" value="0"/></div>
 </div>
+
+  </div>
+</details>
 <div class="row">
 <div class="col" style="grid-column:span 12"><label>備註</label><textarea id="note" placeholder="其他補充事項"></textarea></div>
 </div>
@@ -246,18 +269,52 @@
 <details class="order-section" open>
   <summary class="order-section__summary">三、金額與確認</summary>
 <div class="hr"></div>
-<div class="row">
-<div class="col" style="grid-column:span 4"><label class="big-toggle" for="confirmed"><input id="confirmed" name="confirmed" type="checkbox" aria-label="客人確認安排時間" /><span class="big-toggle-text">客人確認安排時間</span></label></div>
-<div class="col" style="grid-column:span 4"><label class="big-toggle" for="quotationOk"><input id="quotationOk" name="quotationOk" type="checkbox" aria-label="客人確認報價單" /><span class="big-toggle-text">客人確認報價單</span></label></div>
-<div class="col right-align" style="grid-column:span 4"><button class="inline-btn" id="recalc" type="button">重新計算金額</button></div>
-</div>
-<div class="row">
-<div class="col" style="grid-column:span 3"><label>總金額（自動）</label><input id="total" readonly="" type="number"/></div>
-<div class="col" style="grid-column:span 3"><label>額外加價（手動輸入）</label><input id="extraCharge" min="0" step="1" type="number" value="0"/></div>
-<div class="col" style="grid-column:span 3"><label>折扣金額（可輸入）</label><input id="discount" min="0" step="1" type="number" value="0"/></div>
-<div class="col" style="grid-column:span 3"><label>折後總金額（自動）</label><input id="netTotal" readonly="" type="number"/></div>
-</div>
-<div class="hr"></div>
+<div class="summary-panel">
+  <div class="summary-panel__left">
+    <h4 class="subsection-title">確認與收款狀態</h4>
+    <div class="row">
+      <div class="col" style="grid-column:span 4">
+        <label class="big-toggle" for="confirmed">
+          <input id="confirmed" name="confirmed" type="checkbox" aria-label="客人是否已確認安排時間" />
+          <span class="big-toggle-text">客人確認安排時間</span>
+        </label>
+      </div>
+      <div class="col" style="grid-column:span 4">
+        <label class="big-toggle" for="quotationOk">
+          <input id="quotationOk" name="quotationOk" type="checkbox" aria-label="客人是否已確認報價單" />
+          <span class="big-toggle-text">客人確認報價單</span>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="summary-panel__right">
+    <h4 class="subsection-title">金額明細</h4>
+    <div class="row">
+      <div class="col" style="grid-column:span 3">
+        <label>總金額（自動）</label>
+        <input id="total" readonly="" type="number" />
+      </div>
+      <div class="col" style="grid-column:span 3">
+        <label>額外加價（手動輸入）</label>
+        <input id="extraCharge" min="0" step="1" type="number" value="0" />
+      </div>
+      <div class="col" style="grid-column:span 3">
+        <label>折扣金額（可輸入）</label>
+        <input id="discount" min="0" step="1" type="number" value="0" />
+      </div>
+      <div class="col" style="grid-column:span 3">
+        <label>折後總金額（自動）</label>
+        <input id="netTotal" readonly="" type="number" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="col" style="grid-column:span 12; text-align:right;">
+        <button class="inline-btn" id="recalc" type="button">重新計算金額</button>
+      </div>
+    </div>
+    <p class="help-text">修改清洗項目數量後請按「重新計算金額」，以更新金額。</p>
+  </div>
+</div><div class="hr"></div>
 <div class="toolbar">
 <button class="primary" id="saveBtn" type="submit">儲存訂單</button>
 <button id="resetBtn" type="button">清空表單</button>

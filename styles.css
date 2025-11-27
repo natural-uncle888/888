@@ -1932,3 +1932,97 @@ label.pill:focus-within {
   overflow:auto;
   max-height:60vh;
 }
+
+
+/* 表單小標題（區塊） */
+.subsection-title{
+  margin:16px 0 8px;
+  padding:4px 10px;
+  font-size:13px;
+  font-weight:600;
+  border-left:4px solid var(--primary);
+  background:rgba(37,99,235,0.06);
+  border-radius:8px;
+}
+
+/* 清洗項目群組（子折疊） */
+.item-group{
+  margin:8px 0 12px;
+  border:1px dashed var(--border);
+  border-radius:12px;
+  background:#f9fafb;
+}
+.item-group__summary{
+  padding:6px 10px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+}
+.item-group__body{
+  padding:8px 10px 4px;
+}
+
+/* 三、金額與確認：總結面板布局 */
+.summary-panel{
+  display:grid;
+  grid-template-columns:1.3fr 2fr;
+  gap:16px;
+  align-items:flex-start;
+  margin-bottom:12px;
+}
+.summary-panel__left,
+.summary-panel__right{
+  padding:10px 12px;
+  border-radius:12px;
+  background:#f3f4f6;
+  border:1px solid var(--border);
+}
+.summary-panel__right .row{
+  margin-bottom:6px;
+}
+.summary-panel .help-text{
+  margin-top:6px;
+  font-size:12px;
+  color:var(--muted);
+}
+@media (max-width:900px){
+  .summary-panel{
+    grid-template-columns:1fr;
+  }
+}
+
+
+/* 手機工具列布局儲存的小提示 */
+.layout-toast{
+  position:fixed;
+  z-index:9999;
+  top:16px;
+  right:16px;
+  max-width:260px;
+  padding:10px 12px;
+  border-radius:12px;
+  box-shadow:0 8px 20px rgba(15,23,42,0.18);
+  background:#111827;
+  color:#f9fafb;
+  opacity:0;
+  transform:translateY(-10px);
+  pointer-events:none;
+  transition:opacity 0.2s ease, transform 0.2s ease;
+  font-size:13px;
+}
+.layout-toast--success{
+  border-left:4px solid #22c55e;
+}
+.layout-toast__title{
+  font-weight:600;
+  margin-bottom:2px;
+}
+.layout-toast__body{
+  font-size:12px;
+  opacity:0.9;
+}
+.layout-toast.is-visible{
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+}

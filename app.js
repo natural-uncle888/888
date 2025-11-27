@@ -2424,7 +2424,21 @@ document.addEventListener('DOMContentLoaded', ()=> {
   saveBtn.addEventListener('click', ()=>{
     const layout = getCurrentLayout();
     localStorage.setItem('orderFormLayout_v1', JSON.stringify(layout));
-    alert('布局已儲存');
+    if (typeof showLayoutSavedMessage === 'function'){
+      showLayoutSavedMessage();
+    } else if (window.Swal && Swal.fire){
+      Swal.fire({
+        icon: 'success',
+        title: '布局已儲存',
+        text: '欄位布局已更新，將會套用在之後編輯訂單時。',
+        confirmButtonText: '好的',
+        confirmButtonColor: '#2563eb',
+        timer: 1800,
+        timerProgressBar: true
+      });
+    } else {
+      alert('布局已儲存');
+    }
     exitEditMode();
   });
   resetBtn.addEventListener('click', ()=>{

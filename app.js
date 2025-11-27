@@ -1061,9 +1061,15 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     const summaryEl = document.getElementById('yearSummary');
     if(!sel || !summaryEl) return;
 
+    // Chart 實例暫存，避免重複建立
+    let yearOrdersChart = null;
+    let yearIncomeChart = null;
+
     function getYearsFromOrders(){
       try {
-        const yrs = Array.from(new Set((orders || []).map(o=> o.date ? new Date(o.date).getFullYear() : null).filter(Boolean)));
+        const yrs = Array.from(new Set(
+          (orders || []).map(o => o.date ? new Date(o.date).getFullYear() : null).filter(Boolean)
+        ));
         yrs.sort((a,b)=>b-a); // desc
         return yrs;
       } catch(e){ return []; }
@@ -1071,10 +1077,10 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
 
     function populateYearOptions(){
       const years = getYearsFromOrders();
-      const opts = ['<option value="all">全部年份</option>'].concat(years.map(y=>`<option value="${y}">${y}</option>`));
+      const opts = ['<option value="all">全部年份</option>']
+        .concat(years.map(y=>`<option value="${y}">${y}</option>`));
       sel.innerHTML = opts.join('');
-      // default: latest year (most recent) if exists, otherwise 'all'
-      if(years.length>0){
+      if (years.length > 0){
         sel.value = String(years[0]);
       } else {
         sel.value = 'all';
@@ -1084,6 +1090,8 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     function renderYearStats(targetYear){
       const ord = orders || [];
       const exp = expenses || [];
+
+      // ---- 數字統計 ----
       const filtered = ord.filter(o=> {
         if(!o.date) return false;
         const y = new Date(o.date).getFullYear();
@@ -1091,8 +1099,8 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
       });
       const totalCount = filtered.length;
       const totalAmount = filtered.reduce((s,o)=> s + (+o.total||0), 0);
-      const netAmount = filtered.reduce((s,o)=> s + (+o.netTotal||0), 0);
-      const expenseTotal = exp.filter(e => {
+      const netAmount   = filtered.reduce((s,o)=> s + (+o.netTotal||0), 0);
+      const expenseTotal = (exp || []).filter(e => {
         if(!e.date) return false;
         const y = new Date(e.date).getFullYear();
         return targetYear === 'all' ? true : (y == targetYear);
@@ -1100,6 +1108,11 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
       const completed = filtered.filter(o=> o.status === '完成').length;
       const doneRate = totalCount ? ((completed/totalCount*100).toFixed(1) + '%') : '—';
       const netIncome = netAmount - expenseTotal;
+
+      if (typeof fmtCurrency !== 'function'){
+        // 後備：避免某些情況 fmtCurrency 未定義
+        window.fmtCurrency = window.fmtCurrency || (n => (n||0).toLocaleString('zh-TW', {minimumFractionDigits:0}));
+      }
 
       summaryEl.innerHTML = `
         <div class="box"><div class="small">年份</div><div class="number">${targetYear === 'all' ? '全部' : targetYear}</div></div>
@@ -1110,35 +1123,539 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
         <div class="box"><div class="small">淨收入</div><div class="number">${fmtCurrency(netIncome)}</div></div>
         <div class="box"><div class="small">完成率</div><div class="number">${doneRate}</div></div>
       `;
+
+      // ---- 圖表資料（每月） ----
+      const labels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+      const ordersByMonth  = new Array(12).fill(0);
+      const incomeByMonth  = new Array(12).fill(0);
+      const expenseByMonth = new Array(12).fill(0);
+
+      (ord || []).forEach(o => {
+        if (!o.date) return;
+        const d = new Date(o.date);
+        if (isNaN(d)) return;
+        const y = d.getFullYear();
+        const m = d.getMonth(); // 0~11
+        if (targetYear !== 'all' && y !== +targetYear) return;
+        ordersByMonth[m] += 1;
+        const income = +o.netTotal || +o.total || 0;
+        incomeByMonth[m] += income;
+      });
+
+      (exp || []).forEach(e => {
+        if (!e.date) return;
+        const d = new Date(e.date);
+        if (isNaN(d)) return;
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        if (targetYear !== 'all' && y !== +targetYear) return;
+        expenseByMonth[m] += (+e.amount || 0);
+      });
+
+      // ---- Chart.js 繪製 ----
+      if (window.Chart){
+        const ordersCanvas = document.getElementById('chartOrdersByMonth');
+        if (ordersCanvas){
+          if (yearOrdersChart) yearOrdersChart.destroy();
+          yearOrdersChart = new Chart(ordersCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [{
+                label: '訂單數',
+                data: ordersByMonth
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { beginAtZero: true, ticks: { precision:0 } }
+              }
+            }
+          });
+        }
+
+        const incomeCanvas = document.getElementById('chartIncomeVsExpense');
+        if (incomeCanvas){
+          if (yearIncomeChart) yearIncomeChart.destroy();
+          yearIncomeChart = new Chart(incomeCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [
+                { label: '淨收入', data: incomeByMonth },
+                { label: '花費',   data: expenseByMonth }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { beginAtZero: true }
+              }
+            }
+          });
+        }
+      }
     }
 
-    // expose a refresh function so other code can call it (e.g. after import)
+    // 提供給外部呼叫（切換分頁時）
     window.refreshYearStatSelect = function(){
       const prev = sel.value;
       populateYearOptions();
-      // if previous still exists, restore it; else keep default (latest)
       const foundPrev = Array.from(sel.options).some(o=>o.value === prev);
       sel.value = foundPrev ? prev : sel.value;
       renderYearStats(sel.value);
     };
 
-    // initial populate & render
     populateYearOptions();
     renderYearStats(sel.value);
 
-    // when user changes selection
     sel.addEventListener('change', function(){ renderYearStats(this.value); });
   }
 
-  // run init on DOMContentLoaded so elements exist; if DOM already loaded try immediately
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initYearStat);
-  } else {
-    initYearStat();
-  }
+  document.addEventListener('DOMContentLoaded', function(){
+    if (typeof orders === 'undefined' || typeof expenses === 'undefined'){
+      document.addEventListener('appCoreReady', initYearStat, { once:true });
+    } else {
+      initYearStat();
+    }
+  });
 })();
 
 
+
+
+// === 報表：KPI 概覽（今日 / 本週 / 本月） ===
+(function(){
+  function parseDateOnly(str){
+    if (!str) return null;
+    try{
+      const dStr = String(str).split('T')[0];
+      const parts = dStr.split('-');
+      if (parts.length < 3) return null;
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d);
+    }catch(e){
+      return null;
+    }
+  }
+
+  function makeRangePredicate(range){
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let start = startToday;
+    let end;
+
+    if (range === 'today'){
+      end = new Date(startToday);
+      end.setDate(end.getDate() + 1);
+    } else if (range === 'week'){
+      // 以週一為一週開始
+      const day = startToday.getDay(); // Sun=0
+      const diff = (day + 6) % 7; // 轉成 Mon=0
+      start = new Date(startToday);
+      start.setDate(start.getDate() - diff);
+      end = new Date(start);
+      end.setDate(end.getDate() + 7);
+    } else {
+      // 預設使用本月
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    }
+
+    return function(dateStr){
+      const d = parseDateOnly(dateStr);
+      if (!d) return false;
+      return d >= start && d < end;
+    };
+  }
+
+  function calcKpi(range){
+    const inRange = makeRangePredicate(range);
+    const ord = Array.isArray(window.orders) ? window.orders : [];
+    const exp = Array.isArray(window.expenses) ? window.expenses : [];
+
+    const oFiltered = ord.filter(o => inRange(o.date));
+    const eFiltered = exp.filter(e => inRange(e.date));
+
+    const totalOrders = oFiltered.length;
+    const completed = oFiltered.filter(o => o.status === '完成').length;
+    const completionRate = totalOrders ? ((completed / totalOrders) * 100).toFixed(1) + '%' : '—';
+
+    let revenue = 0;
+    oFiltered.forEach(o => {
+      const v = (o.netTotal !== undefined && o.netTotal !== null)
+        ? Number(o.netTotal)
+        : Number(o.total || 0);
+      if (!Number.isNaN(v)) revenue += v;
+    });
+
+    let expenseTotal = 0;
+    eFiltered.forEach(e => {
+      const v = Number(e.amount || 0);
+      if (!Number.isNaN(v)) expenseTotal += v;
+    });
+
+    const netIncome = revenue - expenseTotal;
+
+    return {
+      orders: totalOrders,
+      completionRate,
+      revenue,
+      expense: expenseTotal,
+      netIncome
+    };
+  }
+
+  function renderKpi(range){
+    const container = document.getElementById('kpiCards');
+    if (!container) return;
+    const data = calcKpi(range);
+
+    const items = [
+      { key:'orders', label:'訂單數', value: data.orders, isMoney:false },
+      { key:'completion', label:'完成率', value: data.completionRate, isMoney:false },
+      { key:'revenue', label:'營業額（折扣後）', value: data.revenue, isMoney:true },
+      { key:'expense', label:'花費', value: data.expense, isMoney:true },
+      { key:'netIncome', label:'淨收入', value: data.netIncome, isMoney:true }
+    ];
+
+    container.innerHTML = items.map(it => {
+      let display = it.value;
+      if (it.isMoney && typeof it.value === 'number'){
+        display = (typeof fmtCurrency === 'function')
+          ? fmtCurrency(it.value)
+          : (it.value || 0).toLocaleString('zh-TW', {maximumFractionDigits:0});
+      }
+      return '<div class="box">' +
+        '<div class="small">' + it.label + '</div>' +
+        '<div class="number">' + display + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function setupKpi(){
+    const container = document.getElementById('kpiCards');
+    if (!container) return;
+
+    let currentRange = 'today';
+    renderKpi(currentRange);
+
+    const btns = document.querySelectorAll('.kpi-range-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const range = btn.getAttribute('data-range') || 'today';
+        currentRange = range;
+        btns.forEach(b => b.classList.toggle('is-active', b === btn));
+        renderKpi(range);
+      });
+    });
+
+    window.refreshKpiCards = function(){
+      renderKpi(currentRange);
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    if (typeof orders === 'undefined' || typeof expenses === 'undefined'){
+      document.addEventListener('appCoreReady', setupKpi, { once:true });
+    } else {
+      setupKpi();
+    }
+  });
+})();
+
+
+// === 報表：依服務項目營收結構 ===
+(function(){
+  const SERVICE_ITEMS = [
+    { key:'acSplit',          label:'分離式冷氣' },
+    { key:'acDuct',           label:'吊隱式冷氣' },
+    { key:'washerTop',        label:'滾筒/直立式洗衣機' },
+    { key:'waterTank',        label:'水塔' },
+    { key:'pipesAmount',      label:'自來水管（自訂金額）' },
+    { key:'antiMold',         label:'防霉加強' },
+    { key:'ozone',            label:'臭氧殺菌' },
+    { key:'transformerCount', label:'變形金剛機型' },
+    { key:'longSplitCount',   label:'長室內機加價' },
+    { key:'onePieceTray',     label:'一體式水盤' }
+  ];
+
+  function parseDateOnly(str){
+    if (!str) return null;
+    try{
+      const dStr = String(str).split('T')[0];
+      const parts = dStr.split('-');
+      if (parts.length < 3) return null;
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d);
+    }catch(e){
+      return null;
+    }
+  }
+
+  function ensureItem(map, key, label){
+    if (!map[key]){
+      map[key] = { key, label, orders:0, revenue:0 };
+    }
+    return map[key];
+  }
+
+  function computeServiceStats(targetYear){
+    const ord = Array.isArray(window.orders) ? window.orders : [];
+    const cfg = window.pricingConfig || {};
+
+    const map = {};
+    ord.forEach(o => {
+      if (!o.date) return;
+      const d = parseDateOnly(o.date);
+      if (!d) return;
+      const y = d.getFullYear();
+      if (targetYear !== 'all' && y !== +targetYear) return;
+
+      const acSplit = +o.acSplit || 0;
+      const acDuct  = +o.acDuct || 0;
+      const washer  = +o.washerTop || 0;
+      const tank    = +o.waterTank || 0;
+      const pipes   = +o.pipesAmount || 0;
+      const anti    = +o.antiMold || 0;
+      const ozone   = +o.ozone || 0;
+      const trans   = +o.transformerCount || 0;
+      const longSp  = +o.longSplitCount || 0;
+      const oneTray = +o.onePieceTray || 0;
+
+      // 冷氣：分離式
+      if (acSplit > 0){
+        const base   = (cfg.acSplit || {});
+        const unit   = acSplit >= 3 ? (base.bulk3plus || base.unit || 0) : (base.unit || 0);
+        const total  = acSplit * unit;
+        const item   = ensureItem(map, 'acSplit', '分離式冷氣');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 冷氣：吊隱式
+      if (acDuct > 0){
+        const base   = (cfg.acDuct || {});
+        const unit   = base.unit || 0;
+        const total  = acDuct * unit;
+        const item   = ensureItem(map, 'acDuct', '吊隱式冷氣');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 洗衣機
+      if (washer > 0){
+        const base   = (cfg.washerTop || {});
+        const hasAC  = (acSplit + acDuct) > 0;
+        const unit   = hasAC ? (base.withAC || base.withoutAC || 0) : (base.withoutAC || base.withAC || 0);
+        const total  = washer * unit;
+        const item   = ensureItem(map, 'washerTop', '滾筒/直立式洗衣機');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 水塔
+      if (tank > 0){
+        const base   = (cfg.waterTank || {});
+        const unit   = base.unit || 0;
+        const total  = tank * unit;
+        const item   = ensureItem(map, 'waterTank', '水塔');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 自來水管（直接視為金額）
+      if (pipes > 0){
+        const total  = Math.max(0, pipes);
+        const item   = ensureItem(map, 'pipesAmount', '自來水管（自訂金額）');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 防霉加強
+      if (anti > 0){
+        const base   = (cfg.antiMold || {});
+        const unit   = anti >= 5 ? (base.bulk5plus || base.unit || 0) : (base.unit || 0);
+        const total  = anti * unit;
+        const item   = ensureItem(map, 'antiMold', '防霉加強');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 臭氧殺菌
+      if (ozone > 0){
+        const base   = (cfg.ozone || {});
+        const unit   = base.unit || 0;
+        const total  = ozone * unit;
+        const item   = ensureItem(map, 'ozone', '臭氧殺菌');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 變形金剛機型
+      if (trans > 0){
+        const base   = (cfg.transformerCount || {});
+        const unit   = base.unit || 0;
+        const total  = trans * unit;
+        const item   = ensureItem(map, 'transformerCount', '變形金剛機型');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 長室內機加價
+      if (longSp > 0){
+        const base   = (cfg.longSplitCount || {});
+        const unit   = base.unit || 0;
+        const total  = longSp * unit;
+        const item   = ensureItem(map, 'longSplitCount', '長室內機加價');
+        item.orders += 1;
+        item.revenue += total;
+      }
+
+      // 一體式水盤
+      if (oneTray > 0){
+        const base   = (cfg.onePieceTray || {});
+        const unit   = base.unit || 0;
+        const total  = oneTray * unit;
+        const item   = ensureItem(map, 'onePieceTray', '一體式水盤');
+        item.orders += 1;
+        item.revenue += total;
+      }
+    });
+
+    const list = Object.values(map);
+    const totalRevenue = list.reduce((s, it) => s + it.revenue, 0);
+    list.forEach(it => {
+      it.share = totalRevenue ? (it.revenue / totalRevenue * 100) : 0;
+    });
+
+    // 依營業額排序（高到低）
+    list.sort((a,b) => b.revenue - a.revenue);
+
+    return list;
+  }
+
+  function renderServiceStats(targetYear){
+    const tbody = document.querySelector('#tableByService tbody');
+    const canvas = document.getElementById('chartByService');
+    if (!tbody || !canvas) return;
+
+    const data = computeServiceStats(targetYear);
+    const labels = data.map(it => it.label);
+    const revenueData = data.map(it => Math.round(it.revenue));
+    const countData = data.map(it => it.orders);
+
+    // 表格
+    if (data.length === 0){
+      tbody.innerHTML = '<tr><td colspan="4">目前此年份沒有服務項目資料</td></tr>';
+    } else {
+      tbody.innerHTML = data.map(it => {
+        const shareStr = it.share ? it.share.toFixed(1) + '%' : '—';
+        const amountStr = (typeof fmtCurrency === 'function')
+          ? fmtCurrency(it.revenue)
+          : (it.revenue || 0).toLocaleString('zh-TW', {maximumFractionDigits:0});
+        return '<tr>' +
+          '<td>' + it.label + '</td>' +
+          '<td class="right-align">' + it.orders + '</td>' +
+          '<td class="right-align">' + amountStr + '</td>' +
+          '<td class="right-align">' + shareStr + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    // 圖表
+    if (!window.Chart) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (renderServiceStats._chart){
+      renderServiceStats._chart.destroy();
+      renderServiceStats._chart = null;
+    }
+
+    if (data.length === 0){
+      return;
+    }
+
+    renderServiceStats._chart = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: labels,
+        datasets:[
+          {
+            label:'營業額',
+            data: revenueData,
+            yAxisID:'y'
+          },
+          {
+            label:'案件數',
+            data: countData,
+            yAxisID:'y1'
+          }
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        scales:{
+          y:{
+            beginAtZero:true,
+            title:{ display:true, text:'金額（元）' }
+          },
+          y1:{
+            beginAtZero:true,
+            position:'right',
+            grid:{ drawOnChartArea:false },
+            title:{ display:true, text:'案件數' }
+          }
+        }
+      }
+    });
+  }
+
+  function setupServiceStats(){
+    const yearSelect = document.getElementById('yearStatSelect');
+    if (!yearSelect) return;
+
+    const getYear = () => yearSelect.value || 'all';
+    renderServiceStats(getYear());
+
+    // 年度切換時更新
+    yearSelect.addEventListener('change', () => {
+      renderServiceStats(getYear());
+    });
+
+    // 如果有既有的 refreshYearStatSelect，包一層一併更新
+    if (typeof window.refreshYearStatSelect === 'function'){
+      const original = window.refreshYearStatSelect;
+      window.refreshYearStatSelect = function(){
+        original.apply(this, arguments);
+        renderServiceStats(getYear());
+      };
+    }
+
+    window.refreshServiceStats = function(){
+      renderServiceStats(getYear());
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    if (typeof orders === 'undefined' || typeof expenses === 'undefined'){
+      document.addEventListener('appCoreReady', setupServiceStats, { once:true });
+    } else {
+      setupServiceStats();
+    }
+  });
+})();
 
 /* Customer history feature (added by assistant) */
 

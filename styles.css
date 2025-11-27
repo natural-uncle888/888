@@ -1882,3 +1882,53 @@ label.pill:focus-within {
     content:none !important;
   }
 }
+
+
+/* 報表圖表排版 */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.chart-card canvas {
+  width: 100%;
+  max-width: 100%;
+  height: 260px;
+}
+
+
+/* 報表：KPI 範圍切換 */
+.kpi-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.kpi-range-toggle{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.kpi-range-btn{
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,0.85);
+  background:#ffffff;
+  padding:4px 10px;
+  font-size:13px;
+  cursor:pointer;
+  color:var(--muted);
+}
+.kpi-range-btn.is-active{
+  background:var(--primary);
+  color:#ffffff;
+  border-color:var(--primary);
+}
+
+/* 報表：服務項目表格滾動 */
+.table-wrapper{
+  overflow:auto;
+  max-height:60vh;
+}

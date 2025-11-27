@@ -8,6 +8,7 @@
 <link href="https://res.cloudinary.com/dijzndzw2/image/upload/v1757176751/logo-3_hddq08.png" rel="icon" type="image/png"/>
 <script defer="True" src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 .photo-url-input { width: 100%; max-width: 520px; margin-bottom: 4px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; }
 #photoUrlContainer .photo-row { display: flex; align-items: center; gap: 8px; }
@@ -104,22 +105,24 @@
 
 <main class="wrap stack" style="margin-top:16px">
     <div class="view-tabs">
-    <button class="view-tab is-active" type="button" data-view="main">📋 排程</button>
-    <button class="view-tab" type="button" data-view="reminder">⏰ 提醒</button>
-    <button class="view-tab" type="button" data-view="settings">⚙️ 設定</button>
-  </div>
+  <button class="view-tab is-active" type="button" data-view="main">📋 排程</button>
+  <button class="view-tab" type="button" data-view="expense">💸 花費</button>
+  <button class="view-tab" type="button" data-view="report">📊 報表 / 統計</button>
+  <button class="view-tab" type="button" data-view="reminder">⏰ 提醒</button>
+  <button class="view-tab" type="button" data-view="settings">⚙️ 設定</button>
+</div>
 
 
   <div id="mainMode" class="view-panel view-main is-active">
 <section class="card">
 <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
 <h2>訂單列表</h2>
-<div class="header-actions" style="display:flex; align-items:center; gap:4px; flex-shrink:0;"><select aria-label="統計年份選擇" id="yearStatSelect" style="height:32px; margin-right:12px; padding:4px 8px; font-size:14px; max-width:120px;"></select>
-<button aria-controls="yearSummary" aria-expanded="false" class="small-toggle" id="toggleYearBtn" style=" min-width:80px; white-space:nowrap;" title="切換年度統計 (預設收起)">年度統計 ▾</button>
+<div class="header-actions" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+
 </div>
 </div>
 <div class="body">
-<div class="sum" id="yearSummary" style="padding-top: 4px; margin-bottom: 16px;"></div>
+
 <div class="sum" id="summary"></div>
 <div class="hr"></div>
 <div style="overflow:auto;margin-top:8px">
@@ -265,9 +268,16 @@
 
 </form>
 </div></details>
-<details class="accordion" id="expenseAcc">
-<summary>本月花費（可展開/收合）</summary>
-<div class="content">
+
+</div>
+
+
+<section id="expensePanel" class="card view-panel view-expense" style="display:none">
+  <div class="card-header">
+    <h2>本月花費</h2>
+  </div>
+  <div class="body">
+    
 <div class="two-col">
 <section class="card" style="border:none;box-shadow:none">
 <h2>本月花費列表</h2>
@@ -299,9 +309,82 @@
 </div>
 </aside>
 </div>
-</div>
-</details>
-</div>
+
+  </div>
+</section>
+
+
+<section id="reportPanel" class="card view-panel view-report" style="display:none">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
+    <h2>報表 / 統計</h2>
+    <div class="header-actions" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <select aria-label="統計年份選擇" id="yearStatSelect" style="height:32px; margin-right:12px; padding:4px 8px; font-size:14px; max-width:120px;"></select>
+      <button aria-controls="yearSummary" aria-expanded="false" class="small-toggle" id="toggleYearBtn" style=" min-width:80px; white-space:nowrap;" title="切換年度統計 (預設收起)">年度統計 ▾</button>
+    </div>
+  </div>
+  <div class="body">
+    <section class="card kpi-section">
+      <div class="card-header kpi-header">
+        <h3>關鍵指標總覽</h3>
+        <div class="kpi-range-toggle" role="tablist" aria-label="KPI 統計範圍">
+          <button type="button" class="kpi-range-btn is-active" data-range="today">今日</button>
+          <button type="button" class="kpi-range-btn" data-range="week">本週</button>
+          <button type="button" class="kpi-range-btn" data-range="month">本月</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="sum" id="kpiCards"></div>
+      </div>
+    </section>
+    <div class="sum" id="yearSummary" style="padding-top: 4px; margin-bottom: 16px;"></div>
+    <div class="chart-grid">
+      <section class="card chart-card">
+        <div class="card-header">
+          <h3>每月訂單數</h3>
+        </div>
+        <div class="body">
+          <canvas id="chartOrdersByMonth" height="200"></canvas>
+        </div>
+      </section>
+      <section class="card chart-card">
+        <div class="card-header">
+          <h3>每月淨收入 vs 花費</h3>
+        </div>
+        <div class="body">
+          <canvas id="chartIncomeVsExpense" height="200"></canvas>
+        </div>
+      </section>
+      <section class="card chart-card">
+        <div class="card-header">
+          <h3>依服務項目營收（筆數 / 金額）</h3>
+        </div>
+        <div class="body">
+          <canvas id="chartByService" height="220"></canvas>
+        </div>
+      </section>
+      <section class="card chart-card">
+        <div class="card-header">
+          <h3>依服務項目明細</h3>
+        </div>
+        <div class="body">
+          <div class="table-wrapper">
+            <table id="tableByService">
+              <thead>
+                <tr>
+                  <th>服務項目</th>
+                  <th>案件數</th>
+                  <th>營業額</th>
+                  <th>佔比</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
 
 <section id="reminderCenterSection" class="card view-panel view-reminder" style="display:none">
   <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">

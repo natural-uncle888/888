@@ -447,12 +447,15 @@ function openReminderCenter(options){
 }
 
 function setActiveView(view){
-  const mainMode = document.getElementById('mainMode');
+  const mainMode        = document.getElementById('mainMode');
+  const expenseSection  = document.getElementById('expensePanel');
+  const reportSection   = document.getElementById('reportPanel');
   const reminderSection = document.getElementById('reminderCenterSection');
   const settingsSection = document.getElementById('settingsPanel');
   const header = document.getElementById('scheduleHeader') || document.querySelector('header');
   const tabs = document.querySelectorAll('.view-tab');
 
+  // Tab 外觀切換
   tabs.forEach(btn => {
     const v = btn.getAttribute('data-view') || 'main';
     if (view === v){
@@ -462,29 +465,40 @@ function setActiveView(view){
     }
   });
 
+  // 先全部隱藏
+  if (mainMode)       mainMode.style.display = 'none';
+  if (expenseSection) expenseSection.style.display = 'none';
+  if (reportSection)  reportSection.style.display = 'none';
+  if (reminderSection) reminderSection.style.display = 'none';
+  if (settingsSection) settingsSection.style.display = 'none';
+
   if (view === 'reminder'){
-    if (mainMode) mainMode.style.display = 'none';
     if (reminderSection) reminderSection.style.display = '';
-    if (settingsSection) settingsSection.style.display = 'none';
     if (header) header.style.display = 'none';
     if (typeof refreshReminderCenter === 'function') {
       refreshReminderCenter();
     }
   } else if (view === 'settings'){
-    if (mainMode) mainMode.style.display = 'none';
-    if (reminderSection) reminderSection.style.display = 'none';
     if (settingsSection) settingsSection.style.display = '';
     if (header) header.style.display = 'none';
+  } else if (view === 'expense'){
+    if (expenseSection) expenseSection.style.display = '';
+    if (header) header.style.display = '';
+    if (typeof refreshExpense === 'function') {
+      refreshExpense();
+    }
+  } else if (view === 'report'){
+    if (reportSection) reportSection.style.display = '';
+    if (header) header.style.display = '';
+    if (typeof refreshYearStatSelect === 'function') {
+      refreshYearStatSelect();
+    }
   } else {
     // 預設為排程頁
     if (mainMode) mainMode.style.display = '';
-    if (reminderSection) reminderSection.style.display = 'none';
-    if (settingsSection) settingsSection.style.display = 'none';
     if (header) header.style.display = '';
   }
 }
-
-
 
 // ---------- Header Layout (手機工具列布局) ----------
 const HEADER_LAYOUT_KEY = 'headerLayoutMobile_v1';

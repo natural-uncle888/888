@@ -398,6 +398,61 @@
       </div>
     </section>
     <div class="sum" id="yearSummary" style="padding-top: 4px; margin-bottom: 16px;"></div>
+    <section class="card chart-card">
+      <div class="card-header">
+        <h3>自訂統計圖表</h3>
+      </div>
+      <div class="body">
+        <div class="custom-chart-controls" style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:12px;">
+          <label>
+            模式：
+            <select id="customChartCompareMode">
+              <option value="none">單一年度 / 月份</option>
+              <option value="year">年度比較（跨年）</option>
+              <option value="month">同月份跨年比較</option>
+            </select>
+          </label>
+          <label>
+            年份：
+            <select id="customChartYear"></select>
+          </label>
+          <label class="custom-chart-yearB-wrap" style="display:none;">
+            比較年份：
+            <select id="customChartYearB"></select>
+          </label>
+          <label>
+            月份：
+            <select id="customChartMonth">
+              <option value="all">全部月份</option>
+              <option value="1">1 月</option>
+              <option value="2">2 月</option>
+              <option value="3">3 月</option>
+              <option value="4">4 月</option>
+              <option value="5">5 月</option>
+              <option value="6">6 月</option>
+              <option value="7">7 月</option>
+              <option value="8">8 月</option>
+              <option value="9">9 月</option>
+              <option value="10">10 月</option>
+              <option value="11">11 月</option>
+              <option value="12">12 月</option>
+            </select>
+          </label>
+          <label>
+            指標：
+            <select id="customChartMetric">
+              <option value="count">案件數</option>
+              <option value="revenue">營收金額（折後）</option>
+              <option value="net">淨收入</option>
+            </select>
+          </label>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="customStatChart" height="240"></canvas>
+        </div>
+      </div>
+    </section>
+
     <div class="chart-grid">
       <section class="card chart-card">
         <div class="card-header">

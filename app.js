@@ -1227,6 +1227,346 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
 
 
 
+// === 報表：自訂統計圖表（年度 / 月份 / 比較） ===
+(function(){
+  function ensureOrdersArray(){
+    if (Array.isArray(window.orders)) return window.orders;
+    if (typeof orders !== 'undefined' && Array.isArray(orders)) return orders;
+    return [];
+  }
+  function ensureExpensesArray(){
+    if (Array.isArray(window.expenses)) return window.expenses;
+    if (typeof expenses !== 'undefined' && Array.isArray(expenses)) return expenses;
+    return [];
+  }
+
+  function getAvailableYears(){
+    const ord = ensureOrdersArray();
+    const exp = ensureExpensesArray();
+    const set = new Set();
+    ord.forEach(o => {
+      if (!o || !o.date) return;
+      const d = new Date(o.date);
+      if (!isNaN(d)) set.add(d.getFullYear());
+    });
+    exp.forEach(e => {
+      if (!e || !e.date) return;
+      const d = new Date(e.date);
+      if (!isNaN(d)) set.add(d.getFullYear());
+    });
+    const arr = Array.from(set);
+    arr.sort((a,b)=>b-a);
+    return arr;
+  }
+
+  function daysInMonth(year, month){ // month: 1-12
+    return new Date(year, month, 0).getDate();
+  }
+
+  function aggregateByMonth(year, metric){
+    const ord = ensureOrdersArray();
+    const exp = ensureExpensesArray();
+    const labels = [];
+    for (let m=1; m<=12; m++){
+      labels.push(m + '月');
+    }
+    const count   = new Array(12).fill(0);
+    const income  = new Array(12).fill(0);
+    const expense = new Array(12).fill(0);
+
+    ord.forEach(o => {
+      if (!o || !o.date) return;
+      const d = new Date(o.date);
+      if (isNaN(d)) return;
+      if (d.getFullYear() !== year) return;
+      const m = d.getMonth(); // 0-11
+      if (metric === 'count'){
+        count[m] += 1;
+      } else {
+        const net = +o.netTotal || 0;
+        income[m] += net;
+      }
+    });
+
+    exp.forEach(e => {
+      if (!e || !e.date) return;
+      const d = new Date(e.date);
+      if (isNaN(d)) return;
+      if (d.getFullYear() !== year) return;
+      const m = d.getMonth();
+      expense[m] += (+e.amount || 0);
+    });
+
+    if (metric === 'count'){
+      return { labels, data: count };
+    } else if (metric === 'revenue'){
+      return { labels, data: income };
+    } else if (metric === 'net'){
+      const net = income.map((v,i)=> v - expense[i]);
+      return { labels, data: net };
+    }
+    return { labels, data: income };
+  }
+
+  function aggregateByDay(year, month, metric){
+    const ord = ensureOrdersArray();
+    const exp = ensureExpensesArray();
+    const days = daysInMonth(year, month);
+    const labels = [];
+    for (let d=1; d<=days; d++){
+      labels.push(d + '日');
+    }
+    const count   = new Array(days).fill(0);
+    const income  = new Array(days).fill(0);
+    const expense = new Array(days).fill(0);
+
+    ord.forEach(o => {
+      if (!o || !o.date) return;
+      const dt = new Date(o.date);
+      if (isNaN(dt)) return;
+      if (dt.getFullYear() !== year) return;
+      if ((dt.getMonth()+1) !== month) return;
+      const day = dt.getDate();
+      const idx = day - 1;
+      if (idx < 0 || idx >= days) return;
+      if (metric === 'count'){
+        count[idx] += 1;
+      } else {
+        const net = +o.netTotal || 0;
+        income[idx] += net;
+      }
+    });
+
+    exp.forEach(e => {
+      if (!e || !e.date) return;
+      const dt = new Date(e.date);
+      if (isNaN(dt)) return;
+      if (dt.getFullYear() !== year) return;
+      if ((dt.getMonth()+1) !== month) return;
+      const day = dt.getDate();
+      const idx = day - 1;
+      if (idx < 0 || idx >= days) return;
+      expense[idx] += (+e.amount || 0);
+    });
+
+    if (metric === 'count'){
+      return { labels, data: count };
+    } else if (metric === 'revenue'){
+      return { labels, data: income };
+    } else if (metric === 'net'){
+      const net = income.map((v,i)=> v - expense[i]);
+      return { labels, data: net };
+    }
+    return { labels, data: income };
+  }
+
+  function buildSingleSeries(year, monthValue, metric){
+    if (!year) return { labels: [], datasets: [] };
+    if (!monthValue || monthValue === 'all'){
+      const agg = aggregateByMonth(year, metric);
+      return {
+        labels: agg.labels,
+        datasets: [{
+          label: year + '年',
+          data: agg.data
+        }]
+      };
+    } else {
+      const month = typeof monthValue === 'string' ? parseInt(monthValue, 10) : monthValue;
+      if (!month || isNaN(month)) return { labels: [], datasets: [] };
+      const agg = aggregateByDay(year, month, metric);
+      return {
+        labels: agg.labels,
+        datasets: [{
+          label: year + '年' + month + '月',
+          data: agg.data
+        }]
+      };
+    }
+  }
+
+  function buildYearCompareSeries(yearA, yearB, metric){
+    if (!yearA || !yearB || yearA === yearB) return { labels: [], datasets: [] };
+    const aggA = aggregateByMonth(yearA, metric);
+    const aggB = aggregateByMonth(yearB, metric);
+    return {
+      labels: aggA.labels,
+      datasets: [
+        { label: yearA + '年', data: aggA.data },
+        { label: yearB + '年', data: aggB.data }
+      ]
+    };
+  }
+
+  function buildMonthCompareSeries(yearA, yearB, month, metric){
+    if (!yearA || !yearB || !month || yearA === yearB) return { labels: [], datasets: [] };
+    const aggA = aggregateByDay(yearA, month, metric);
+    const aggB = aggregateByDay(yearB, month, metric);
+    if (!aggA.labels.length && !aggB.labels.length){
+      return { labels: [], datasets: [] };
+    }
+    // labels 直接用 A 的，若 B 不同天數也無妨，Chart.js 會自動對齊 index
+    return {
+      labels: aggA.labels.length ? aggA.labels : aggB.labels,
+      datasets: [
+        { label: yearA + '年' + month + '月', data: aggA.data },
+        { label: yearB + '年' + month + '月', data: aggB.data }
+      ]
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const canvas    = document.getElementById('customStatChart');
+    const yearSel   = document.getElementById('customChartYear');
+    const yearSelB  = document.getElementById('customChartYearB');
+    const monthSel  = document.getElementById('customChartMonth');
+    const metricSel = document.getElementById('customChartMetric');
+    const modeSel   = document.getElementById('customChartCompareMode');
+    const yearBWrap = document.querySelector('.custom-chart-yearB-wrap');
+    if (!canvas || !yearSel || !metricSel || !modeSel) return;
+
+    let chart = null;
+
+    function populateYearSelects(){
+      const years = getAvailableYears();
+      const nowY = new Date().getFullYear();
+      const list = years.length ? years : [nowY];
+
+      const prevA = yearSel.value;
+      const prevB = yearSelB ? yearSelB.value : '';
+
+      yearSel.innerHTML = '';
+      list.forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = String(y);
+        opt.textContent = y + '年';
+        yearSel.appendChild(opt);
+      });
+
+      if (yearSelB){
+        yearSelB.innerHTML = '';
+        list.forEach(y => {
+          const opt = document.createElement('option');
+          opt.value = String(y);
+          opt.textContent = y + '年';
+          yearSelB.appendChild(opt);
+        });
+      }
+
+      if (prevA && Array.from(yearSel.options).some(o=>o.value === prevA)){
+        yearSel.value = prevA;
+      }
+      if (yearSelB && prevB && Array.from(yearSelB.options).some(o=>o.value === prevB)){
+        yearSelB.value = prevB;
+      }
+    }
+
+    function getConfig(){
+      const mode   = (modeSel.value || 'none');
+      const yearA  = parseInt(yearSel.value, 10) || null;
+      const yearB  = (yearSelB && yearSelB.value) ? (parseInt(yearSelB.value, 10) || null) : null;
+      const metric = (metricSel.value || 'count');
+      let monthVal = monthSel ? monthSel.value : 'all';
+      if (mode === 'year') monthVal = 'all';
+      return { mode, yearA, yearB, metric, month: monthVal };
+    }
+
+    function updateVisibility(){
+      const cfg = getConfig();
+      if (yearBWrap){
+        yearBWrap.style.display = (cfg.mode === 'year' || cfg.mode === 'month') ? '' : 'none';
+      }
+      if (monthSel){
+        if (cfg.mode === 'year'){
+          monthSel.value = 'all';
+          monthSel.disabled = true;
+        } else {
+          monthSel.disabled = false;
+        }
+      }
+    }
+
+    function updateChart(){
+      if (!window.Chart) return;
+      const cfg = getConfig();
+      if (!cfg.yearA) return;
+
+      let result;
+      if (cfg.mode === 'year'){
+        result = buildYearCompareSeries(cfg.yearA, cfg.yearB, cfg.metric);
+      } else if (cfg.mode === 'month'){
+        const month = cfg.month && cfg.month !== 'all' ? parseInt(cfg.month, 10) : null;
+        if (!month) return;
+        result = buildMonthCompareSeries(cfg.yearA, cfg.yearB, month, cfg.metric);
+      } else {
+        result = buildSingleSeries(cfg.yearA, cfg.month, cfg.metric);
+      }
+
+      if (!result || !result.labels || !result.labels.length){
+        return;
+      }
+
+      const datasets = result.datasets.map((ds, idx) => {
+        const base = {
+          label: ds.label,
+          data: ds.data
+        };
+        return base;
+      });
+
+      if (!chart){
+        chart = new Chart(canvas.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: result.labels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: true },
+              title: { display: false }
+            },
+            scales: {
+              x: { ticks: { autoSkip: false } },
+              y: { beginAtZero: true }
+            }
+          }
+        });
+      } else {
+        chart.data.labels = result.labels;
+        chart.data.datasets = datasets;
+        chart.update();
+      }
+    }
+
+    function handleChange(){
+      updateVisibility();
+      updateChart();
+    }
+
+    [yearSel, yearSelB, monthSel, metricSel, modeSel].forEach(el => {
+      if (!el) return;
+      el.addEventListener('change', handleChange);
+    });
+
+    populateYearSelects();
+    updateVisibility();
+    updateChart();
+
+    // 若核心資料尚未準備好，等 appCoreReady 再刷新一次
+    if (typeof orders === 'undefined' || typeof expenses === 'undefined'){
+      document.addEventListener('appCoreReady', function(){
+        populateYearSelects();
+        updateVisibility();
+        updateChart();
+      }, { once:true });
+    }
+  });
+})();
+
+
 // === 報表：KPI 概覽（今日 / 本週 / 本月） ===
 (function(){
   function parseDateOnly(str){

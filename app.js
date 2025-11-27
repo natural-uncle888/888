@@ -1277,10 +1277,8 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
 
   function calcKpi(range){
     const inRange = makeRangePredicate(range);
-    const ord = Array.isArray(window.orders) ? window.orders
-      : (typeof orders !== 'undefined' && Array.isArray(orders) ? orders : []);
-    const exp = Array.isArray(window.expenses) ? window.expenses
-      : (typeof expenses !== 'undefined' && Array.isArray(expenses) ? expenses : []);
+    const ord = Array.isArray(window.orders) ? window.orders : [];
+    const exp = Array.isArray(window.expenses) ? window.expenses : [];
 
     const oFiltered = ord.filter(o => inRange(o.date));
     const eFiltered = exp.filter(e => inRange(e.date));
@@ -1412,11 +1410,8 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
   }
 
   function computeServiceStats(targetYear){
-    const ord = Array.isArray(window.orders) ? window.orders
-      : (typeof orders !== 'undefined' && Array.isArray(orders) ? orders : []);
-    const cfg = (typeof pricingConfig !== 'undefined' && pricingConfig)
-      || (typeof DEFAULT_PRICING !== 'undefined' && DEFAULT_PRICING)
-      || (window.pricingConfig || {});
+    const ord = Array.isArray(window.orders) ? window.orders : [];
+    const cfg = window.pricingConfig || {};
 
     const map = {};
     ord.forEach(o => {

@@ -114,6 +114,18 @@
 
 
   <div id="mainMode" class="view-panel view-main is-active">
+<section class="card due-panel" id="dueSoonPanel">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
+    <h2>快到期提醒（30 天內）</h2>
+    <div class="header-actions" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+      <button type="button" class="btn btn-reminder" id="btnOpenReminderCenter">前往提醒中心</button>
+    </div>
+  </div>
+  <div class="body">
+    <div class="due-stats" id="dueSoonStats">目前沒有需要提醒的客戶</div>
+    <div class="due-list" id="dueSoonList">目前沒有 30 天內將到期的客戶</div>
+  </div>
+</section>
 <section class="card">
 <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
 <h2>訂單列表</h2>
@@ -126,18 +138,10 @@
 <div class="sum" id="summary"></div>
 <div class="hr"></div>
 <div style="overflow:auto;margin-top:8px">
-<div class="card due-panel" id="dueSoonPanel">
-<div class="card-title-row">
-  <div class="card-title">快到期提醒（30 天內）</div>
-  <button type="button" class="btn btn-reminder" id="btnOpenReminderCenter">前往提醒中心</button>
-</div>
-<div class="due-stats" id="dueSoonStats">目前沒有需要提醒的客戶</div>
-<div class="due-list" id="dueSoonList">目前沒有 30 天內將到期的客戶</div>
-</div>
 <table id="ordersTable">
 <thead>
 <tr>
-<th>#</th><th>日期</th><th>時間</th><th>作業人員</th><th>客戶</th><th>電話</th><th class="col-slot">時段</th><th>地址</th><th class="col-status">狀況</th><th>確認</th><th>報價單</th><th class="right-align col-total">總金額</th><th class="right-align">折後</th><th>來源</th><th>操作</th>
+<th>#</th><th>日期</th><th>時間</th><th>作業人員</th><th>客戶</th><th>電話</th><th class="col-slot">時段</th><th>地址</th><th class="col-status" title="安排中、完成、取消、待確認等狀態">狀況</th><th>確認</th><th>報價單</th><th class="right-align col-total">總金額</th><th class="right-align">折後</th><th>來源</th><th>操作</th>
 </tr>
 </thead>
 <tbody></tbody>

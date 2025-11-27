@@ -225,8 +225,9 @@ th.col-total, td.col-total {
 }
 
 @media (max-width: 600px) {
-  table td { display: none !important; }
-  table td.keep-mobile { display: block !important; }
+  /* 僅針對主訂單列表做「只保留關鍵欄位」的縮減 */
+  #ordersTable td { display: none !important; }
+  #ordersTable td.keep-mobile { display: block !important; }
 }
 
 

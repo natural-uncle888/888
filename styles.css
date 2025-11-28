@@ -377,9 +377,6 @@ td[data-label="客戶"] .customer-badge {
 .due-list .badge.soon { background: #fff7e0; color: #8a6d00; }
 .due-list .row button { padding: 4px 8px; border-radius: 8px; }
 .due-list.empty { color: #666; font-size: 14px; padding: 8px; }
-@media (max-width: 768px) {
-  .card.due-panel { display: none; } /* 手機隱藏，避免擠版；如需手機也顯示可移除此行 */
-}
 
 
 /* === Reminder inline toolbar (under 居住地型態) === */

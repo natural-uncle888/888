@@ -19,6 +19,7 @@
 <body>
 <header id="scheduleHeader">
   <div class="wrap toolbar header-toolbar">
+  <div class="header-group-label">篩選條件</div>
     <div class="header-item" data-header-id="yearMonth">
       <div class="pill">
         <strong>月份</strong>
@@ -59,6 +60,7 @@
         <span>顯示未排期</span>
       </label>
     </div>
+    <div class="header-group-label">快速操作</div>
     <div class="header-item" data-header-id="search">
       <div class="pill">
         <strong>搜尋</strong>
@@ -104,6 +106,11 @@
 
 
 <main class="wrap stack" style="margin-top:16px">
+    <header class="page-header">
+      <h1>自然大叔｜訂單排程系統</h1>
+      <p class="page-subtitle">管理排程、花費、報表與提醒的整合後台。</p>
+    </header>
+
     <div class="view-tabs">
   <button class="view-tab is-active" type="button" data-view="main">📋 排程</button>
   <button class="view-tab" type="button" data-view="expense">💸 花費</button>
@@ -114,6 +121,13 @@
 
 
   <div id="mainMode" class="view-panel view-main is-active">
+<nav class="main-anchor-nav" aria-label="排程主要區塊導覽">
+  <span class="main-anchor-nav__label">快速導覽：</span>
+  <a href="#dueSoonPanel">快到期提醒</a>
+  <a href="#ordersSection">訂單列表</a>
+  <a href="#orderAccordion">新增 / 編輯訂單</a>
+</nav>
+
 <section class="card due-panel" id="dueSoonPanel">
   <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
     <h2>快到期提醒（30 天內）</h2>
@@ -126,7 +140,7 @@
     <div class="due-list" id="dueSoonList">目前沒有 30 天內將到期的客戶</div>
   </div>
 </section>
-<section class="card">
+<section class="card" id="ordersSection">
 <div class="card-header" style="display:flex; align-items:center; justify-content:space-between;">
 <h2>訂單列表</h2>
 <div class="header-actions" style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
@@ -157,7 +171,7 @@
 <form id="orderForm">
 <input id="id" type="hidden"/>
 <details class="order-section" open>
-  <summary class="order-section__summary">一、排程與客戶資料</summary>
+  <summary class="order-section__summary">Step 1：排程與客戶資料</summary>
 
 <h4 class="subsection-title">排程資訊</h4>
 <div class="row">
@@ -212,8 +226,8 @@
 </div>
 </details>
 
-<details class="order-section" open>
-  <summary class="order-section__summary">二、清洗項目與備註</summary>
+<details class="order-section">
+  <summary class="order-section__summary">Step 2：清洗項目與備註</summary>
 <div class="hr"></div>
 <h3 style="margin:0 0 8px">清洗項目與價格</h3>
 
@@ -266,8 +280,8 @@
 <div class="row" id="photoUrlBlock"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button></div></div>
 </details>
 
-<details class="order-section" open>
-  <summary class="order-section__summary">三、金額與確認</summary>
+<details class="order-section">
+  <summary class="order-section__summary">Step 3：金額與確認</summary>
 <div class="hr"></div>
 <div class="summary-panel">
   <div class="summary-panel__left">
@@ -343,6 +357,7 @@
 <section class="card" style="border:none;box-shadow:none">
 <h2>本月花費列表</h2>
 <div class="body">
+<div id="expenseSummary" class="expense-summary">本月尚未有任何花費。</div>
 <div class="toolbar" style="margin-bottom:8px">
 <button id="expExportCsv">匯出花費CSV</button>
 <button id="expExportJson">匯出花費JSON</button>
@@ -444,6 +459,7 @@
               <option value="count">案件數</option>
               <option value="revenue">營收金額（折後）</option>
               <option value="net">淨收入</option>
+              <option value="expense">花費</option>
             </select>
           </label>
         </div>
@@ -468,6 +484,23 @@
         </div>
         <div class="body">
           <canvas id="chartIncomeVsExpense" height="200"></canvas>
+        </div>
+      </section>
+      <section class="card chart-card">
+        <div class="card-header">
+          <h3>花費分類圓餅圖（可跨月份比較）</h3>
+        </div>
+        <div class="body">
+          <div class="toolbar" style="margin-bottom:8px; gap:8px; flex-wrap:wrap;">
+            <label>主月份：
+              <select id="expenseCatMonthA"></select>
+            </label>
+            <label>比較月份：
+              <select id="expenseCatMonthB"></select>
+            </label>
+            <span class="muted" style="font-size:12px;">（年份依上方選擇）</span>
+          </div>
+          <canvas id="chartExpenseByCategory" height="220"></canvas>
         </div>
       </section>
       <section class="card chart-card">

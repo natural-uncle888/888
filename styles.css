@@ -2027,3 +2027,70 @@ label.pill:focus-within {
   transform:translateY(0);
   pointer-events:auto;
 }
+
+
+/* Global page header */
+.page-header {
+  margin-bottom: 16px;
+}
+
+.page-header h1 {
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+
+/* Header toolbar grouping labels */
+.header-group-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  opacity: 0.85;
+  flex: 0 0 100%;
+  margin-top: 2px;
+}
+
+/* Main view quick anchor navigation */
+.main-anchor-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  background: #e5edf7;
+  font-size: 0.85rem;
+}
+
+.main-anchor-nav__label {
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.main-anchor-nav a {
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.7);
+  color: var(--text);
+}
+
+.main-anchor-nav a:hover {
+  background: #fff;
+}
+
+
+/* Expense view summary */
+.expense-summary {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}

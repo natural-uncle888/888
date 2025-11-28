@@ -1304,6 +1304,8 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     } else if (metric === 'net'){
       const net = income.map((v,i)=> v - expense[i]);
       return { labels, data: net };
+    } else if (metric === 'expense'){
+      return { labels, data: expense };
     }
     return { labels, data: income };
   }
@@ -1356,6 +1358,8 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     } else if (metric === 'net'){
       const net = income.map((v,i)=> v - expense[i]);
       return { labels, data: net };
+    } else if (metric === 'expense'){
+      return { labels, data: expense };
     }
     return { labels, data: income };
   }
@@ -1425,7 +1429,14 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     const yearBWrap = document.querySelector('.custom-chart-yearB-wrap');
     if (!canvas || !yearSel || !metricSel || !modeSel) return;
 
-    let chart = null;
+    // 花費分類圓餅圖相關元素
+    const expCatCanvas = document.getElementById('chartExpenseByCategory');
+    const expMonthSelA = document.getElementById('expenseCatMonthA');
+    const expMonthSelB = document.getElementById('expenseCatMonthB');
+    const yearStatSel  = document.getElementById('yearStatSelect');
+
+    let chart = null;           // 自訂統計圖表
+    let expenseCatChart = null; // 花費分類圓餅圖
 
     function populateYearSelects(){
       const years = getAvailableYears();
@@ -1551,7 +1562,126 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
       el.addEventListener('change', handleChange);
     });
 
-    populateYearSelects();
+    
+    // --- 花費分類圓餅圖：依年度 / 月份顯示各類別金額，支援跨月份比較 ---
+    function populateExpenseMonthSelects(){
+      if (!expMonthSelA || !expMonthSelB) return;
+      expMonthSelA.innerHTML = '';
+      expMonthSelB.innerHTML = '';
+
+      for (let m = 1; m <= 12; m++){
+        const optA = document.createElement('option');
+        optA.value = String(m);
+        optA.textContent = m + ' 月';
+        expMonthSelA.appendChild(optA);
+
+        const optB = document.createElement('option');
+        optB.value = String(m);
+        optB.textContent = m + ' 月';
+        expMonthSelB.appendChild(optB);
+      }
+
+      // 比較月份可以選擇「不比較」
+      const noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = '不比較';
+      expMonthSelB.insertBefore(noneOpt, expMonthSelB.firstChild);
+
+      // 預設主月份為本月
+      const now = new Date();
+      expMonthSelA.value = String(now.getMonth() + 1);
+      expMonthSelB.value = '';
+    }
+
+    function updateExpenseCategoryChart(){
+      if (!expCatCanvas || !yearStatSel || !window.Chart) return;
+      const yearVal = yearStatSel.value;
+      if (!yearVal || yearVal === 'all') return;
+      const year = parseInt(yearVal, 10);
+      if (!year || isNaN(year)) return;
+
+      const mA = expMonthSelA ? parseInt(expMonthSelA.value || '0', 10) : 0;
+      const mB = (expMonthSelB && expMonthSelB.value) ? parseInt(expMonthSelB.value, 10) : 0;
+      if (!mA || isNaN(mA)) return;
+
+      const exp = ensureExpensesArray();
+      const byCatA = {};
+      const byCatB = {};
+
+      exp.forEach(e => {
+        if (!e || !e.date) return;
+        const dt = new Date(e.date);
+        if (isNaN(dt)) return;
+        if (dt.getFullYear() !== year) return;
+        const month = dt.getMonth() + 1;
+        const amt = +e.amount || 0;
+        const cat = (e.category || '未分類').trim() || '未分類';
+        if (month === mA){
+          byCatA[cat] = (byCatA[cat] || 0) + amt;
+        }
+        if (mB && month === mB){
+          byCatB[cat] = (byCatB[cat] || 0) + amt;
+        }
+      });
+
+      const labelSet = new Set([
+        ...Object.keys(byCatA),
+        ...Object.keys(byCatB)
+      ]);
+      const labels = Array.from(labelSet);
+      if (!labels.length){
+        if (expenseCatChart){
+          expenseCatChart.destroy();
+          expenseCatChart = null;
+        }
+        return;
+      }
+
+      const dataA = labels.map(cat => byCatA[cat] || 0);
+      const datasets = [{
+        label: mA + ' 月',
+        data: dataA
+      }];
+
+      if (mB){
+        const dataB = labels.map(cat => byCatB[cat] || 0);
+        datasets.push({
+          label: mB + ' 月',
+          data: dataB
+        });
+      }
+
+      if (expenseCatChart){
+        expenseCatChart.destroy();
+      }
+
+      expenseCatChart = new Chart(expCatCanvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true },
+            title: {
+              display: false
+            }
+          }
+        }
+      });
+    }
+
+    if (expCatCanvas && expMonthSelA && expMonthSelB && yearStatSel){
+      populateExpenseMonthSelects();
+      [yearStatSel, expMonthSelA, expMonthSelB].forEach(el => {
+        el.addEventListener('change', updateExpenseCategoryChart);
+      });
+    }
+
+populateYearSelects();
     updateVisibility();
     updateChart();
 
@@ -1561,6 +1691,10 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
         populateYearSelects();
         updateVisibility();
         updateChart();
+        if (expCatCanvas && expMonthSelA && expMonthSelB && yearStatSel){
+          populateExpenseMonthSelects();
+          updateExpenseCategoryChart();
+        }
       }, { once:true });
     }
   });

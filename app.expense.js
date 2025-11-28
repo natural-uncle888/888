@@ -1,46 +1,57 @@
 // ---------- Expense module ----------
     function refreshExpense(){
-      const y = +$('yearSel').value, m = +$('monthSel').value;
-      const tbody = $('expenseTable').querySelector('tbody');
-      tbody.innerHTML = '';
-      const list = expenses
-        .filter(e => {
-          if(!e.date) return false;
-          const d = new Date(e.date);
-          if (isNaN(d)) return false;
-          return d.getFullYear()===y && (d.getMonth()+1)===m;
-        })
-        .sort((a,b)=> (a.date||'').localeCompare(b.date));
-      list.forEach((e, idx) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${idx+1}</td>
-                        <td>${escapeHtml(e.date||'')}</td>
-                        <td>${escapeHtml(e.category||'')}</td>
-                        <td>${escapeHtml(e.note||'')}</td>
-                        <td class="right-align">${fmtCurrency(e.amount||0)}</td>`;
-        tr.addEventListener('click', ()=>fillExpForm(e));
-        
-        // === Mobile keep list ===
-        // idx: 1:日期 2:時間 4:客戶 5:電話 7:地址 9:確認 10:報價單 12:折後 14:操作
-        try {
-          tr.children[1]?.classList.add('keep-mobile');   // 日期
-          tr.children[2]?.classList.add('keep-mobile');   // 時間
-          tr.children[4]?.classList.add('keep-mobile');   // 客戶
-          tr.children[5]?.classList.add('keep-mobile');   // 電話
-          tr.children[7]?.classList.add('keep-mobile');   // 地址
-          tr.querySelector('.toggle-confirm')?.classList.add('keep-mobile'); // 確認
-          tr.querySelector('.toggle-quote')?.classList.add('keep-mobile');   // 報價單
-          tr.children[12]?.classList.add('keep-mobile');  // 折後
-          tr.querySelector('.op-cell')?.classList.add('keep-mobile');        // 操作
+  const y = +$('yearSel').value, m = +$('monthSel').value;
+  const table = $('expenseTable');
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-          // === Permanently hidden columns (provide td class hooks) ===
-          tr.children[6]?.classList.add('col-slot');      // 時段
-          tr.children[8]?.classList.add('col-status');    // 狀況
-          tr.children[11]?.classList.add('col-total');    // 總金額
-        } catch(err) { /* noop */ }
+  const list = expenses
+    .filter(e => {
+      if (!e.date) return false;
+      const d = new Date(e.date);
+      if (isNaN(d)) return false;
+      return d.getFullYear() === y && (d.getMonth() + 1) === m;
+    })
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-        tbody.appendChild(tr);
+  // 更新本月花費摘要
+  const summaryEl = $('expenseSummary');
+  if (summaryEl){
+    if (!list.length){
+      summaryEl.textContent = '本月尚未有任何花費。';
+    } else {
+      let total = 0;
+      const byCat = {};
+      list.forEach(e => {
+        const amt = Number(e.amount) || 0;
+        total += amt;
+        const key = (e.category || '未分類').trim() || '未分類';
+        byCat[key] = (byCat[key] || 0) + amt;
       });
+      const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+      const top = entries.slice(0,3)
+        .map(([cat, amt]) => `${cat} ${fmtCurrency(amt)}`)
+        .join('、');
+      let text = `本月共有 ${list.length} 筆花費，累計 ${fmtCurrency(total)}。`;
+      if (top) text += ` 主要花費項目：${top}`;
+      summaryEl.textContent = text;
+    }
+  }
+
+  list.forEach((e, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${idx+1}</td>
+      <td>${escapeHtml(e.date || '')}</td>
+      <td>${escapeHtml(e.category || '')}</td>
+      <td>${escapeHtml(e.note || '')}</td>
+      <td class="right-align">${fmtCurrency(e.amount || 0)}</td>
+    `;
+    tr.addEventListener('click', () => fillExpForm(e));
+    tbody.appendChild(tr);
+  });
 }
     function gatherExpForm(){ return { photoUrls: getPhotoUrls(), id:$('expId').value || crypto.randomUUID(), date:$('expDate').value, category:$('expCategory').value, note:$('expNote').value.trim(), amount:+$('expAmount').value||0, createdAt:$('expId').value?undefined:new Date().toISOString() }; }
     function fillExpForm(e){ $('expId').value=e.id||''; $('expDate').value=e.date||''; $('expCategory').value=e.category||expCats[0]; $('expNote').value=e.note||''; $('expAmount').value=e.amount||0; $('expDelete').disabled=!e.id; }

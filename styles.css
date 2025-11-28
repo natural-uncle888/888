@@ -2032,20 +2032,12 @@ label.pill:focus-within {
 
 
 /* Global page header */
-.page-header {
-  margin-bottom: 16px;
-}
 
 .page-header h1 {
   font-size: 1.4rem;
   margin: 0;
 }
 
-.page-subtitle {
-  margin: 4px 0 0;
-  font-size: 0.9rem;
-  color: #555;
-}
 
 
 /* Header toolbar grouping labels */
@@ -2158,4 +2150,71 @@ label.pill:focus-within {
 .view-customer table td:nth-child(3) {
   max-width: 260px;
   white-space: normal;
+}
+
+/* ====== 全站層級：頂部系統標題美化 ====== */
+.page-header {
+  margin-bottom: 16px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: linear-gradient(120deg, #f4f7ff, #ffffff);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-logo-badge {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, #4ade80, #16a34a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.45);
+}
+
+.page-title-block h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.03em;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+/* RWD: 窄螢幕時改成直向堆疊 */
+@media (max-width: 640px) {
+  .page-header {
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+  .page-header-main {
+    align-items: flex-start;
+  }
+  .page-title-block h1 {
+    font-size: 1.1rem;
+  }
+}
+
+.page-logo-badge img {
+  width: 26px;
+  height: 26px;
+  display: block;
+  object-fit: contain;
+  border-radius: 999px;
 }

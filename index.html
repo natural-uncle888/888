@@ -19,7 +19,6 @@
 <body>
 <header id="scheduleHeader">
   <div class="wrap toolbar header-toolbar">
-  <div class="header-group-label">篩選條件</div>
     <div class="header-item" data-header-id="yearMonth">
       <div class="pill">
         <strong>月份</strong>
@@ -60,7 +59,6 @@
         <span>顯示未排期</span>
       </label>
     </div>
-    <div class="header-group-label">快速操作</div>
     <div class="header-item" data-header-id="search">
       <div class="pill">
         <strong>搜尋</strong>
@@ -399,6 +397,13 @@
     </div>
   </div>
   <div class="body">
+    <nav class="report-anchor-nav" aria-label="報表主要區塊導覽">
+      <span class="report-anchor-nav__label">本頁導覽：</span>
+      <a href="#reportSectionOverview">營收與關鍵指標</a>
+      <a href="#reportSectionTrend">趨勢與花費 / 服務結構</a>
+      <a href="#reportSectionServiceDetail">服務項目明細</a>
+    </nav>
+    <div class="report-section" id="reportSectionOverview">
     <section class="card kpi-section">
       <div class="card-header kpi-header">
         <h3>關鍵指標總覽</h3>
@@ -468,7 +473,10 @@
         </div>
       </div>
     </section>
+    </div>
 
+
+    <div class="report-section" id="reportSectionTrend">
     <div class="chart-grid">
       <section class="card chart-card">
         <div class="card-header">
@@ -511,7 +519,7 @@
           <canvas id="chartByService" height="220"></canvas>
         </div>
       </section>
-      <section class="card chart-card">
+      <section class="card chart-card" id="reportSectionServiceDetail">
         <div class="card-header">
           <h3>依服務項目明細</h3>
         </div>
@@ -531,6 +539,7 @@
           </div>
         </div>
       </section>
+    </div>
     </div>
   </div>
 </section>

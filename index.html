@@ -19,6 +19,7 @@
 <body>
 <header id="scheduleHeader">
   <div class="wrap toolbar header-toolbar">
+  <div class="header-group-label">篩選條件</div>
     <div class="header-item" data-header-id="yearMonth">
       <div class="pill">
         <strong>月份</strong>
@@ -59,6 +60,7 @@
         <span>顯示未排期</span>
       </label>
     </div>
+    <div class="header-group-label">快速操作</div>
     <div class="header-item" data-header-id="search">
       <div class="pill">
         <strong>搜尋</strong>
@@ -113,6 +115,7 @@
   <button class="view-tab is-active" type="button" data-view="main">📋 排程</button>
   <button class="view-tab" type="button" data-view="expense">💸 花費</button>
   <button class="view-tab" type="button" data-view="report">📊 報表 / 統計</button>
+  <button class="view-tab" type="button" data-view="customer">👥 客戶管理</button>
   <button class="view-tab" type="button" data-view="reminder">⏰ 提醒</button>
   <button class="view-tab" type="button" data-view="settings">⚙️ 設定</button>
 </div>
@@ -541,6 +544,40 @@
       </section>
     </div>
     </div>
+  </div>
+</section>
+
+
+<section id="customerPanel" class="card view-panel view-customer" style="display:none">
+  <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+    <h2>客戶管理</h2>
+    <div class="header-actions" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div class="pill">
+        <strong>搜尋</strong>
+        <input id="customerSearch" type="text" placeholder="搜尋姓名 / 電話 / 地址" style="width:220px"/>
+      </div>
+      <button type="button" id="customerExportBtn" class="btn btn-secondary">匯出客戶 CSV</button>
+    </div>
+  </div>
+  <div class="body">
+    <div id="customerSummary" class="muted" style="margin-bottom:8px; font-size:0.9rem;">目前尚未有任何客戶資料。</div>
+    <div class="table-wrapper">
+      <table id="customerTable">
+        <thead>
+          <tr>
+            <th>客戶名稱</th>
+            <th>電話</th>
+            <th>清洗地址</th>
+            <th>最近服務日</th>
+            <th>總訂單數</th>
+            <th>累計營收（折後）</th>
+          </tr>
+        </thead>
+        <tbody>
+        </tbody>
+      </table>
+    </div>
+    <p class="tiny muted">提示：點擊任一列可開啟該客戶的歷史訂單紀錄。</p>
   </div>
 </section>
 

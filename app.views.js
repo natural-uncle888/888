@@ -450,6 +450,7 @@ function setActiveView(view){
   const mainMode        = document.getElementById('mainMode');
   const expenseSection  = document.getElementById('expensePanel');
   const reportSection   = document.getElementById('reportPanel');
+  const customerSection = document.getElementById('customerPanel');
   const reminderSection = document.getElementById('reminderCenterSection');
   const settingsSection = document.getElementById('settingsPanel');
   const header = document.getElementById('scheduleHeader') || document.querySelector('header');
@@ -469,6 +470,7 @@ function setActiveView(view){
   if (mainMode)       mainMode.style.display = 'none';
   if (expenseSection) expenseSection.style.display = 'none';
   if (reportSection)  reportSection.style.display = 'none';
+  if (customerSection) customerSection.style.display = 'none';
   if (reminderSection) reminderSection.style.display = 'none';
   if (settingsSection) settingsSection.style.display = 'none';
 
@@ -486,6 +488,12 @@ function setActiveView(view){
     if (header) header.style.display = '';
     if (typeof refreshExpense === 'function') {
       refreshExpense();
+    }
+  } else if (view === 'customer'){
+    if (customerSection) customerSection.style.display = '';
+    if (header) header.style.display = '';
+    if (typeof refreshCustomerView === 'function') {
+      refreshCustomerView();
     }
   } else if (view === 'report'){
     if (reportSection) reportSection.style.display = '';

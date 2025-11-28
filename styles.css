@@ -490,12 +490,14 @@ td[data-label="客戶"] .customer-badge {
 #muteListSection[open] summary { border-bottom: 1px solid var(--border); }
 
 /* ====== column resizer UI ====== */
-#ordersTable { /* table-layout 固定已在你檔案內，但確保存在 */
+#ordersTable,
+#customerTable { /* table-layout 固定已在你檔案內，但確保存在 */
   table-layout: fixed;
 }
 
 /* resizer 把手 */
-#ordersTable th {
+#ordersTable th,
+#customerTable th {
   position: relative;
   /* 確保 padding-right 有空間給把手 */
   padding-right: 18px;
@@ -2093,4 +2095,67 @@ label.pill:focus-within {
   margin-bottom: 8px;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+/* Report / statistics view structure */
+.report-anchor-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 999px;
+  background: #eef4ff;
+  font-size: 0.85rem;
+}
+
+.report-anchor-nav__label {
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.report-anchor-nav a {
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.7);
+  color: var(--text);
+}
+
+.report-anchor-nav a:hover {
+  background: #fff;
+}
+
+.report-section {
+  margin-bottom: 16px;
+}
+
+.report-section + .report-section {
+  margin-top: 8px;
+}
+
+.report-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 8px 4px;
+}
+
+/* 客戶管理表格微調 */
+.view-customer .table-wrapper {
+  max-height: 480px;
+  overflow: auto;
+}
+
+.view-customer table td,
+.view-customer table th {
+  white-space: nowrap;
+}
+
+/* 清洗地址欄位可換行 */
+.view-customer table td:nth-child(3) {
+  max-width: 260px;
+  white-space: normal;
 }

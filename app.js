@@ -838,10 +838,12 @@ function enablePhotoUrlEdit() {
 /* ==== Column resize utility injected by assistant ==== */
 (function(){
   const STORAGE_KEY = 'ordersTableColWidths';
+  const CUSTOMER_STORAGE_KEY = 'customerTableColWidths';
 
-  function applySavedWidths(table) {
+  function applySavedWidths(table, storageKey) {
+    const key = storageKey || STORAGE_KEY;
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const data = JSON.parse(localStorage.getItem(key) || '{}');
       if (!data || Object.keys(data).length === 0) return;
       const ths = table.querySelectorAll('thead th');
       ths.forEach((th, i) => {
@@ -860,14 +862,15 @@ function enablePhotoUrlEdit() {
     }
   }
 
-  function saveWidths(table) {
+  function saveWidths(table, storageKey) {
     const ths = table.querySelectorAll('thead th');
     const data = {};
     ths.forEach((th, i) => {
       const w = parseInt(window.getComputedStyle(th).width, 10);
       if (!isNaN(w)) data[i] = w;
     });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const key = storageKey || STORAGE_KEY;
+    localStorage.setItem(key, JSON.stringify(data));
   }
 
   window.resetColumnWidths = function() {
@@ -883,7 +886,7 @@ function enablePhotoUrlEdit() {
     }
   };
 
-  window.makeOrdersTableResizable = function() {
+    window.makeOrdersTableResizable = function() {
     const table = document.querySelector('#ordersTable');
     if (!table) return;
     const thead = table.querySelector('thead');
@@ -911,19 +914,59 @@ function enablePhotoUrlEdit() {
 
       resizer.addEventListener('mousedown', function(e) {
         e.preventDefault();
-        startDrag(e, table, index);
+        startDrag(e, table, index, STORAGE_KEY);
       });
       resizer.addEventListener('touchstart', function(e) {
         e.preventDefault();
         const touch = e.touches[0];
-        startDrag(touch, table, index);
+        startDrag(touch, table, index, STORAGE_KEY);
       }, {passive:false});
     });
 
-    applySavedWidths(table);
+    applySavedWidths(table, STORAGE_KEY);
   };
 
-  function startDrag(e, table, colIndex) {
+  window.makeCustomerTableResizable = function() {
+    const table = document.querySelector('#customerTable');
+    if (!table) return;
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+
+    // 移除舊的把手
+    table.querySelectorAll('.orders-col-resizer').forEach(el => el.remove());
+
+    const ths = Array.from(thead.querySelectorAll('th'));
+    ths.forEach((th, index) => {
+      if (index === ths.length - 1) return;
+      const resizer = document.createElement('div');
+      resizer.className = 'orders-col-resizer';
+      resizer.dataset.colIndex = index;
+      resizer.style.position = 'absolute';
+      resizer.style.top = '0';
+      resizer.style.right = '0';
+      resizer.style.width = '12px';
+      resizer.style.height = '100%';
+      resizer.style.cursor = 'col-resize';
+      resizer.style.userSelect = 'none';
+      resizer.style.zIndex = 5;
+      th.style.position = th.style.position || 'relative';
+      th.appendChild(resizer);
+
+      resizer.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        startDrag(e, table, index, CUSTOMER_STORAGE_KEY);
+      });
+      resizer.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        startDrag(touch, table, index, CUSTOMER_STORAGE_KEY);
+      }, {passive:false});
+    });
+
+    applySavedWidths(table, CUSTOMER_STORAGE_KEY);
+  };
+
+  function startDrag(e, table, colIndex, storageKey) {
     const th = table.querySelectorAll('thead th')[colIndex];
     if (!th) return;
     const startX = e.clientX;
@@ -954,7 +997,7 @@ function enablePhotoUrlEdit() {
       document.removeEventListener('touchmove', onMove);
       document.removeEventListener('touchend', onUp);
       document.documentElement.classList.remove('orders-col-resizing');
-      saveWidths(table);
+      saveWidths(table, storageKey);
     }
 
     document.addEventListener('mousemove', onMove);
@@ -963,9 +1006,16 @@ function enablePhotoUrlEdit() {
     document.addEventListener('touchend', onUp);
   }
 
+
+
   // Auto-run after a short delay in case table is built later
   document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => { try{ if(typeof makeOrdersTableResizable==='function') makeOrdersTableResizable(); }catch(e){} }, 350);
+    setTimeout(() => {
+      try{
+        if (typeof makeOrdersTableResizable === 'function') makeOrdersTableResizable();
+        if (typeof makeCustomerTableResizable === 'function') makeCustomerTableResizable();
+      }catch(e){}
+    }, 350);
   });
 
 })();
@@ -2402,6 +2452,194 @@ function getHistoryByCustomerKey(customerKey) {
   // return a shallow copy to avoid external mutation
   return Array.isArray(list) ? list.slice() : [];
 }
+// ---- 客戶管理：從歷史紀錄群組產生客戶列表 ----
+function getCustomerGroupsSnapshot(){
+  try {
+    if (!window._customerHistoryGroups || !window._customerHistoryMap) {
+      if (typeof rebuildCustomerHistoryMap === 'function') {
+        rebuildCustomerHistoryMap();
+      }
+    }
+    const groups = window._customerHistoryGroups;
+    if (!groups || typeof groups.entries !== 'function') return [];
+    const result = [];
+
+    for (const [gid, gd] of groups.entries()){
+      const ordersList = Array.isArray(gd._orderObjs) ? gd._orderObjs.slice() : [];
+      if (!ordersList.length) continue;
+      // _orderObjs 在 rebuildCustomerHistoryMap 時已經排序為最新在前
+      const latest = ordersList[0];
+      const lastTs = latest._ts ? new Date(latest._ts) : null;
+
+      let totalNet = 0;
+      const nameSet = new Set();
+      const phoneSet = new Set();
+      const addrSet = new Set();
+
+      ordersList.forEach(o => {
+        if (!o) return;
+        const n = (o.customer || '').trim();
+        if (n) nameSet.add(n);
+        const p1 = (o.phone || '').trim();
+        if (p1) phoneSet.add(p1);
+        if (Array.isArray(o.phones)) {
+          o.phones.forEach(p => {
+            const v = (p || '').trim();
+            if (v) phoneSet.add(v);
+          });
+        }
+        const a = (o.address || '').trim();
+        if (a) addrSet.add(a);
+
+        // 用淨額為主，若無則用總額
+        let net = parseFloat(o.netTotal);
+        if (isNaN(net)) {
+          net = parseFloat(o.total);
+        }
+        if (!isNaN(net)) {
+          totalNet += net;
+        }
+      });
+
+      const name = latest.customer || (nameSet.size ? Array.from(nameSet)[0] : '');
+      const phone = latest.phone || (Array.isArray(latest.phones) && latest.phones[0]) || (phoneSet.size ? Array.from(phoneSet)[0] : '');
+      const address = latest.address || (addrSet.size ? Array.from(addrSet)[0] : '');
+      const lastDateStr = lastTs && !isNaN(lastTs) ? lastTs.toISOString().slice(0,10) : (latest.date || '');
+
+      result.push({
+        key: 'group:' + gid,
+        name,
+        phone,
+        address,
+        lastDate: lastDateStr,
+        lastTs: lastTs,
+        orderCount: ordersList.length,
+        totalNet: totalNet
+      });
+    }
+
+    // 依最近服務時間排序（新到舊）
+    result.sort((a,b) => {
+      const ta = a.lastTs && !isNaN(a.lastTs) ? a.lastTs.getTime() : 0;
+      const tb = b.lastTs && !isNaN(b.lastTs) ? b.lastTs.getTime() : 0;
+      return tb - ta;
+    });
+    return result;
+  } catch(e){
+    console.error('getCustomerGroupsSnapshot failed', e);
+    return [];
+  }
+}
+
+function refreshCustomerView(){
+  const table = document.getElementById('customerTable');
+  const summaryEl = document.getElementById('customerSummary');
+  const searchEl = document.getElementById('customerSearch');
+  if (!table || !summaryEl) return;
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+
+  const allRows = getCustomerGroupsSnapshot();
+  const q = (searchEl && searchEl.value ? searchEl.value : '').trim().toLowerCase();
+  const filtered = !q ? allRows : allRows.filter(row => {
+    const name = (row.name || '').toLowerCase();
+    const phone = (row.phone || '').toLowerCase();
+    const addr = (row.address || '').toLowerCase();
+    return (
+      name.includes(q) ||
+      phone.includes(q) ||
+      addr.includes(q)
+    );
+  });
+
+  // 快取給匯出功能使用
+  window._customerViewCache = { all: allRows, filtered: filtered };
+
+  tbody.innerHTML = '';
+  if (typeof fmtCurrency !== 'function'){
+    window.fmtCurrency = window.fmtCurrency || (n => (n||0).toLocaleString('zh-TW', {minimumFractionDigits:0}));
+  }
+  const fmt = window.fmtCurrency || (n => n);
+
+  filtered.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.dataset.customerKey = row.key;
+
+    let dateText = row.lastDate || '';
+    if (!dateText && row.lastTs && !isNaN(row.lastTs)) {
+      try {
+        dateText = row.lastTs.toISOString().slice(0,10);
+      } catch(e){}
+    }
+
+    tr.innerHTML = `
+      <td>${escapeHtml(row.name || '')}</td>
+      <td>${escapeHtml(row.phone || '')}</td>
+      <td>${escapeHtml(row.address || '')}</td>
+      <td>${escapeHtml(dateText || '')}</td>
+      <td class="right-align">${row.orderCount || 0}</td>
+      <td class="right-align">${fmt(row.totalNet || 0)}</td>
+    `;
+
+    tr.addEventListener('click', () => {
+      try {
+        if (typeof renderHistoryModal === 'function') {
+          const title = row.name ? (row.name + ' 的歷史紀錄') : '客戶歷史紀錄';
+          renderHistoryModal(row.key, title);
+        }
+      } catch(e){
+        console.error('renderHistoryModal for customer failed', e);
+      }
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  const totalCount = allRows.length;
+  const shownCount = filtered.length;
+  let totalAmount = 0;
+  allRows.forEach(r => { totalAmount += (r.totalNet || 0); });
+
+  let text = '';
+  if (!totalCount) {
+    text = '目前尚未有任何客戶資料（請先建立訂單）。';
+  } else {
+    text = `目前共 ${totalCount} 位客戶`;
+    if (shownCount !== totalCount) {
+      text += `，符合篩選條件的有 ${shownCount} 位`;
+    }
+    text += `，累計折後營收約 ${fmt(totalAmount)}。`;
+  }
+  summaryEl.textContent = text;
+}
+
+function exportCustomerListCsv(){
+  const cache = window._customerViewCache || {};
+  const rows = (cache.filtered && cache.filtered.length ? cache.filtered : cache.all) || [];
+  if (!rows.length) {
+    alert('目前沒有可匯出的客戶資料');
+    return;
+  }
+  const header = ['客戶名稱','電話','地址','最近服務日','總訂單數','累計營收(折後)'];
+  const dataRows = rows.map(r => [
+    r.name || '',
+    r.phone || '',
+    r.address || '',
+    r.lastDate || '',
+    r.orderCount || 0,
+    r.totalNet || 0
+  ]);
+
+  const all = [header].concat(dataRows);
+  const csv = all.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(["\uFEFF", csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'customers.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 
 
 function escapeHtml(s) {
@@ -2764,6 +3002,22 @@ function openOrder(orderId) {
     }
   }, 150);
 }
+
+document.addEventListener('DOMContentLoaded', ()=> {
+  const search = document.getElementById('customerSearch');
+  const exportBtn = document.getElementById('customerExportBtn');
+  if (search) {
+    search.addEventListener('input', () => {
+      try { refreshCustomerView(); } catch(e){ console.error('refreshCustomerView failed', e); }
+    });
+  }
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      try { exportCustomerListCsv(); } catch(e){ console.error('exportCustomerListCsv failed', e); }
+    });
+  }
+});
+
 document.addEventListener('DOMContentLoaded', ()=> {
   initHistoryModalBindings();
   patchRefreshTable();

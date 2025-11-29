@@ -159,7 +159,7 @@
         const span = document.createElement('span');
         span.className = 'status ' + (st==='排定'?'P排定': st==='完成'?'C完成':'N未完成');
         span.textContent = st;
-        span.title = '點一下快速切換狀況' + (o.completedAt ? ('\n完成於：' + new Date(o.completedAt).toLocaleString()) : '');
+        span.title = '點一下快速切換狀況';
         span.addEventListener('click', (ev) => {
           ev.stopPropagation();
           const i = orders.findIndex(x => x.id === o.id);

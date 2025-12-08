@@ -754,9 +754,18 @@ $('importJson').addEventListener('click', importJSON);
       $('customer').addEventListener('blur', ()=>{ const c = findContactByName($('customer').value); if(c){ if ($('phone').dataset.touched !== '1' && !getPhones()) getPhones() = c.phone||''; if(!$('address').value) $('address').value = c.address||''; if(!$('lineId').value) $('lineId').value = c.lineId||''; }
       });
       // ---- phone touched guard (so user can keep it empty) ----
+function getFirstPhoneEl() {
+  const pc = document.getElementById('phoneContainer');
+  if (!pc) return null;
+  const inputs = pc.querySelectorAll('.phone-input');
+  return inputs[0] || null;
+}
 try {
-  $('phone').dataset.touched = $('phone').dataset.touched || '0';
-  $('phone').addEventListener('input', ()=>{ $('phone').dataset.touched = '1'; });
+  const phoneEl = getFirstPhoneEl();
+  if (phoneEl) {
+    phoneEl.dataset.touched = phoneEl.dataset.touched || '0';
+    phoneEl.addEventListener('input', ()=>{ phoneEl.dataset.touched = '1'; });
+  }
 } catch(e) { /* ignore if element missing */ }
 // ---------------------------------------------------------
 const pc = document.getElementById('phoneContainer');
@@ -775,7 +784,8 @@ if (pc) {
 }
 $('lineId').addEventListener('blur', ()=>{
         const c3 = findContactByLineId($('lineId').value);
-        if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = c3.address||''; if ($('phone').dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
+        if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = c3.address||''; const phoneEl = getFirstPhoneEl();
+        if (phoneEl && phoneEl.dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
       });
       // removed: phone blur handler (replaced by delegation)
 

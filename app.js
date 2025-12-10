@@ -398,26 +398,35 @@ var gTokenClient = null;
 
 
 // --- Generic modal helpers (showConfirm / showAlert) ---
-function showConfirm(title, message, okLabel = '確定', cancelLabel = '取消') {
+function showConfirm(title, message, okLabel = '確定', cancelLabel = '取消', options = {}) {
   return new Promise((resolve) => {
     const modal = document.getElementById('genericConfirmModal');
     if (!modal) return resolve(confirm(message)); // fallback to native
+
+    const panel = modal.querySelector('.confirm-panel');
     const t = document.getElementById('genericConfirmTitle');
     const m = document.getElementById('genericConfirmMessage');
     const ok = document.getElementById('genericConfirmOk');
     const cancel = document.getElementById('genericConfirmCancel');
+
+    const danger = !!(options && options.danger);
+    if (panel) panel.classList.toggle('danger', danger);
+
     t.textContent = title || '確認';
     m.textContent = message || '';
     ok.textContent = okLabel || '確定';
     cancel.textContent = cancelLabel || '取消';
+
     function cleanup(res) {
       modal.setAttribute('aria-hidden','true');
       ok.removeEventListener('click', onOk);
       cancel.removeEventListener('click', onCancel);
+      if (panel) panel.classList.remove('danger');
       resolve(res);
     }
     function onOk(){ cleanup(true); }
     function onCancel(){ cleanup(false); }
+
     ok.addEventListener('click', onOk);
     cancel.addEventListener('click', onCancel);
     modal.setAttribute('aria-hidden','false');
@@ -3483,7 +3492,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (exportBtn) exportBtn.addEventListener('click', ()=> exportIgnoredToCsv());
   const clearBtn = document.getElementById('ignoreClearBtn');
   if (clearBtn) clearBtn.addEventListener('click', async ()=>{
-    const ok = await showConfirm('清空忽略清單','確定要清空所有忽略清單嗎？此操作可還原但會刪除本機記錄。');
+    const msg='確定要清空所有忽略清單嗎？此操作可還原但會刪除本機記錄。'; const ok = (typeof showConfirm === 'function') ? await showConfirm('清空忽略清單', msg, '清空', '取消', { danger:true }) : confirm(msg);
     if (!ok) return;
     saveIgnoredHistoryIds(new Set());
     if (typeof saveIgnoredHistoryPairs === 'function') saveIgnoredHistoryPairs(new Set());

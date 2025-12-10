@@ -204,7 +204,7 @@
         calBtn2.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleUploadWithAuth(o); });
         op.appendChild(calBtn2);
         const delBtn = document.createElement('button'); delBtn.className='icon-btn danger'; delBtn.textContent='刪';
-        delBtn.addEventListener('click', async (ev)=>{ ev.stopPropagation(); if (typeof showConfirm === 'function' ? await showConfirm('此頁面說明','確定要刪除此訂單嗎？','確定','取消') : confirm('確定要刪除此訂單嗎？')) { orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
+        delBtn.addEventListener('click', async (ev)=>{ ev.stopPropagation(); const msg='確定要刪除此訂單嗎？'; const ok = (typeof showConfirm === 'function') ? await showConfirm('刪除訂單', msg, '刪除', '取消', { danger:true }) : confirm(msg); if(ok) { orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
         op.appendChild(delBtn);
 
         // mobile classes
@@ -684,7 +684,7 @@ function quickCreateNextOrder(){
 
     async function deleteOrder(){
       const id=$('id').value; if(!id) return;
-      const ok = await showConfirm('刪除訂單', '確定要刪除這筆訂單嗎？');
+      const msg='確定要刪除這筆訂單嗎？'; const ok = (typeof showConfirm === 'function') ? await showConfirm('刪除訂單', msg, '刪除', '取消', { danger:true }) : confirm(msg);
       if(!ok) return;
       orders=orders.filter(o=>o.id!==id); save(KEY, orders); refreshTable(); fillForm({});
     }

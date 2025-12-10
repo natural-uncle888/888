@@ -739,7 +739,7 @@ function initViewTabs(){
       $('quickNextBtn')?.addEventListener('click', quickCreateNextOrder);
 $('exportJson').addEventListener('click', exportJSON);
 $('importJson').addEventListener('click', importJSON);
-      $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const ok = await showConfirm('清空所有訂單','確定要清空所有訂單資料嗎？此動作無法復原。'); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
+      $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const msg='確定要清空所有訂單資料嗎？此動作無法復原。'; const ok = (typeof showConfirm === 'function') ? await showConfirm('清空所有訂單', msg, '是的，清空全部', '取消', { danger:true }) : confirm(msg); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
       $('addStaffBtn').addEventListener('click', addStaff);
       $('addContactMethod').addEventListener('click', addContact);
       // 新增 LINE/Facebook ID 按鈕動作：在 #lineIdContainer 新增一個輸入欄位
@@ -796,7 +796,7 @@ $('lineId').addEventListener('blur', ()=>{
       $('expExportCsv').addEventListener('click', expExportCsv);
       $('expExportJson').addEventListener('click', expExportJson);
       $('expImportJson').addEventListener('click', expImportJson);
-      $('expClear').addEventListener('click', ()=>{ if(confirm('確定要清空所有花費資料嗎？此動作無法復原。')){ expenses=[]; save(EXP_KEY, expenses); refreshExpense(); } });
+      $('expClear').addEventListener('click', ()=>{ (async ()=>{ const msg='確定要清空所有花費資料嗎？此動作無法復原。'; const ok = (typeof showConfirm === 'function') ? await showConfirm('清空花費', msg, '是的，清空全部', '先不要', { danger:true }) : confirm(msg); if(ok){ expenses=[]; save(EXP_KEY, expenses); refreshExpense(); } })(); });
       $('addExpCat').addEventListener('click', addExpCat);
 
       $('toggleLock').addEventListener('click', ()=>{
@@ -850,18 +850,22 @@ $('lineId').addEventListener('blur', ()=>{
       });
     
     
-      // 新增花費按鈕：切到花費區塊頂部並重置表單
+      // 新增花費按鈕：切到花費頁並重置表單
       $('newExpenseBtn')?.addEventListener('click', ()=>{
+        if (typeof setActiveView === 'function') setActiveView('expense');
         if (typeof fillExpForm === 'function') fillExpForm({});
-        const exp = $('expenseAcc');
-        if (exp){ exp.open = true; exp.scrollIntoView({behavior:'smooth', block:'start'}); }
+        const panel = document.getElementById('expensePanel');
+        if (panel){ panel.scrollIntoView({behavior:'smooth', block:'start'}); }
+        try { document.getElementById('expDate')?.focus(); } catch(e){}
       });
     
     
-      // 新增訂單：展開並捲動到區塊開頭
+      // 新增訂單：切回排程頁、重置表單並展開區塊
       $('newBtn')?.addEventListener('click', ()=>{
-        $('orderAccordion').open = true;
-        $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'});
+        if (typeof setActiveView === 'function') setActiveView('main');
+        if (typeof fillForm === 'function') fillForm({});
+        const acc = document.getElementById('orderAccordion');
+        if (acc){ acc.open = true; acc.scrollIntoView({behavior:'smooth', block:'start'}); }
       });
 
       // 前往提醒中心（從首頁快到期區塊）

@@ -2219,3 +2219,24 @@ label.pill:focus-within {
   object-fit: contain;
   border-radius: 999px;
 }
+
+
+/* 報表明細：bundle 折疊展開 */
+#tableReportOrders .bundle-toggle-btn{
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+#tableReportOrders tr.bundle-parent.is-expanded .bundle-toggle-btn{
+  font-weight: 600;
+}
+#tableReportOrders tr.bundle-child td{
+  font-size: 13px;
+}
+#tableReportOrders tr.bundle-child td.addr-cell{
+  padding-left: 18px;
+}
+#tableReportOrders tr.bundle-child td.addr-cell::before{
+  content: "↳ ";
+  opacity: 0.7;
+}

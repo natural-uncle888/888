@@ -649,6 +649,29 @@ function quickCreateNextOrder(){
     }
 
     const next = Object.assign({}, base);
+    // 如果該客戶有多個地址：複製新增下一筆時自動切換到「下一個地址」
+    try{
+      let c = null;
+      const phone0 = (base.phone||'').toString().split('/')[0].trim();
+      if(phone0 && typeof findContactByPhone==='function') c = findContactByPhone(phone0);
+      if(!c && typeof findContactByName==='function') c = findContactByName(name);
+      if(c && typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(c);
+      if(c && Array.isArray(c.addresses)){
+        const list = c.addresses.filter(a => a && a.active !== false && (a.address||'').trim());
+        if(list.length > 1){
+          let idx = -1;
+          if(base.addressId) idx = list.findIndex(a => a.id === base.addressId);
+          if(idx < 0 && base.address){
+            const key = (typeof normalizeAddressKey==='function') ? normalizeAddressKey(base.address) : (base.address||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+            idx = list.findIndex(a => ((typeof normalizeAddressKey==='function') ? normalizeAddressKey(a.address) : (a.address||'').toString().trim().toLowerCase().replace(/\s+/g,'')) === key);
+          }
+          if(idx < 0) idx = 0;
+          const nx = list[(idx + 1) % list.length];
+          next.addressId = nx.id;
+          if(nx.address) next.address = nx.address;
+        }
+      }
+    }catch(e){}
     // 新訂單應該有新的 ID 與狀態
     next.id = '';
     next.date = nextDateStr || '';
@@ -682,7 +705,127 @@ function quickCreateNextOrder(){
   }
 }
 
-    async function deleteOrder(){
+    // 同日新增第二地點：複製目前訂單、保持同一天與同技師，地址自動切換到下一個，並寫入同一個 bundleId（報表可合併）
+function duplicateSameDayNextLocation(){
+  try{
+    const base = (typeof gatherForm === 'function') ? gatherForm() : {};
+    const name = (base.customer || '').trim();
+    if(!name){
+      if (typeof Swal !== 'undefined' && Swal.fire){
+        Swal.fire('無法建立第二地點', '請先填寫客戶姓名（或從列表點選一筆訂單）。', 'info');
+      } else {
+        alert('請先填寫客戶姓名（或從列表點選一筆訂單）。');
+      }
+      $('customer')?.focus();
+      return;
+    }
+    if(!base.date){
+      if (typeof Swal !== 'undefined' && Swal.fire){
+        Swal.fire('缺少日期', '同日新增第二地點需要先設定日期。', 'info');
+      } else {
+        alert('同日新增第二地點需要先設定日期。');
+      }
+      $('date')?.focus();
+      return;
+    }
+
+    // 取得/建立 bundleId，並回寫目前表單（若目前訂單已存在，也同步寫回 orders）
+    let bundleId = (base.bundleId || '').trim();
+    if(!bundleId){
+      bundleId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (String(Date.now()) + '_' + Math.random().toString(16).slice(2));
+      try{ if($('bundleId')) $('bundleId').value = bundleId; }catch(e){}
+      try{
+        const curId = (base.id || '').trim();
+        if(curId && Array.isArray(orders)){
+          const idx = orders.findIndex(o => o && o.id === curId);
+          if(idx >= 0){
+            orders[idx].bundleId = bundleId;
+            try{ save(KEY, orders); }catch(e){}
+          }
+        }
+      }catch(e){}
+    }
+
+    const next = Object.assign({}, base);
+    next.id = '';
+    next.bundleId = bundleId;
+
+    // 狀態：新一筆預設排定
+    next.status = '排定';
+    next.confirmed = false;
+    next.quotationOk = false;
+    next.reminderNotified = false;
+    delete next.createdAt;
+    delete next.completedAt;
+
+    // 時間建議：若目前有時間與工時，預設在結束後 + 30 分鐘
+    function addMinutesToTime(t, mins){
+      const m = /^(\d{1,2}):(\d{2})$/.exec(String(t||'').trim());
+      if(!m) return '';
+      let hh = parseInt(m[1],10), mm = parseInt(m[2],10);
+      if(Number.isNaN(hh) || Number.isNaN(mm)) return '';
+      let total = hh*60 + mm + (mins||0);
+      if(total >= 24*60 || total < 0) return '';
+      const nh = Math.floor(total/60);
+      const nm = total%60;
+      return String(nh).padStart(2,'0') + ':' + String(nm).padStart(2,'0');
+    }
+    if(base.time && base.durationMinutes){
+      const suggest = addMinutesToTime(base.time, (+base.durationMinutes||0) + 30);
+      next.time = suggest || '';
+    } else {
+      next.time = '';
+    }
+
+    // 地址：若客戶有多地址，自動切到下一個
+    try{
+      let c = null;
+      const phone0 = (base.phone||'').toString().split('/')[0].trim();
+      if(phone0 && typeof findContactByPhone==='function') c = findContactByPhone(phone0);
+      if(!c && typeof findContactByName==='function') c = findContactByName(name);
+      if(c && typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(c);
+      if(c && Array.isArray(c.addresses)){
+        const list = c.addresses.filter(a => a && a.active !== false && (a.address||'').trim());
+        if(list.length > 1){
+          let idx = -1;
+          if(base.addressId) idx = list.findIndex(a => a.id === base.addressId);
+          if(idx < 0 && base.address){
+            const key = (typeof normalizeAddressKey==='function')
+              ? normalizeAddressKey(base.address)
+              : String(base.address||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+            idx = list.findIndex(a => {
+              const ak = (typeof normalizeAddressKey==='function')
+                ? normalizeAddressKey(a.address||'')
+                : String(a.address||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+              return ak === key;
+            });
+          }
+          if(idx < 0) idx = 0;
+          const nx = list[(idx + 1) % list.length];
+          next.addressId = nx.id;
+          if(nx.address) next.address = nx.address;
+        }
+      }
+    }catch(e){}
+
+    // 保持同一天
+    next.date = base.date;
+
+    fillForm(next);
+    if (typeof Swal !== 'undefined' && Swal.fire){
+      Swal.fire('已建立第二地點訂單草稿', '已複製並建立第二地點（同日），請確認時間與內容後儲存。', 'success');
+    }
+  } catch(err){
+    console.error(err);
+    if (typeof Swal !== 'undefined' && Swal.fire){
+      Swal.fire('發生錯誤', '建立第二地點訂單時發生錯誤，請稍後再試。', 'error');
+    } else {
+      alert('建立第二地點訂單時發生錯誤。');
+    }
+  }
+}
+
+async function deleteOrder(){
       const id=$('id').value; if(!id) return;
       const msg='確定要刪除這筆訂單嗎？'; const ok = (typeof showConfirm === 'function') ? await showConfirm('刪除訂單', msg, '刪除', '取消', { danger:true }) : confirm(msg);
       if(!ok) return;

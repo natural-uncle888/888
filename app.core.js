@@ -135,7 +135,143 @@ function hasAnyPhone(){
 
 
     const CONTACTS_KEY = 'yl_clean_contacts_v1';
-    let contacts = load(CONTACTS_KEY, []); // {id,name,phone,address,lineId}
+    let contacts = load(CONTACTS_KEY, []); // {id,name,phone,address,lineId,addresses:[]}
+
+function normalizeAddressKey(addr){
+  return (addr||'').toString().trim().toLowerCase().replace(/\s+/g,'');
+}
+function ensureContactAddressesSchema(c){
+  if(!c) return;
+  // migrate legacy single address -> addresses[]
+  if(!Array.isArray(c.addresses)){
+    const legacy = (c.address || '').toString().trim();
+    c.addresses = legacy ? [{
+      id: crypto.randomUUID(),
+      label: '主要',
+      address: legacy,
+      note: '',
+      isDefault: true,
+      active: true,
+      createdAt: new Date().toISOString()
+    }] : [];
+  } else {
+    // normalize fields
+    c.addresses = c.addresses.filter(Boolean).map(a => ({
+      id: a.id || crypto.randomUUID(),
+      label: (a.label || '').toString(),
+      address: (a.address || '').toString(),
+      note: (a.note || '').toString(),
+      isDefault: !!a.isDefault,
+      active: (a.active !== false),
+      createdAt: a.createdAt || new Date().toISOString()
+    }));
+  }
+
+  // ensure exactly one default among active addresses (if any)
+  const active = c.addresses.filter(a => a && a.active !== false && (a.address||'').trim());
+  if(active.length){
+    if(!active.some(a => a.isDefault)){
+      active[0].isDefault = true;
+    } else {
+      // if multiple defaults, keep the first
+      let found = false;
+      active.forEach(a => {
+        if(a.isDefault){
+          if(!found) found = true;
+          else a.isDefault = false;
+        }
+      });
+    }
+  }
+
+  // keep legacy c.address as the default address text for backward compatibility
+  if(active.length){
+    const def = active.find(a => a.isDefault) || active[0];
+    if(def && def.address) c.address = def.address;
+  }
+}
+
+function getContactDefaultAddress(c){
+  if(!c) return '';
+  ensureContactAddressesSchema(c);
+  const active = c.addresses.filter(a => a && a.active !== false && (a.address||'').trim());
+  if(!active.length) return (c.address||'').toString().trim();
+  const def = active.find(a => a.isDefault) || active[0];
+  return (def.address||'').toString().trim();
+}
+
+function addAddressToContact(c, address, opts){
+  if(!c) return null;
+  const addr = (address||'').toString().trim();
+  if(!addr) return null;
+  ensureContactAddressesSchema(c);
+
+  const key = normalizeAddressKey(addr);
+  const existing = c.addresses.find(a => normalizeAddressKey(a.address) === key);
+  if(existing){
+    // revive if it was disabled
+    existing.active = true;
+    if(opts && opts.makeDefault) {
+      c.addresses.forEach(x => { if(x) x.isDefault = false; });
+      existing.isDefault = true;
+    }
+    c.address = getContactDefaultAddress(c);
+    return existing;
+  }
+
+  const count = c.addresses.length + 1;
+  const item = {
+    id: crypto.randomUUID(),
+    label: (opts && opts.label) ? String(opts.label) : (count === 1 ? '主要' : ('地址' + count)),
+    address: addr,
+    note: (opts && opts.note) ? String(opts.note) : '',
+    isDefault: !!(opts && opts.makeDefault) || (c.addresses.filter(a => a.active !== false).length === 0),
+    active: true,
+    createdAt: new Date().toISOString()
+  };
+
+  if(item.isDefault){
+    c.addresses.forEach(x => { if(x) x.isDefault = false; });
+    item.isDefault = true;
+  }
+
+  c.addresses.push(item);
+  c.address = getContactDefaultAddress(c);
+  return item;
+}
+
+function setDefaultContactAddress(c, addrId){
+  if(!c || !addrId) return;
+  ensureContactAddressesSchema(c);
+  const target = c.addresses.find(a => a && a.id === addrId && a.active !== false);
+  if(!target) return;
+  c.addresses.forEach(a => { if(a) a.isDefault = false; });
+  target.isDefault = true;
+  c.address = getContactDefaultAddress(c);
+}
+
+function migrateContactsAddresses(){
+  try{
+    let changed = false;
+    contacts.forEach(c => {
+      const before = JSON.stringify(c.addresses || null) + '|' + (c.address||'');
+      ensureContactAddressesSchema(c);
+      const after = JSON.stringify(c.addresses || null) + '|' + (c.address||'');
+      if(before !== after) changed = true;
+    });
+    if(changed) save(CONTACTS_KEY, contacts);
+  }catch(e){
+    console.warn('migrateContactsAddresses failed', e);
+  }
+}
+migrateContactsAddresses();
+
+// expose for other modules
+window.getContactDefaultAddress = getContactDefaultAddress;
+window.addAddressToContact = addAddressToContact;
+window.setDefaultContactAddress = setDefaultContactAddress;
+window.ensureContactAddressesSchema = ensureContactAddressesSchema;
+
     function normalizePhone(p){ return (p||'').replace(/\D+/g,''); }
 
 // ---------- Validation ----------
@@ -162,17 +298,36 @@ function isValidTwPhone(p){ return isValidTwMobile(p) || isValidTwLandline(p);
   const np = normalizePhone(phone);
   const lid = (lineId||'').trim();
   if(!name && !np && !lid) return;
+
   let idx = -1;
-  if (np) idx = contacts.findIndex(c => normalizePhone(c.phone)===np);
+  if (np) idx = contacts.findIndex(c => {
+    const list = [];
+    if (c.phone) list.push(String(c.phone));
+    if (Array.isArray(c.phones)) c.phones.forEach(p => p && list.push(String(p)));
+    const joined = list.join(' / ');
+    return joined.split('/').some(p => normalizePhone(p) === np);
+  });
   if (idx < 0 && lid) idx = contacts.findIndex(c => (c.lineId||'').trim()===lid);
+
   if(idx>=0){
     // merge
     contacts[idx].name = contacts[idx].name || name;
-    contacts[idx].address = contacts[idx].address || address;
     if(lid) contacts[idx].lineId = contacts[idx].lineId || lineId;
     if(np) contacts[idx].phone = contacts[idx].phone || phone;
+
+    // addresses
+    if (address && String(address).trim()){
+      addAddressToContact(contacts[idx], address, { makeDefault: !getContactDefaultAddress(contacts[idx]) });
+    } else {
+      ensureContactAddressesSchema(contacts[idx]);
+    }
   } else {
-    contacts.push({id: crypto.randomUUID(), name: name||'', phone: phone||'', address: address||'', lineId: lineId||''});
+    const c = {id: crypto.randomUUID(), name: name||'', phone: phone||'', address: (address||'').trim(), lineId: lineId||''};
+    ensureContactAddressesSchema(c);
+    if (address && String(address).trim()){
+      addAddressToContact(c, address, { makeDefault: true });
+    }
+    contacts.push(c);
   }
   save(CONTACTS_KEY, contacts);
   refreshContactsDatalist();
@@ -192,12 +347,18 @@ function findContactByName(name){
 function findContactByPhone(phone){
       const np = normalizePhone(phone);
       if(!np) return null;
-      return contacts.find(c => normalizePhone(c.phone)===np) || null;
+      return contacts.find(c => {
+        const list = [];
+        if (c.phone) list.push(String(c.phone));
+        if (Array.isArray(c.phones)) c.phones.forEach(p => p && list.push(String(p)));
+        const joined = list.join(' / ');
+        return joined.split('/').some(p => normalizePhone(p) === np);
+      }) || null;
     }
     function refreshContactsDatalist(){
       const dl = document.getElementById('contactsDL');
       if(!dl) return;
-      dl.innerHTML = contacts.map(c => `<option value="${(c.name||'')}" label="${(c.phone||'')} ${(c.address||'')}"></option>`).join('');
+      dl.innerHTML = contacts.map(c => `<option value="${(c.name||'')}" label="${(c.phone||'')} ${(getContactDefaultAddress(c)||'')}"></option>`).join('');
     }
 
 
@@ -247,3 +408,102 @@ document.addEventListener('change', function(e){
 window.addEventListener('load', updateAcOtherVisibility);
 function initExpenseCats(){ $('expCategory').innerHTML = expCats.map(c=>`<option value="${c}">${c}</option>`).join(''); }
 
+
+
+// ---------- Report Helpers ----------
+// 合併同單（bundleId）：用於報表統計「同一位技師同日同客戶跑多個地點」的合併顯示
+window.mergeOrdersByBundle = function mergeOrdersByBundle(input){
+  try{
+    const arr = Array.isArray(input) ? input : [];
+    const map = new Map();
+    const out = [];
+    const numericKeys = [
+      'total','netTotal','discount','extraCharge',
+      'acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone',
+      'transformerCount','longSplitCount','onePieceTray','durationMinutes'
+    ];
+    const statusRank = (s)=>{
+      if (s === '未完成') return 3;
+      if (s === '排定') return 2;
+      if (s === '完成') return 1;
+      return 0;
+    };
+    for (const o of arr){
+      if(!o || typeof o !== 'object'){ continue; }
+      const b = (o.bundleId || '').trim();
+      const key = b ? ('B:' + b) : ('O:' + (o.id || crypto.randomUUID()));
+      if(!b){
+        // 沒有 bundleId：直接原樣放進去（避免影響統計）
+        out.push(o);
+        continue;
+      }
+      if(!map.has(key)){
+        const base = Object.assign({}, o);
+        base.__merged = true;
+        base.__mergedCount = 1;
+        base.__childIds = [o.id].filter(Boolean);
+        // address：先用當筆快照
+        base.address = (o.address || '').trim();
+        map.set(key, base);
+      } else {
+        const m = map.get(key);
+        m.__mergedCount = (m.__mergedCount || 1) + 1;
+        if(o.id) (m.__childIds = m.__childIds || []).push(o.id);
+        // sums
+        for(const k of numericKeys){
+          const a = Number(m[k] || 0);
+          const v = Number(o[k] || 0);
+          if(!Number.isNaN(v)) m[k] = a + v;
+        }
+        // status: choose worse
+        const s1 = statusRank(m.status);
+        const s2 = statusRank(o.status);
+        if(s2 > s1) m.status = o.status;
+        // completedAt take latest
+        try{
+          if(o.completedAt){
+            if(!m.completedAt) m.completedAt = o.completedAt;
+            else if(String(o.completedAt) > String(m.completedAt)) m.completedAt = o.completedAt;
+          }
+        }catch(e){}
+        // addresses merge distinct
+        const addrs = new Set(
+          String(m.address || '').split(' / ').map(x=>x.trim()).filter(Boolean)
+        );
+        const ao = String(o.address || '').trim();
+        if(ao) addrs.add(ao);
+        m.address = Array.from(addrs).join(' / ');
+        // addressId drop when merged; keep first
+        // notes merge (optional)
+        if(o.note){
+          const n1 = (m.note || '').trim();
+          const n2 = String(o.note).trim();
+          if(n2 && n2 !== n1){
+            m.note = n1 ? (n1 + '\n---\n' + n2) : n2;
+          }
+        }
+      }
+    }
+    // flush merged groups keeping original insertion order: append merged groups after unbundled
+    // We'll preserve stable by iterating again and pushing first time seen
+    const seen = new Set();
+    const finalOut = [];
+    for(const o of arr){
+      if(!o || typeof o !== 'object') continue;
+      const b = (o.bundleId || '').trim();
+      if(!b){
+        finalOut.push(o);
+      } else {
+        const k = 'B:' + b;
+        if(!seen.has(k)){
+          seen.add(k);
+          finalOut.push(map.get(k));
+        }
+      }
+    }
+    return finalOut;
+  } catch(e){
+    console.warn('mergeOrdersByBundle failed', e);
+    return Array.isArray(input) ? input : [];
+  }
+};

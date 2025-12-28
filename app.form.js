@@ -11,12 +11,13 @@ acFloorAbove: (document.querySelector('input[type="checkbox"][data-name="acFloor
     washerFloorAbove: (document.querySelector('input[type="checkbox"][data-name="washerFloor"][value="5F以上"]:checked') ? ($('washerFloorAbove')?.value||'').trim() : ''),
 durationMinutes: +$('durationMinutes').value,
         id: $('id').value || crypto.randomUUID(),
+        bundleId: ($('bundleId') ? $('bundleId').value : '') || '',
         staff:$('staff').value, date:$('date').value, time:$('time').value,
         confirmed:$('confirmed')?.checked||false, quotationOk:$('quotationOk')?.checked||false,
         customer:$('customer').value.trim(), lineIds:getLineIds(),
         lineId:(getLineIds()[0] || $('lineId').value.trim()),
         phone:getPhones().trim(),
-        slots:getChecked('slot'), slotNote:$('slotNote')?.value.trim()||'', address:$('address').value.trim(),
+        slots:getChecked('slot'), slotNote:$('slotNote')?.value.trim()||'', addressId:(($('addressSelect')?.value||'')!=='_CUSTOM_'? ($('addressSelect')?.value||'') : ''), address:$('address').value.trim(),
         residenceType:$('residenceType')?.value||'', residenceOther:$('residenceOther')?.value.trim()||'',
         contactTimes:getChecked('contactTime'), contactTimeNote:$('contactTimeNote')?.value.trim()||'',
         acFloors:getChecked('acFloor'), washerFloors:getChecked('washerFloor'),
@@ -39,7 +40,10 @@ durationMinutes: +$('durationMinutes').value,
       $('date').value=o.date||''; $('time').value=o.time||'';
       $('confirmed').checked=!!o.confirmed; $('quotationOk').checked=!!o.quotationOk;
       $('customer').value=o.customer||''; $('lineId').value=o.lineId||''; renderPhonesFromString(o.phone||'');
-      setChecked('slot', o.slots||[]); $('slotNote').value=o.slotNote||''; $('slotNote').classList.toggle('hidden', !((o.slots||[]).includes('日期指定') || (o.slots||[]).includes('時間指定'))); $('address').value=o.address||'';
+      setChecked('slot', o.slots||[]); $('slotNote').value=o.slotNote||''; $('slotNote').classList.toggle('hidden', !((o.slots||[]).includes('日期指定') || (o.slots||[]).includes('時間指定')));
+      $('address').value=o.address||'';
+      try{ if(typeof populateAddressSelectFromCurrentCustomer==='function') populateAddressSelectFromCurrentCustomer(); }catch(e){}
+      try{ const sel=$('addressSelect'); if(sel){ sel.value = (o.addressId ? o.addressId : '_CUSTOM_'); } }catch(e){};
       $('residenceType').value=o.residenceType||''; $('residenceOther').value=o.residenceOther||''; $('residenceOther').classList.toggle('hidden', (o.residenceType||'')!=='其他');
       setChecked('contactTime', o.contactTimes||[]); $('contactTimeNote').value=o.contactTimeNote||''; $('contactTimeNote').classList.toggle('hidden', !(o.contactTimes||[]).includes('時間指定'));
       setChecked('acFloor', o.acFloors||[]); setChecked('washerFloor', o.washerFloors||[]);

@@ -501,6 +501,10 @@ function setActiveView(view){
     if (typeof refreshYearStatSelect === 'function') {
       refreshYearStatSelect();
     }
+    // 報表明細（訂單）改為懶載入：只在切到報表分頁時初始化，避免進站就渲染大量明細
+    if (typeof initReportOrderDetail === 'function') {
+      initReportOrderDetail();
+    }
   } else {
     // 預設為排程頁
     if (mainMode) mainMode.style.display = '';
@@ -737,6 +741,7 @@ function initViewTabs(){
         .forEach(id => $(id).addEventListener('input', recalcTotals));
       $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
       $('quickNextBtn')?.addEventListener('click', quickCreateNextOrder);
+      $('sameDayNextBtn')?.addEventListener('click', duplicateSameDayNextLocation);
 $('exportJson').addEventListener('click', exportJSON);
 $('importJson').addEventListener('click', importJSON);
       $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const msg='確定要清空所有訂單資料嗎？此動作無法復原。'; const ok = (typeof showConfirm === 'function') ? await showConfirm('清空所有訂單', msg, '是的，清空全部', '取消', { danger:true }) : confirm(msg); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
@@ -751,7 +756,16 @@ $('importJson').addEventListener('click', importJSON);
         const inputs = container.querySelectorAll('input.lineid-input');
         if(inputs.length) inputs[inputs.length-1].focus();
       });// Autofill from contacts when name/phone entered
-      $('customer').addEventListener('blur', ()=>{ const c = findContactByName($('customer').value); if(c){ if ($('phone').dataset.touched !== '1' && !getPhones()) getPhones() = c.phone||''; if(!$('address').value) $('address').value = c.address||''; if(!$('lineId').value) $('lineId').value = c.lineId||''; }
+      $('customer').addEventListener('blur', ()=>{ 
+        const c = findContactByName($('customer').value); 
+        if(c){ 
+          try{ if(typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(c); }catch(e){}
+          const phoneEl = getFirstPhoneEl();
+          if (phoneEl && phoneEl.dataset.touched !== '1' && !getPhones()) setFirstPhone(c.phone || (Array.isArray(c.phones)? c.phones[0] : '') || '');
+          if(!$('address').value) $('address').value = (typeof getContactDefaultAddress==='function') ? (getContactDefaultAddress(c)||'') : (c.address||'');
+          if(!$('lineId').value) $('lineId').value = c.lineId||''; 
+          try{ if(typeof populateAddressSelectFromCurrentCustomer==='function') populateAddressSelectFromCurrentCustomer(); }catch(e){}
+        }
       });
       // ---- phone touched guard (so user can keep it empty) ----
 function getFirstPhoneEl() {
@@ -776,7 +790,8 @@ if (pc) {
       const c = findContactByPhone(val);
       if (c) {
         if (!$('customer').value) $('customer').value = c.name || '';
-        if (!$('address').value) $('address').value = c.address || '';
+        if (!$('address').value) $('address').value = (typeof getContactDefaultAddress==='function') ? (getContactDefaultAddress(c)||'') : (c.address||'');
+        try{ if(typeof populateAddressSelectFromCurrentCustomer==='function') populateAddressSelectFromCurrentCustomer(); }catch(e){}
         if (!$('lineId').value) $('lineId').value = c.lineId || '';
       }
     }
@@ -784,7 +799,8 @@ if (pc) {
 }
 $('lineId').addEventListener('blur', ()=>{
         const c3 = findContactByLineId($('lineId').value);
-        if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = c3.address||''; const phoneEl = getFirstPhoneEl();
+        if(c3){ if(!$('customer').value) $('customer').value = c3.name||''; if(!$('address').value) $('address').value = (typeof getContactDefaultAddress==='function') ? (getContactDefaultAddress(c3)||'') : (c3.address||'');
+        try{ if(typeof populateAddressSelectFromCurrentCustomer==='function') populateAddressSelectFromCurrentCustomer(); }catch(e){} const phoneEl = getFirstPhoneEl();
         if (phoneEl && phoneEl.dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
       });
       // removed: phone blur handler (replaced by delegation)
@@ -881,6 +897,131 @@ $('lineId').addEventListener('blur', ()=>{
       initViewTabs();
     }
 
+// ---------- Address select (customer multiple addresses) ----------
+function getFormPrimaryPhone(){
+  try{
+    const s = (getPhones && getPhones()) ? String(getPhones()) : '';
+    const first = s.split('/')[0].trim();
+    return first;
+  }catch(e){ return ''; }
+}
+
+function getContactFromForm(){
+  const name = ($('customer')?.value || '').trim();
+  const phone = getFormPrimaryPhone();
+  const lineId = ($('lineId')?.value || '').trim();
+
+  let c = null;
+  try{ if(phone && typeof findContactByPhone==='function') c = findContactByPhone(phone); }catch(e){}
+  if(!c){
+    try{ if(lineId && typeof findContactByLineId==='function') c = findContactByLineId(lineId); }catch(e){}
+  }
+  if(!c){
+    try{ if(name && typeof findContactByName==='function') c = findContactByName(name); }catch(e){}
+  }
+  return c;
+}
+
+function populateAddressSelectForContact(c, preferId){
+  const sel = $('addressSelect');
+  if(!sel) return;
+  const addrInput = $('address');
+
+  let items = [];
+  if(c && Array.isArray(c.addresses)){
+    try{ if(typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(c); }catch(e){}
+    items = (c.addresses || []).filter(a => a && a.active !== false && (a.address||'').trim());
+  }
+  const cur = (sel.value || '').trim();
+  const selected = preferId || cur || '';
+
+  const opts = [];
+  // custom option
+  opts.push(`<option value="_CUSTOM_">（臨時地址 / 自行輸入）</option>`);
+  items.forEach(a=>{
+    const tag = (a.label||'').trim() ? `【${a.label.trim()}】 ` : '';
+    const short = (a.address||'').trim();
+    const isDef = a.isDefault ? ' ★' : '';
+    opts.push(`<option value="${a.id}">${tag}${short}${isDef}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+
+  // pick selection
+  let pick = '_CUSTOM_';
+  if(selected && selected !== '_CUSTOM_' && items.some(a => a.id === selected)){
+    pick = selected;
+  } else if(items.length){
+    const def = items.find(a => a.isDefault) || items[0];
+    pick = def.id;
+  }
+  sel.value = pick;
+
+  // sync address input if empty or if it matches old default
+  if(pick !== '_CUSTOM_' && items.length){
+    const a = items.find(x => x.id === pick);
+    if(a && (!addrInput.value || !addrInput.value.trim())){
+      addrInput.value = (a.address||'').trim();
+    }
+  }
+}
+
+function populateAddressSelectFromCurrentCustomer(){
+  const c = getContactFromForm();
+  populateAddressSelectForContact(c);
+}
+
+window.populateAddressSelectFromCurrentCustomer = populateAddressSelectFromCurrentCustomer;
+
+// wire controls
+(function initAddressSelectControls(){
+  const sel = $('addressSelect');
+  const addr = $('address');
+  if(!sel || !addr) return;
+
+  sel.addEventListener('change', ()=>{
+    const c = getContactFromForm();
+    if(!c || !Array.isArray(c.addresses)) return;
+    const v = sel.value;
+    if(v === '_CUSTOM_') return;
+    const a = c.addresses.find(x => x && x.id === v);
+    if(a && a.address){
+      addr.value = String(a.address).trim();
+    }
+  });
+
+  $('addAddressBtn')?.addEventListener('click', ()=>{
+    const name = ($('customer')?.value || '').trim();
+    if(!name){
+      if(window.Swal && Swal.fire) Swal.fire('請先填客戶姓名', '新增地址前請先填寫客戶姓名（或先選取一筆訂單）。', 'info');
+      else alert('新增地址前請先填寫客戶姓名。');
+      $('customer')?.focus();
+      return;
+    }
+    const c = getContactFromForm();
+    // allow add even if contact not found: open modal will create via upsert
+    if(typeof openAddressManagerForForm === 'function'){
+      openAddressManagerForForm({ mode:'add' });
+    } else if(typeof openAddressManagerModal === 'function'){
+      openAddressManagerModal(c, { mode:'add', from:'order' });
+    }
+  });
+
+  $('editAddressBtn')?.addEventListener('click', ()=>{
+    const c = getContactFromForm();
+    if(!c){
+      if(window.Swal && Swal.fire) Swal.fire('找不到客戶資料', '請先讓系統辨識到客戶（填姓名/電話後離開欄位），或先儲存一筆訂單。', 'info');
+      else alert('請先讓系統辨識到客戶，或先儲存一筆訂單。');
+      return;
+    }
+    if(typeof openAddressManagerModal === 'function'){
+      openAddressManagerModal(c, { mode:'edit', editId: sel.value, from:'order' });
+    }
+  });
+
+  // populate on load
+  window.addEventListener('load', ()=>{ try{ populateAddressSelectFromCurrentCustomer(); }catch(e){} });
+})();
+// ------------------------------------------------------------------------
 function showLayoutSavedMessage(){
   // 使用 SweetAlert2（若可用）
   if (window.Swal && Swal.fire){

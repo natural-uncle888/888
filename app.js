@@ -1126,8 +1126,9 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
 
     function getYearsFromOrders(){
       try {
-        const yrs = Array.from(new Set(
-          (orders || []).map(o => o.date ? new Date(o.date).getFullYear() : null).filter(Boolean)
+        const _ordForYear = (document.getElementById("mergeBundleReport")?.checked && typeof mergeOrdersByBundle==="function") ? mergeOrdersByBundle(orders||[]) : (orders||[]);
+          const yrs = Array.from(new Set(
+          (_ordForYear).map(o => o.date ? new Date(o.date).getFullYear() : null).filter(Boolean)
         ));
         yrs.sort((a,b)=>b-a); // desc
         return yrs;
@@ -1147,7 +1148,7 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     }
 
     function renderYearStats(targetYear){
-      const ord = orders || [];
+      const ord = (document.getElementById('mergeBundleReport')?.checked && typeof mergeOrdersByBundle === 'function') ? mergeOrdersByBundle(orders || []) : (orders || []);
       const exp = expenses || [];
 
       // ---- 數字統計 ----
@@ -1289,9 +1290,14 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
 // === 報表：自訂統計圖表（年度 / 月份 / 比較） ===
 (function(){
   function ensureOrdersArray(){
-    if (Array.isArray(window.orders)) return window.orders;
-    if (typeof orders !== 'undefined' && Array.isArray(orders)) return orders;
-    return [];
+    let arr = [];
+    if (Array.isArray(window.orders)) arr = window.orders;
+    else if (typeof orders !== 'undefined' && Array.isArray(orders)) arr = orders;
+    const mergeOn = !!document.getElementById('mergeBundleReport')?.checked;
+    if (mergeOn && typeof mergeOrdersByBundle === 'function'){
+      return mergeOrdersByBundle(arr);
+    }
+    return arr;
   }
   function ensureExpensesArray(){
     if (Array.isArray(window.expenses)) return window.expenses;
@@ -1810,8 +1816,11 @@ populateYearSelects();
 
   function calcKpi(range){
     const inRange = makeRangePredicate(range);
-    const ord = Array.isArray(window.orders) ? window.orders
+    let ord = Array.isArray(window.orders) ? window.orders
       : (typeof orders !== 'undefined' && Array.isArray(orders) ? orders : []);
+    if (document.getElementById('mergeBundleReport')?.checked && typeof mergeOrdersByBundle === 'function'){
+      ord = mergeOrdersByBundle(ord);
+    }
     const exp = Array.isArray(window.expenses) ? window.expenses
       : (typeof expenses !== 'undefined' && Array.isArray(expenses) ? expenses : []);
 
@@ -1881,6 +1890,12 @@ populateYearSelects();
     let currentRange = 'today';
     renderKpi(currentRange);
 
+    const mergeEl = document.getElementById('mergeBundleReport');
+    if (mergeEl && mergeEl.dataset.boundKpiMerge !== '1'){
+      mergeEl.addEventListener('change', function(){ renderKpi(currentRange); });
+      mergeEl.dataset.boundKpiMerge = '1';
+    }
+
     const btns = document.querySelectorAll('.kpi-range-btn');
     btns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1945,8 +1960,11 @@ populateYearSelects();
   }
 
   function computeServiceStats(targetYear){
-    const ord = Array.isArray(window.orders) ? window.orders
+    let ord = Array.isArray(window.orders) ? window.orders
       : (typeof orders !== 'undefined' && Array.isArray(orders) ? orders : []);
+    if (document.getElementById('mergeBundleReport')?.checked && typeof mergeOrdersByBundle === 'function'){
+      ord = mergeOrdersByBundle(ord);
+    }
     const cfg = (typeof pricingConfig !== 'undefined' && pricingConfig)
       || (typeof DEFAULT_PRICING !== 'undefined' && DEFAULT_PRICING)
       || (window.pricingConfig || {});
@@ -2171,6 +2189,12 @@ populateYearSelects();
     yearSelect.addEventListener('change', () => {
       renderServiceStats(getYear());
     });
+
+    const mergeEl = document.getElementById('mergeBundleReport');
+    if (mergeEl && mergeEl.dataset.boundServiceMerge !== '1'){
+      mergeEl.addEventListener('change', function(){ renderServiceStats(getYear()); });
+      mergeEl.dataset.boundServiceMerge = '1';
+    }
 
     // 如果有既有的 refreshYearStatSelect，包一層一併更新
     if (typeof window.refreshYearStatSelect === 'function'){
@@ -2581,17 +2605,53 @@ function refreshCustomerView(){
       } catch(e){}
     }
 
+    // link to contact addresses (if any)
+    let c = null;
+    try{
+      const phone0 = (row.phone||'').toString().split('/')[0].trim();
+      if(phone0 && typeof findContactByPhone==='function') c = findContactByPhone(phone0);
+      if(!c && typeof findContactByName==='function') c = findContactByName(row.name||'');
+      if(c && typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(c);
+    }catch(e){}
+    const defaultAddr = (c && typeof getContactDefaultAddress==='function') ? (getContactDefaultAddress(c)||'') : (row.address||'');
+    const addrCount = (c && Array.isArray(c.addresses)) ? (c.addresses.filter(a=>a && a.active!==false && (a.address||'').trim()).length) : ((row.address||'').trim()?1:0);
+
     tr.innerHTML = `
       <td>${escapeHtml(row.name || '')}</td>
       <td>${escapeHtml(row.phone || '')}</td>
-      <td>${escapeHtml(row.address || '')}</td>
+      <td>${escapeHtml(defaultAddr || '')}</td>
+      <td class="right-align">${addrCount}</td>
+      <td><button type="button" class="btn btn-secondary btn-small" data-act="manage-addr">管理</button></td>
       <td>${escapeHtml(dateText || '')}</td>
       <td class="right-align">${row.orderCount || 0}</td>
       <td class="right-align">${fmt(row.totalNet || 0)}</td>
     `;
 
-    tr.addEventListener('click', () => {
-      try {
+    tr.addEventListener('click', (ev) => {
+      try{
+        const t = ev && ev.target;
+        if (t && t.closest && t.closest('[data-act="manage-addr"]')){
+          ev.preventDefault();
+          ev.stopPropagation();
+          // open address modal
+          try{
+            const phone0 = (row.phone||'').toString().split('/')[0].trim();
+            let c2 = null;
+            if(phone0 && typeof findContactByPhone==='function') c2 = findContactByPhone(phone0);
+            if(!c2 && typeof findContactByName==='function') c2 = findContactByName(row.name||'');
+            if(!c2){
+              // create contact record from customer snapshot so it can store addresses
+              if(typeof upsertContact==='function'){
+                upsertContact(row.name||'', phone0||'', row.address||'', '');
+                if(phone0 && typeof findContactByPhone==='function') c2 = findContactByPhone(phone0);
+                if(!c2 && typeof findContactByName==='function') c2 = findContactByName(row.name||'');
+              }
+            }
+            if(typeof openAddressManagerModal==='function') openAddressManagerModal(c2, {from:'customer'});
+          }catch(e){}
+          return;
+        }
+
         if (typeof renderHistoryModal === 'function') {
           const title = row.name ? (row.name + ' 的歷史紀錄') : '客戶歷史紀錄';
           renderHistoryModal(row.key, title);
@@ -2600,8 +2660,7 @@ function refreshCustomerView(){
         console.error('renderHistoryModal for customer failed', e);
       }
     });
-
-    tbody.appendChild(tr);
+tbody.appendChild(tr);
   });
 
   const totalCount = allRows.length;
@@ -3653,8 +3712,9 @@ function createLineIdRow(val){
     const c = findContactByLineId(input.value);
     if(c){
       if(!$('customer').value) $('customer').value = c.name || '';
-      if(!$('address').value) $('address').value = c.address || '';
-      if ($('phone') && $('phone').dataset && $('phone').dataset.touched !== '1' && !getPhones()) setFirstPhone(c.phone || '');
+      if(!$('address').value) $('address').value = (typeof getContactDefaultAddress==='function') ? (getContactDefaultAddress(c)||'') : (c.address||'');
+    try{ if(typeof populateAddressSelectFromCurrentCustomer==='function') populateAddressSelectFromCurrentCustomer(); }catch(e){}
+      try{ const phoneEl = getFirstPhoneEl(); if(phoneEl && phoneEl.dataset && phoneEl.dataset.touched !== '1' && !getPhones()) setFirstPhone(c.phone || ''); }catch(e){}
     }
   });
   div.appendChild(input);
@@ -3691,4 +3751,826 @@ function getLineIds(){
       }
     }
   }catch(e){}
+})();
+
+
+// ---------- Address Manager Modal ----------
+(function initAddressManagerModal(){
+  const modal = document.getElementById('addressModal');
+  if(!modal) return;
+
+  const backdrop = modal.querySelector('.modal-backdrop');
+  const btnClose = document.getElementById('addressModalCloseBtn');
+  const subtitle = document.getElementById('addressModalSubtitle');
+  const tbody = modal.querySelector('#addressTable tbody');
+
+  const inLabel = document.getElementById('addrLabel');
+  const inText = document.getElementById('addrText');
+  const inNote = document.getElementById('addrNote');
+  const inDefault = document.getElementById('addrDefault');
+  const inEditingId = document.getElementById('addrEditingId');
+  const btnSave = document.getElementById('addrSaveBtn');
+  const btnCancelEdit = document.getElementById('addrCancelEditBtn');
+
+  let currentContact = null;
+  let context = { from: '' };
+
+  function open(){
+    modal.setAttribute('aria-hidden','false');
+  }
+  function close(){
+    modal.setAttribute('aria-hidden','true');
+    clearEditor();
+    currentContact = null;
+    context = { from: '' };
+  }
+
+  function clearEditor(){
+    if(inLabel) inLabel.value = '';
+    if(inText) inText.value = '';
+    if(inNote) inNote.value = '';
+    if(inDefault) inDefault.checked = false;
+    if(inEditingId) inEditingId.value = '';
+  }
+
+  function render(){
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    if(!currentContact){
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">找不到客戶資料，請先填寫並儲存一筆訂單。</td></tr>';
+      return;
+    }
+    if(typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(currentContact);
+
+    const items = (currentContact.addresses || []).filter(a => a && (a.address||'').trim());
+    if(!items.length){
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">尚未有地址，請先新增。</td></tr>';
+      return;
+    }
+
+    items.forEach(a=>{
+      const tr = document.createElement('tr');
+      const defBadge = a.isDefault ? '是' : '';
+      const active = (a.active !== false);
+      tr.innerHTML = `
+        <td>${escapeHtml(a.label||'')}</td>
+        <td>${escapeHtml(a.address||'')}${active ? '' : ' <span class="muted">（停用）</span>'}</td>
+        <td>${escapeHtml(a.note||'')}</td>
+        <td>${defBadge}</td>
+        <td>
+          <button type="button" class="btn btn-secondary btn-small" data-act="edit" data-id="${a.id}">編輯</button>
+          <button type="button" class="btn btn-secondary btn-small" data-act="default" data-id="${a.id}" ${active?'':'disabled'}>設為預設</button>
+          <button type="button" class="btn btn-secondary btn-small" data-act="toggle" data-id="${a.id}">${active?'停用':'啟用'}</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function saveContacts(){
+    try{ save(CONTACTS_KEY, contacts); }catch(e){}
+    try{ if(typeof refreshContactsDatalist==='function') refreshContactsDatalist(); }catch(e){}
+  }
+
+  function refreshRelated(){
+    // update order form select if needed
+    try{
+      if(typeof populateAddressSelectFromCurrentCustomer==='function') populateAddressSelectFromCurrentCustomer();
+    }catch(e){}
+    try{
+      if(typeof refreshCustomerView==='function') refreshCustomerView();
+    }catch(e){}
+  }
+
+  function resolveContact(c){
+    if(!c) return null;
+    // allow passing id
+    if(typeof c === 'string'){
+      const id = c;
+      return contacts.find(x=>x && x.id===id) || null;
+    }
+    return c;
+  }
+
+  // public API
+  window.openAddressManagerModal = function(contact, opts){
+    context = opts || { from:'' };
+    currentContact = resolveContact(contact);
+
+    // if called from order form and contact missing, try to create it from form values
+    if(!currentContact){
+      try{
+        const name = ($('customer')?.value || '').trim();
+        const phone0 = (getPhones && getPhones()) ? String(getPhones()).split('/')[0].trim() : '';
+        const addr0 = ($('address')?.value || '').trim();
+        const lid0 = ($('lineId')?.value || '').trim();
+        if(name || phone0 || lid0){
+          if(typeof upsertContact==='function') upsertContact(name, phone0, addr0, lid0);
+          if(phone0 && typeof findContactByPhone==='function') currentContact = findContactByPhone(phone0);
+          if(!currentContact && name && typeof findContactByName==='function') currentContact = findContactByName(name);
+        }
+      }catch(e){}
+    }
+
+    if(currentContact && typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(currentContact);
+
+    if(subtitle){
+      const name = currentContact ? (currentContact.name||'') : (($('customer')?.value||'').trim());
+      const phone = currentContact ? (currentContact.phone||'') : (getPhones?getPhones():'');
+      subtitle.textContent = [name, phone].filter(Boolean).join(' / ');
+    }
+
+    render();
+
+    // prefill editor based on opts
+    clearEditor();
+    if(opts && opts.mode === 'edit' && opts.editId && currentContact){
+      const a = (currentContact.addresses||[]).find(x=>x && x.id===opts.editId);
+      if(a){
+        if(inLabel) inLabel.value = a.label||'';
+        if(inText) inText.value = a.address||'';
+        if(inNote) inNote.value = a.note||'';
+        if(inDefault) inDefault.checked = !!a.isDefault;
+        if(inEditingId) inEditingId.value = a.id;
+      }
+    }
+
+    open();
+  };
+
+  // convenience wrapper for order form calls
+  window.openAddressManagerForForm = function(opts){
+    try{
+      const name = ($('customer')?.value || '').trim();
+      const phone0 = (getPhones && getPhones()) ? String(getPhones()).split('/')[0].trim() : '';
+      let c = null;
+      if(phone0 && typeof findContactByPhone==='function') c = findContactByPhone(phone0);
+      if(!c && name && typeof findContactByName==='function') c = findContactByName(name);
+      window.openAddressManagerModal(c, Object.assign({from:'order'}, opts||{}));
+    }catch(e){}
+  };
+
+  // table actions
+  tbody?.addEventListener('click', (ev)=>{
+    const btn = ev.target && ev.target.closest ? ev.target.closest('button[data-act]') : null;
+    if(!btn || !currentContact) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
+
+    if(typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(currentContact);
+
+    const a = (currentContact.addresses||[]).find(x=>x && x.id===id);
+    if(!a) return;
+
+    if(act === 'edit'){
+      if(inLabel) inLabel.value = a.label||'';
+      if(inText) inText.value = a.address||'';
+      if(inNote) inNote.value = a.note||'';
+      if(inDefault) inDefault.checked = !!a.isDefault;
+      if(inEditingId) inEditingId.value = a.id;
+      return;
+    }
+
+    if(act === 'default'){
+      try{
+        if(typeof setDefaultContactAddress==='function') setDefaultContactAddress(currentContact, id);
+      }catch(e){}
+      saveContacts();
+      render();
+      refreshRelated();
+      return;
+    }
+
+    if(act === 'toggle'){
+      a.active = (a.active === false) ? true : false;
+      // if disabling default, pick another default
+      if(a.active === false && a.isDefault){
+        a.isDefault = false;
+        const active = (currentContact.addresses||[]).filter(x=>x && x.active !== false && (x.address||'').trim());
+        if(active.length){
+          active[0].isDefault = true;
+        }
+      }
+      // keep legacy address synced
+      try{ if(typeof getContactDefaultAddress==='function') currentContact.address = getContactDefaultAddress(currentContact); }catch(e){}
+      saveContacts();
+      render();
+      refreshRelated();
+      return;
+    }
+  });
+
+  // save button
+  btnSave?.addEventListener('click', ()=>{
+    if(!currentContact){
+      if(window.Swal && Swal.fire) Swal.fire('找不到客戶資料', '請先儲存一筆訂單，或先讓系統辨識到客戶。', 'info');
+      else alert('找不到客戶資料。');
+      return;
+    }
+    const label = (inLabel?.value || '').trim();
+    const addr = (inText?.value || '').trim();
+    const note = (inNote?.value || '').trim();
+    const makeDef = !!(inDefault && inDefault.checked);
+    const editingId = (inEditingId?.value || '').trim();
+
+    if(!addr){
+      if(window.Swal && Swal.fire) Swal.fire('地址必填', '請輸入地址。', 'info');
+      else alert('請輸入地址。');
+      return;
+    }
+
+    if(typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(currentContact);
+
+    if(editingId){
+      const a = (currentContact.addresses||[]).find(x=>x && x.id===editingId);
+      if(a){
+        a.label = label;
+        a.address = addr;
+        a.note = note;
+        a.active = true;
+        if(makeDef){
+          try{ if(typeof setDefaultContactAddress==='function') setDefaultContactAddress(currentContact, a.id); }catch(e){}
+        }
+      }
+      // keep legacy address synced
+      try{ if(typeof getContactDefaultAddress==='function') currentContact.address = getContactDefaultAddress(currentContact); }catch(e){}
+    } else {
+      try{
+        if(typeof addAddressToContact==='function') addAddressToContact(currentContact, addr, {label, note, makeDefault: makeDef});
+      }catch(e){}
+    }
+
+    saveContacts();
+    render();
+    refreshRelated();
+    clearEditor();
+  });
+
+  btnCancelEdit?.addEventListener('click', clearEditor);
+
+  btnClose?.addEventListener('click', close);
+  backdrop?.addEventListener('click', close);
+})();
+// -----------------------------------------
+
+
+// === 報表：訂單明細（bundle 折疊） ===
+(function(){
+  function safeArr(v){ return Array.isArray(v) ? v : []; }
+
+  function getRawOrders(){
+    if (Array.isArray(window.orders)) return window.orders;
+    if (typeof orders !== 'undefined' && Array.isArray(orders)) return orders;
+    return [];
+  }
+
+  function getSelectedYear(){
+    // 優先使用「報表明細（訂單）」區塊內的年份選單；若不存在則退回使用 yearStatSelect
+    const detailSel = document.getElementById('reportDetailYear');
+    if(detailSel) return (detailSel.value || 'all');
+    const sel = document.getElementById('yearStatSelect');
+    return sel ? (sel.value || 'all') : 'all';
+  }
+
+  function getSelectedMonth(){
+    const sel = document.getElementById('reportDetailMonth');
+    return sel ? (sel.value || 'all') : 'all';
+  }
+
+  function fmtMoney(v){
+    const n = Number(v || 0);
+    if (!Number.isFinite(n)) return '0';
+    return Math.round(n).toLocaleString('zh-TW');
+  }
+
+  function parseDateStr(s){
+    try{
+      if(!s) return null;
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }catch(e){ return null; }
+  }
+
+  function getOrderDateParts(o){
+    const d = parseDateStr(o?.date);
+    if(!d) return null;
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const dd = d.getDate();
+    return { y, m, d: dd };
+  }
+
+  function pad2(n){ n = Number(n||0); return (n<10?'0':'') + n; }
+
+  function fmtDate(o){
+    const p = getOrderDateParts(o);
+    if(!p) return '—';
+    return p.y + '/' + pad2(p.m) + '/' + pad2(p.d);
+  }
+
+  function fmtTime(o){
+    const t = (o?.time || '').trim();
+    return t || '—';
+  }
+
+  function statusRank(s){
+    if (s === '未完成') return 3;
+    if (s === '排定') return 2;
+    if (s === '完成') return 1;
+    return 0;
+  }
+
+  function resolveContact(order){
+    try{
+      if (typeof findContactByName === 'function' && order?.customer){
+        const c = findContactByName(order.customer);
+        if(c) return c;
+      }
+      if (typeof findContactByPhone === 'function' && order?.phone){
+        const c = findContactByPhone(order.phone);
+        if(c) return c;
+      }
+    }catch(e){}
+    // fallback: try global contacts array
+    try{
+      const arr = safeArr(window.contacts || (typeof contacts !== 'undefined' ? contacts : []));
+      const name = (order?.customer || '').trim();
+      if(name) return arr.find(x => (x?.name||'').trim() === name) || null;
+    }catch(e){}
+    return null;
+  }
+
+  function getAddressLabel(order){
+    try{
+      const c = resolveContact(order);
+      const id = order?.addressId;
+      if(!c || !id) return '';
+      const a = safeArr(c.addresses).find(x => x && x.id === id);
+      if(!a) return '';
+      const label = (a.label || '').trim();
+      return label ? label : '';
+    }catch(e){}
+    return '';
+  }
+
+  function collectGroupLabels(orders){
+    const labels = [];
+    const seen = new Set();
+    for(const o of orders){
+      const lb = getAddressLabel(o);
+      if(lb && !seen.has(lb)){
+        labels.push(lb);
+        seen.add(lb);
+      }
+    }
+    return labels;
+  }
+
+  function computeGroupSummary(group){
+    const g = safeArr(group);
+    if(g.length === 0) return null;
+
+    // base fields
+    const first = g[0];
+    const sum = {
+      id: first.id || '',
+      date: first.date || '',
+      time: first.time || '',
+      staff: first.staff || '',
+      customer: first.customer || '',
+      phone: first.phone || '',
+      status: first.status || '',
+      netTotal: 0,
+      total: 0,
+      address: '',
+      bundleId: first.bundleId || '',
+      __child: g
+    };
+
+    let worstRank = -1;
+    let latestCompleted = null;
+    let earliestDT = null;
+
+    const addrs = [];
+    const addrSeen = new Set();
+    for(const o of g){
+      const nt = Number(o?.netTotal || o?.total || 0);
+      const tt = Number(o?.total || 0);
+      if(Number.isFinite(nt)) sum.netTotal += nt;
+      if(Number.isFinite(tt)) sum.total += tt;
+
+      const r = statusRank(o?.status);
+      if(r > worstRank){
+        worstRank = r;
+        sum.status = o?.status || sum.status;
+      }
+
+      if(o?.completedAt){
+        const cd = parseDateStr(o.completedAt);
+        if(cd && (!latestCompleted || cd > latestCompleted)) latestCompleted = cd;
+      }
+
+      // earliest date+time for displaying
+      const d = parseDateStr(o?.date);
+      if(d){
+        let dt = d;
+        try{
+          const t = String(o?.time||'').trim();
+          if(t && /^\d{1,2}:\d{2}$/.test(t)){
+            const [hh,mm] = t.split(':').map(n=>parseInt(n,10));
+            dt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hh||0, mm||0, 0, 0);
+          }
+        }catch(e){}
+        if(!earliestDT || dt < earliestDT){
+          earliestDT = dt;
+          sum.date = o?.date || sum.date;
+          sum.time = o?.time || sum.time;
+        }
+      }
+
+      const addr = String(o?.address || '').trim();
+      if(addr && !addrSeen.has(addr)){
+        addrs.push(addr);
+        addrSeen.add(addr);
+      }
+    }
+
+    sum.completedAt = latestCompleted ? latestCompleted.toISOString() : (first.completedAt || '');
+    sum.address = addrs.join(' / ');
+    return sum;
+  }
+
+  function filterOrdersByYearMonth(raw, year, month){
+    let arr = safeArr(raw).filter(o => o && o.date);
+    if(year !== 'all'){
+      const y = parseInt(year,10);
+      if(Number.isFinite(y)){
+        arr = arr.filter(o => {
+          const p = getOrderDateParts(o);
+          return p && p.y === y;
+        });
+      }
+    }
+    if(month !== 'all'){
+      const m = parseInt(month,10);
+      if(Number.isFinite(m)){
+        arr = arr.filter(o => {
+          const p = getOrderDateParts(o);
+          return p && p.m === m;
+        });
+      }
+    }
+    return arr;
+  }
+
+  function sortByDateTime(arr){
+    return safeArr(arr).slice().sort((a,b)=>{
+      const da = parseDateStr(a?.date);
+      const db = parseDateStr(b?.date);
+      const ta = (a?.time||'').trim();
+      const tb = (b?.time||'').trim();
+      const toDT = (d,t)=>{
+        if(!d) return 0;
+        if(t && /^\d{1,2}:\d{2}$/.test(t)){
+          const [hh,mm]=t.split(':').map(x=>parseInt(x,10));
+          return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hh||0, mm||0).getTime();
+        }
+        return d.getTime();
+      };
+      const va = toDT(da, ta);
+      const vb = toDT(db, tb);
+      return va - vb;
+    });
+  }
+
+  function buildMonthOptionsForYear(raw, year){
+    const arr = filterOrdersByYearMonth(raw, year, 'all');
+    const months = new Set();
+    arr.forEach(o=>{
+      const p = getOrderDateParts(o);
+      if(p) months.add(p.m);
+    });
+    const list = Array.from(months).sort((a,b)=>a-b);
+    return list;
+  }
+
+  function renderMonthSelect(raw){
+    const sel = document.getElementById('reportDetailMonth');
+    if(!sel) return;
+    const year = getSelectedYear();
+    const prev = sel.value || 'all';
+
+    const months = buildMonthOptionsForYear(raw, year);
+    const opts = ['all'].concat(months.map(m=>String(m)));
+
+    sel.innerHTML = opts.map(v=>{
+      const label = (v==='all') ? '全部月份' : (v + '月');
+      return '<option value="' + v + '">' + label + '</option>';
+    }).join('');
+
+    // keep previous if still valid
+    if(opts.includes(prev)) sel.value = prev;
+    else sel.value = 'all';
+  }
+
+  function syncDetailYearOptions(){
+    const detailSel = document.getElementById('reportDetailYear');
+    const globalSel = document.getElementById('yearStatSelect');
+    if(!detailSel) return;
+
+    // 以 yearStatSelect 為主來源（它會在切到報表分頁時由 refreshYearStatSelect() 填好）
+    if(globalSel && globalSel.options && globalSel.options.length){
+      const prev = detailSel.value;
+      detailSel.innerHTML = globalSel.innerHTML;
+      // 優先保持原本選擇，其次同步全域年份
+      const hasPrev = Array.from(detailSel.options).some(o=>o.value===prev);
+      detailSel.value = hasPrev ? prev : (globalSel.value || 'all');
+    } else if(!detailSel.options.length){
+      detailSel.innerHTML = '<option value="all">全部年份</option>';
+      detailSel.value = 'all';
+    }
+  }
+
+  function autoDefaultMonthIfNeeded(){
+    const sel = document.getElementById('reportDetailMonth');
+    if(!sel) return;
+    // 使用者手動選過月，就不要自動覆蓋
+    if(sel.dataset.userChanged === '1') return;
+    const values = Array.from(sel.options).map(o=>o.value);
+    // 若目前是「全部月份」，預設切到本月（若該年有資料），否則切到該年最新月份
+    if(sel.value === 'all'){
+      const curM = String(new Date().getMonth() + 1);
+      if(values.includes(curM)){
+        sel.value = curM;
+        return;
+      }
+      const nums = values.filter(v=>v!=='all').map(v=>parseInt(v,10)).filter(n=>Number.isFinite(n));
+      if(nums.length){
+        sel.value = String(Math.max.apply(null, nums));
+      }
+    }
+  }
+
+  function renderTable(){
+    const tbody = document.querySelector('#tableReportOrders tbody');
+    if(!tbody) return;
+
+    const raw = getRawOrders();
+    const year = getSelectedYear();
+    const month = getSelectedMonth();
+    const mergeOn = !!document.getElementById('mergeBundleReport')?.checked;
+
+    const filtered = sortByDateTime(filterOrdersByYearMonth(raw, year, month));
+    if(filtered.length === 0){
+      tbody.innerHTML = '<tr><td colspan="8">目前沒有符合條件的訂單</td></tr>';
+      return;
+    }
+
+    // group by bundleId when mergeOn
+    const groups = [];
+    if(mergeOn){
+      const map = new Map();
+      const singles = [];
+      for(const o of filtered){
+        const bid = (o?.bundleId || '').trim();
+        if(!bid){ singles.push(o); continue; }
+        if(!map.has(bid)) map.set(bid, []);
+        map.get(bid).push(o);
+      }
+      // preserve chronological order: iterate through filtered and push group once
+      const pushed = new Set();
+      for(const o of filtered){
+        const bid = (o?.bundleId || '').trim();
+        if(!bid){
+          groups.push({ type:'single', order:o });
+        } else if(!pushed.has(bid)){
+          pushed.add(bid);
+          const g = sortByDateTime(map.get(bid));
+          if(g.length >= 2){
+            groups.push({ type:'bundle', summary: computeGroupSummary(g), children: g });
+          } else {
+            groups.push({ type:'single', order:g[0] });
+          }
+        }
+      }
+    } else {
+      filtered.forEach(o=> groups.push({ type:'single', order:o }));
+    }
+
+    function rowHtmlSingle(o){
+      const money = fmtMoney(o?.netTotal || o?.total || 0);
+      const staff = (o?.staff||'').trim() || '—';
+      const cust = (o?.customer||'').trim() || '—';
+      const status = (o?.status||'').trim() || '—';
+      const label = getAddressLabel(o);
+      const addr = (o?.address||'').trim() || '—';
+      const addrText = label ? ('【' + label + '】' + addr) : addr;
+      return (
+        '<tr class="report-row">' +
+          '<td>' + fmtDate(o) + '</td>' +
+          '<td>' + fmtTime(o) + '</td>' +
+          '<td>' + escapeHtml(staff) + '</td>' +
+          '<td>' + escapeHtml(cust) + '</td>' +
+          '<td>' + escapeHtml(addrText) + '</td>' +
+          '<td style="text-align:right;">' + money + '</td>' +
+          '<td>' + escapeHtml(status) + '</td>' +
+          '<td>—</td>' +
+        '</tr>'
+      );
+    }
+
+    function rowHtmlBundle(summary, children){
+      const money = fmtMoney(summary?.netTotal || summary?.total || 0);
+      const staff = (summary?.staff||'').trim() || '—';
+      const cust = (summary?.customer||'').trim() || '—';
+      const status = (summary?.status||'').trim() || '—';
+
+      const labels = collectGroupLabels(children);
+      const labelStr = labels.length ? ('（' + labels.join('、') + '）') : '';
+      const addrSummary = (children.length + ' 地點') + labelStr;
+
+      const key = escapeHtml(summary?.bundleId || '');
+      const btn = '<button type="button" class="bundle-toggle-btn" data-bundle="' + key + '" aria-expanded="false">展開</button>';
+
+      return (
+        '<tr class="bundle-parent" data-bundle="' + key + '">' +
+          '<td>' + fmtDate(summary) + '</td>' +
+          '<td>' + fmtTime(summary) + '</td>' +
+          '<td>' + escapeHtml(staff) + '</td>' +
+          '<td>' + escapeHtml(cust) + '</td>' +
+          '<td>' + escapeHtml(addrSummary) + '</td>' +
+          '<td style="text-align:right;">' + money + '</td>' +
+          '<td>' + escapeHtml(status) + '</td>' +
+          '<td>' + btn + '</td>' +
+        '</tr>'
+      );
+    }
+
+    // NOTE: escapeHtml exists in app.core.js; fallback if not
+    function escapeHtml(s){
+      try{
+        if (typeof window.escapeHtml === 'function') return window.escapeHtml(String(s??''));
+      }catch(e){}
+      return String(s??'').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+    }
+
+    const htmlRows = [];
+    const bundleChildrenMap = new Map(); // bundleId -> children orders
+    for(const item of groups){
+      if(item.type==='single'){
+        htmlRows.push(rowHtmlSingle(item.order));
+      } else if(item.type==='bundle'){
+        const sum = item.summary;
+        htmlRows.push(rowHtmlBundle(sum, item.children));
+        bundleChildrenMap.set((sum?.bundleId||'').trim(), item.children);
+      }
+    }
+    tbody.innerHTML = htmlRows.join('');
+
+    // click to expand/collapse
+    tbody.onclick = function(ev){
+      const btn = ev.target?.closest?.('.bundle-toggle-btn');
+      if(!btn) return;
+      const bid = (btn.getAttribute('data-bundle') || '').trim();
+      if(!bid) return;
+
+      const _esc = (window.CSS && typeof CSS.escape==='function') ? CSS.escape(bid) : bid.replace(/[^a-zA-Z0-9_\-]/g, '\\$&');
+      const parent = tbody.querySelector('tr.bundle-parent[data-bundle="' + _esc + '"]');
+      if(!parent) return;
+
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      if(expanded){
+        // collapse: remove child rows
+        parent.classList.remove('is-expanded');
+        btn.setAttribute('aria-expanded','false');
+        btn.textContent = '展開';
+        let next = parent.nextElementSibling;
+        while(next && next.classList.contains('bundle-child') && next.getAttribute('data-parent') === bid){
+          const rm = next;
+          next = next.nextElementSibling;
+          rm.remove();
+        }
+        return;
+      }
+
+      // expand: insert child rows after parent
+      const children = bundleChildrenMap.get(bid) || [];
+      parent.classList.add('is-expanded');
+      btn.setAttribute('aria-expanded','true');
+      btn.textContent = '收起';
+
+      const frag = document.createDocumentFragment();
+      for(const o of children){
+        const money = fmtMoney(o?.netTotal || o?.total || 0);
+        const status = (o?.status||'').trim() || '—';
+        const label = getAddressLabel(o);
+        const addr = (o?.address||'').trim() || '—';
+        const addrText = label ? ('【' + label + '】' + addr) : addr;
+
+        const tr = document.createElement('tr');
+        tr.className = 'bundle-child';
+        tr.setAttribute('data-parent', bid);
+        tr.innerHTML =
+          '<td>' + fmtDate(o) + '</td>' +
+          '<td>' + fmtTime(o) + '</td>' +
+          '<td>' + escapeHtml((o?.staff||'').trim() || '—') + '</td>' +
+          '<td>' + escapeHtml((o?.customer||'').trim() || '—') + '</td>' +
+          '<td class="addr-cell">' + escapeHtml(addrText) + '</td>' +
+          '<td style="text-align:right;">' + money + '</td>' +
+          '<td>' + escapeHtml(status) + '</td>' +
+          '<td></td>';
+        frag.appendChild(tr);
+      }
+      parent.after(frag);
+    };
+  }
+
+  let didBind = false;
+
+  function bindOnce(){
+    if(didBind) return;
+    const monthSel = document.getElementById('reportDetailMonth');
+    const yearSelDetail = document.getElementById('reportDetailYear');
+    const yearSelGlobal = document.getElementById('yearStatSelect');
+    if(!monthSel) return;
+
+    // 月份選擇：標記使用者已手動選擇，避免自動覆蓋
+    if(!monthSel.dataset.boundDetailMonth){
+      monthSel.addEventListener('change', function(){
+        monthSel.dataset.userChanged = '1';
+        renderTable();
+      });
+      monthSel.dataset.boundDetailMonth = '1';
+    }
+
+    // 明細區塊內「年份」選擇：同步到 yearStatSelect（讓上方年度統計/圖表也跟著切換）
+    if(yearSelDetail && !yearSelDetail.dataset.boundDetailYear){
+      yearSelDetail.addEventListener('change', function(){
+        try{
+          if(yearSelGlobal && yearSelGlobal.value !== yearSelDetail.value){
+            yearSelGlobal.value = yearSelDetail.value;
+            yearSelGlobal.dispatchEvent(new Event('change', { bubbles:true }));
+          }
+        }catch(e){}
+        // 年份變更後，若使用者尚未手動選月，改以本月/最新月份為預設
+        if(monthSel) monthSel.dataset.userChanged = '';
+        renderMonthSelect(getRawOrders());
+        autoDefaultMonthIfNeeded();
+        renderTable();
+      });
+      yearSelDetail.dataset.boundDetailYear = '1';
+    }
+
+    // 全域年份（yearStatSelect）變更時，同步到明細年份，並重建月份清單/表格
+    if(yearSelGlobal && !yearSelGlobal.dataset.boundDetailYearMirror){
+      yearSelGlobal.addEventListener('change', function(){
+        try{
+          if(yearSelDetail && yearSelDetail.value !== yearSelGlobal.value){
+            // 先同步選單內容（refreshYearStatSelect 可能剛刷新 options）
+            syncDetailYearOptions();
+            yearSelDetail.value = yearSelGlobal.value;
+          }
+        }catch(e){}
+        if(monthSel) monthSel.dataset.userChanged = '';
+        renderMonthSelect(getRawOrders());
+        autoDefaultMonthIfNeeded();
+        renderTable();
+      });
+      yearSelGlobal.dataset.boundDetailYearMirror = '1';
+    }
+
+    const mergeEl = document.getElementById('mergeBundleReport');
+    if(mergeEl && mergeEl.dataset.boundDetailMerge !== '1'){
+      mergeEl.addEventListener('change', function(){
+        renderTable();
+      });
+      mergeEl.dataset.boundDetailMerge = '1';
+    }
+
+    // 訂單變更（新增/刪除/匯入）後刷新月份清單與表格
+    document.addEventListener('ordersUpdated', function(){
+      syncDetailYearOptions();
+      renderMonthSelect(getRawOrders());
+      autoDefaultMonthIfNeeded();
+      renderTable();
+    });
+
+    didBind = true;
+  }
+
+  function refresh(){
+    const tbody = document.querySelector('#tableReportOrders tbody');
+    const monthSel = document.getElementById('reportDetailMonth');
+    // 若 DOM 還沒 ready，就先不做
+    if(!tbody || !monthSel) return;
+    syncDetailYearOptions();
+    renderMonthSelect(getRawOrders());
+    autoDefaultMonthIfNeeded();
+    renderTable();
+  }
+
+  // 對外：由「切換到報表分頁」時呼叫（避免一進站就渲染大量明細）
+  window.initReportOrderDetail = function initReportOrderDetail(){
+    try{ bindOnce(); refresh(); }catch(e){}
+  };
 })();

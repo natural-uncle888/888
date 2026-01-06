@@ -11,13 +11,12 @@ acFloorAbove: (document.querySelector('input[type="checkbox"][data-name="acFloor
     washerFloorAbove: (document.querySelector('input[type="checkbox"][data-name="washerFloor"][value="5F以上"]:checked') ? ($('washerFloorAbove')?.value||'').trim() : ''),
 durationMinutes: +$('durationMinutes').value,
         id: $('id').value || crypto.randomUUID(),
-        bundleId: ($('bundleId') ? $('bundleId').value : '') || '',
         staff:$('staff').value, date:$('date').value, time:$('time').value,
         confirmed:$('confirmed')?.checked||false, quotationOk:$('quotationOk')?.checked||false,
         customer:$('customer').value.trim(), lineIds:getLineIds(),
         lineId:(getLineIds()[0] || $('lineId').value.trim()),
         phone:getPhones().trim(),
-        slots:getChecked('slot'), slotNote:$('slotNote')?.value.trim()||'', addressId:(($('addressSelect')?.value||'')!=='_CUSTOM_'? ($('addressSelect')?.value||'') : ''), address:$('address').value.trim(),
+        slots:getChecked('slot'), slotNote:$('slotNote')?.value.trim()||'', address:$('address').value.trim(),
         residenceType:$('residenceType')?.value||'', residenceOther:$('residenceOther')?.value.trim()||'',
         contactTimes:getChecked('contactTime'), contactTimeNote:$('contactTimeNote')?.value.trim()||'',
         acFloors:getChecked('acFloor'), washerFloors:getChecked('washerFloor'),
@@ -27,7 +26,7 @@ durationMinutes: +$('durationMinutes').value,
         transformerCount:+$('transformerCount').value||0, longSplitCount:+$('longSplitCount').value||0, onePieceTray:+$('onePieceTray').value||0,
         note:$('note').value.trim(),
         acBrands: getChecked('acBrand'),
-        acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, netTotal:+$('netTotal').value||0,
+        acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, travelFee:+$('travelFee').value||0, discount:+$('discount').value||0, netTotal:+$('netTotal').value||0,
         createdAt:$('id').value ? undefined : new Date().toISOString()
       };
     }
@@ -40,10 +39,7 @@ durationMinutes: +$('durationMinutes').value,
       $('date').value=o.date||''; $('time').value=o.time||'';
       $('confirmed').checked=!!o.confirmed; $('quotationOk').checked=!!o.quotationOk;
       $('customer').value=o.customer||''; $('lineId').value=o.lineId||''; renderPhonesFromString(o.phone||'');
-      setChecked('slot', o.slots||[]); $('slotNote').value=o.slotNote||''; $('slotNote').classList.toggle('hidden', !((o.slots||[]).includes('日期指定') || (o.slots||[]).includes('時間指定')));
-      $('address').value=o.address||'';
-      try{ if(typeof populateAddressSelectFromCurrentCustomer==='function') populateAddressSelectFromCurrentCustomer(); }catch(e){}
-      try{ const sel=$('addressSelect'); if(sel){ sel.value = (o.addressId ? o.addressId : '_CUSTOM_'); } }catch(e){};
+      setChecked('slot', o.slots||[]); $('slotNote').value=o.slotNote||''; $('slotNote').classList.toggle('hidden', !((o.slots||[]).includes('日期指定') || (o.slots||[]).includes('時間指定'))); $('address').value=o.address||'';
       $('residenceType').value=o.residenceType||''; $('residenceOther').value=o.residenceOther||''; $('residenceOther').classList.toggle('hidden', (o.residenceType||'')!=='其他');
       setChecked('contactTime', o.contactTimes||[]); $('contactTimeNote').value=o.contactTimeNote||''; $('contactTimeNote').classList.toggle('hidden', !(o.contactTimes||[]).includes('時間指定'));
       setChecked('acFloor', o.acFloors||[]); setChecked('washerFloor', o.washerFloors||[]);
@@ -65,10 +61,10 @@ durationMinutes: +$('durationMinutes').value,
       setFormLock(!!o.locked);
       document.getElementById('durationMinutes').value = (o.durationMinutes ?? '');
     }
-    function recalcTotals(){ const total=calcTotal(gatherForm()); $('total').value=total; const extra=Math.max(0,+$('extraCharge').value||0); const discount=Math.max(0,+$('discount').value||0); $('netTotal').value=Math.max(0,total+extra-discount); }
+    function recalcTotals(){ const base=calcTotal(gatherForm()); const extra=Math.max(0,+$('extraCharge').value||0); const total=base+extra; $('total').value=total; const discount=Math.max(0,+$('discount').value||0); $('netTotal').value=Math.max(0,total-discount); }
 
     function setFormLock(lock){
-      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','recalc'];
+      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','travelFee','discount','recalc'];
       ids.forEach(id=>{ const el=$(id); if(el){ el.disabled = !!lock; el.readOnly = !!lock; }});
       $('toggleLock').textContent = lock ? '解除鎖定（允許修改）' : '解鎖金額編輯';
       $('lockInfo').textContent = lock ? '金額已鎖定（完成）' : '';

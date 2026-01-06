@@ -976,10 +976,6 @@ label.pill:focus-within {
 .confirm-modal[aria-hidden="true"] { display: none; }
 .confirm-panel { background: #fff; padding: 18px; border-radius: 12px; max-width: 560px; width: calc(100% - 40px); box-shadow: 0 8px 36px rgba(0,0,0,0.25); }
 .confirm-panel h3 { margin:0 0 8px 0; font-size:18px; }
-.confirm-panel.danger { border-top: 4px solid #c0392b; }
-.confirm-panel.danger h3 { color: #c0392b; }
-.confirm-panel.danger .confirm-message { color: #8e251c; }
-
 .confirm-message { margin:8px 0 16px 0; color:#333; line-height:1.4; }
 .confirm-actions { display:flex; justify-content:flex-end; gap:8px; }
 .btn-danger { background:#e74c3c; color:#fff; border: none; padding:8px 12px; border-radius:8px; cursor:pointer; }
@@ -2218,25 +2214,4 @@ label.pill:focus-within {
   display: block;
   object-fit: contain;
   border-radius: 999px;
-}
-
-
-/* 報表明細：bundle 折疊展開 */
-#tableReportOrders .bundle-toggle-btn{
-  padding: 4px 8px;
-  font-size: 12px;
-  line-height: 1.2;
-}
-#tableReportOrders tr.bundle-parent.is-expanded .bundle-toggle-btn{
-  font-weight: 600;
-}
-#tableReportOrders tr.bundle-child td{
-  font-size: 13px;
-}
-#tableReportOrders tr.bundle-child td.addr-cell{
-  padding-left: 18px;
-}
-#tableReportOrders tr.bundle-child td.addr-cell::before{
-  content: "↳ ";
-  opacity: 0.7;
 }

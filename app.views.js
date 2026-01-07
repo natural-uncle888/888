@@ -756,8 +756,24 @@ $('importJson').addEventListener('click', importJSON);
         // focus newest input
         const inputs = container.querySelectorAll('input.lineid-input');
         if(inputs.length) inputs[inputs.length-1].focus();
-      });// Autofill from contacts when name/phone entered
-      $('customer').addEventListener('blur', ()=>{ const c = findContactByName($('customer').value); if(c){ if ($('phone').dataset.touched !== '1' && !getPhones()) getPhones() = c.phone||''; if(!$('address').value) $('address').value = c.address||''; if(!$('lineId').value) $('lineId').value = c.lineId||''; }
+      });
+
+      // Autofill from contacts when name entered
+      $('customer').addEventListener('blur', ()=>{
+        const c = findContactByName($('customer').value);
+        if(!c) return;
+
+        // 若電話尚未被使用者手動編輯，且目前沒有任何電話，才自動帶入
+        try {
+          const phoneEl = (typeof getFirstPhoneEl === 'function') ? getFirstPhoneEl() : null;
+          const canAutofillPhone = (!getPhones()) && (!phoneEl || phoneEl.dataset.touched !== '1');
+          if (canAutofillPhone && typeof setFirstPhone === 'function') {
+            setFirstPhone(c.phone || '');
+          }
+        } catch(e){ /* ignore */ }
+
+        if(!$('address').value) $('address').value = c.address||'';
+        if(!$('lineId').value) $('lineId').value = c.lineId||'';
       });
       // ---- phone touched guard (so user can keep it empty) ----
 function getFirstPhoneEl() {
@@ -914,4 +930,27 @@ function showLayoutSavedMessage(){
   toast._hideTimer = setTimeout(()=>{
     toast.classList.remove('is-visible');
   }, 2000);
+}
+
+// ------------------------------------------------------------
+// Public init (safe minimal)
+// ------------------------------------------------------------
+// 只初始化「不會造成重複提交/重複儲存」的 UI 綁定（Tabs、Header 佈局、提醒中心篩選）。
+function initViews(){
+  try { if (typeof initViewTabs === 'function') initViewTabs(); } catch(e){}
+  try { if (typeof initHeaderLayoutEditor === 'function') initHeaderLayoutEditor(); } catch(e){}
+  try { if (typeof initReminderFilters === 'function') initReminderFilters(); } catch(e){}
+}
+
+// ------------------------------------------------------------
+// Auto init
+// ------------------------------------------------------------
+// app.views.js 主要負責 Header/Tabs/提醒中心等 UI 事件綁定。
+// 若沒有被其他檔案主動呼叫 initViews()，Header 的「新增花費」等按鈕會無反應。
+// 這裡加一個保險：在 DOM ready 後自動初始化，且避免重複綁定。
+if (!window.__yl_views_inited_v1){
+  window.__yl_views_inited_v1 = true;
+  document.addEventListener('DOMContentLoaded', ()=>{
+    if (typeof initViews === 'function') initViews();
+  });
 }

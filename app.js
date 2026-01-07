@@ -3070,6 +3070,73 @@ document.addEventListener('DOMContentLoaded', ()=> {
   try { transformCustomerCells(); } catch(e){ /* ignore */ }
 });
 
+// ------------------------------------------------------------
+// Header: 新增花費（避免 app.views.js 未初始化或出錯時按鈕無反應）
+// ------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', ()=>{
+  const btn = document.getElementById('newExpenseBtn');
+  if (!btn) return;
+  // 防止重複綁定
+  if (btn.dataset && btn.dataset.boundExpenseBtn === '1') return;
+  if (btn.dataset) btn.dataset.boundExpenseBtn = '1';
+
+  btn.addEventListener('click', ()=>{
+    // 1) 重置花費表單
+    try { if (typeof fillExpForm === 'function') fillExpForm({}); } catch(e){}
+
+    // 2) 切換到「花費」頁籤（若有 view 系統）
+    try {
+      if (typeof setActiveView === 'function') {
+        setActiveView('expense');
+      } else {
+        // fallback：至少把 expensePanel 顯示出來
+        const expensePanel = document.getElementById('expensePanel');
+        const mainMode = document.getElementById('mainMode');
+        const reportPanel = document.getElementById('reportPanel');
+        const customerPanel = document.getElementById('customerPanel');
+        const reminderPanel = document.getElementById('reminderCenterSection');
+        const settingsPanel = document.getElementById('settingsPanel');
+        [mainMode, reportPanel, customerPanel, reminderPanel, settingsPanel].forEach(el=>{ if(el) el.style.display='none'; });
+        if (expensePanel) expensePanel.style.display = '';
+      }
+    } catch(e){}
+
+    // 3) 捲動到花費表單
+    const target = document.getElementById('expenseForm') || document.getElementById('expensePanel');
+    if (target && target.scrollIntoView) {
+      try { target.scrollIntoView({behavior:'smooth', block:'start'}); } catch(e){ target.scrollIntoView(); }
+    }
+  });
+});
+
+
+
+// ------------------------------------------------------------
+// Header: 新增訂單（避免 app.views.js 未初始化或出錯時按鈕無反應）
+// ------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', ()=>{
+  const btn = document.getElementById('newBtn');
+  if (!btn) return;
+  // 防止重複綁定
+  if (btn.dataset && btn.dataset.boundNewOrderBtn === '1') return;
+  if (btn.dataset) btn.dataset.boundNewOrderBtn = '1';
+
+  btn.addEventListener('click', ()=>{
+    // 1) 切換到主畫面（訂單）
+    try { if (typeof setActiveView === 'function') setActiveView('main'); } catch(e){}
+
+    // 2) 重置訂單表單（fillForm 內會自動展開並捲動到表單）
+    try { if (typeof fillForm === 'function') fillForm({}); } catch(e){}
+
+    // 3) 保險：若 fillForm 沒捲動成功，至少捲到表單
+    try {
+      const target = document.getElementById('orderForm') || document.getElementById('orderAccordion');
+      if (target && target.scrollIntoView){
+        try { target.scrollIntoView({behavior:'smooth', block:'start'}); } catch(e){ target.scrollIntoView(); }
+      }
+    } catch(e){}
+  });
+});
 
 /* Layout editor JS for order form - allows width (span) and position edits */
 (function(){

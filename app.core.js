@@ -106,9 +106,9 @@ function hasAnyPhone(){
     const today = new Date();
     const pad2 = n => n.toString().padStart(2,'0');
     const SLOT_OPTS = ['平日','假日','上午','下午','皆可','日期指定'];
-    const BRAND_OPTS = ['HITACHI 日立','Panasonic 國際牌','DAIKIN 大金','MITSUBISHI 三菱','FUJITSU 富士通','國產貼牌','陸製品牌','其他'];
+    const BRAND_OPTS = ['HITACHI 日立','Panasonic 國際牌','DAIKIN 大金','MITSUBISHI 三菱','FUJITSU 富士通','LG','TECO 東元','SANLUX 三洋','SAMPO 聲寶','Heran 禾聯','Kolin 歌林','TATUNG 大同','其他'];
 
-    const CONTACT_TIME_OPTS = ['平日','假日','上午','下午','晚上','皆可','時間指定'];
+    const CONTACT_TIME_OPTS = ['平日白天','平日晚上','假日白天','假日晚上','時間皆可'];
     const FLOOR_OPTS = ['1F','2F','3F','4F','5F','5F以上','大樓（同樓層）','透天（同樓層）'];
     const STATUS_FLOW = ['排定','完成','未完成'];
 

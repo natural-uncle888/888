@@ -281,6 +281,7 @@
         })
         .reduce((s,o)=> s + (Number(o.travelFee) || 0), 0);
       const monthExpense = baseExpense + travelTotal;
+      const netProfit = net - monthExpense;
       const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='box';box.innerHTML=`<div class="small muted">${t}</div><div class="number">${v}</div>${h?`<div class="small muted">${h}</div>`:''}`;return box;};
       if(sumEl){
         // 關鍵指標：本月案件數 / 完成狀態 / 本月金額小計（折後）
@@ -288,6 +289,7 @@
         sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
         sumEl.appendChild(mk('本月金額小計', fmtCurrency(net)));
         sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense), travelTotal?`車資 ${fmtCurrency(travelTotal)}`:''));
+        sumEl.appendChild(mk('本月淨利', fmtCurrency(netProfit), '本月金額小計 − 本月花費'));
         if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
       }
     }

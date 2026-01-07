@@ -265,13 +265,29 @@
       const done = monthly.filter(o=>o.status==='完成').length;
       const pending = monthly.filter(o=>o.status!=='完成').length;
       const undatedCount = orders.filter(o=>!o.date).length;
-      const monthExpense = expenses.filter(e=>{ if(!e.date) return false; const d=new Date(e.date); return d.getFullYear()===y && (d.getMonth()+1)===m; }).reduce((a,b)=>a+(+b.amount||0),0);
+      // 本月花費：花費清單 + 訂單車資（車資不顯示在花費列表，但要納入花費統計）
+      const baseExpense = expenses
+        .filter(e=>{
+          if(!e.date) return false;
+          const d=new Date(e.date);
+          return d.getFullYear()===y && (d.getMonth()+1)===m;
+        })
+        .reduce((a,b)=>a+(+b.amount||0),0);
+      const travelTotal = orders
+        .filter(o=>{
+          if(!o || !o.date) return false;
+          const d=new Date(o.date);
+          return d.getFullYear()===y && (d.getMonth()+1)===m;
+        })
+        .reduce((s,o)=> s + (Number(o.travelFee) || 0), 0);
+      const monthExpense = baseExpense + travelTotal;
       const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='box';box.innerHTML=`<div class="small muted">${t}</div><div class="number">${v}</div>${h?`<div class="small muted">${h}</div>`:''}`;return box;};
       if(sumEl){
         // 關鍵指標：本月案件數 / 完成狀態 / 本月金額小計（折後）
         sumEl.appendChild(mk('本月案件數', count));
         sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
         sumEl.appendChild(mk('本月金額小計', fmtCurrency(net)));
+        sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense), travelTotal?`車資 ${fmtCurrency(travelTotal)}`:''));
         if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
       }
     }

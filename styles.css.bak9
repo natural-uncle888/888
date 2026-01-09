@@ -2504,7 +2504,3 @@ label.pill:focus-within {
 
 /* Override previous v7 rule to ensure address modal panel does NOT scroll */
 .modal--address .modal-panel{ overflow:visible !important; max-height:none !important; }
-
-
-/* Customer search highlight */
-mark.hl{ background:#ffeb3b; padding:0 0.2em; border-radius:3px; }

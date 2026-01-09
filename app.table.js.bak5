@@ -274,7 +274,7 @@ const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='b
         sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
         sumEl.appendChild(mk('本月金額小計', fmtCurrency(net)));
         sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense), transportTotal ? `車資 ${fmtCurrency(transportTotal)}` : '車資 0'));
-        sumEl.appendChild(mk('本月淨利', fmtCurrency(net - monthExpense), '本月金額小計 − 本月花費'));
+        sumEl.appendChild(mk('本月淨利', fmtCurrency(net - monthExpense)));
         if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
       }
     }

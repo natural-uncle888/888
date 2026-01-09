@@ -41,8 +41,7 @@ function refreshDueSoonPanel(){
     if(!name || seen.has(name)) return;
     seen.add(name);
     const flags = reminderFlagsForCustomer(name);
-    // 只顯示「尚未通知」：已通知或已隱藏(靜音)者不顯示
-    if(flags.muted || flags.notified) return;
+    if(flags.muted) return;
     const nd = nextDueDateForCustomer(name);
     if(!nd) return;
     const days = Math.floor((nd - today)/dayMs);

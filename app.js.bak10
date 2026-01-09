@@ -2832,8 +2832,6 @@ function renderHistoryModal(customerKey, titleText) {
       if (!id) return;
       const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === id) || null) : null;
       if (ord) {
-        // 切回主畫面並帶入該訂單
-        try { if (typeof setActiveView === 'function') setActiveView('main'); } catch(e){}
         if (typeof fillForm === 'function') fillForm(ord);
         // close modal
         modal.setAttribute('aria-hidden','true');

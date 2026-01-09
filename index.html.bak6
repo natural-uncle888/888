@@ -812,9 +812,9 @@
 })();
 </script>
 
-<div aria-hidden="true" class="modal modal--address" id="addressModal">
+<div aria-hidden="true" class="modal" id="addressModal">
   <div class="modal-backdrop" data-close="true"></div>
-  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="addressModalTitle" style="max-width:900px;">
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="addressModalTitle" style="max-width:900px; max-height:80vh; overflow:auto;">
     <header class="modal-header">
       <h3 id="addressModalTitle">客戶地址管理</h3>
       <button aria-label="關閉" class="btn-small" id="addressModalCloseBtn">✕</button>

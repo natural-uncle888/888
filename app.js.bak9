@@ -2574,30 +2574,6 @@ function refreshCustomerView(){
 
   const allRows = getCustomerGroupsSnapshot();
   const q = (searchEl && searchEl.value ? searchEl.value : '').trim().toLowerCase();
-  const tokens = q ? q.split(/\s+/).filter(Boolean).slice(0, 6) : [];
-
-  function escapeRegExp(s){
-    return (s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  function highlightHtml(text){
-    const s = (text ?? '').toString();
-    if (!tokens.length) return escapeHtml(s);
-    const re = new RegExp('(' + tokens.map(escapeRegExp).join('|') + ')', 'gi');
-    let out = '';
-    let last = 0;
-    let mm;
-    while((mm = re.exec(s))){
-      out += escapeHtml(s.slice(last, mm.index));
-      out += '<mark class="hl">' + escapeHtml(mm[0]) + '</mark>';
-      last = re.lastIndex;
-      // safety: avoid infinite loop on zero-width
-      if (mm.index === re.lastIndex) re.lastIndex++;
-    }
-    out += escapeHtml(s.slice(last));
-    return out;
-  }
-
   const filtered = !q ? allRows : allRows.filter(row => {
     const name = (row.name || '').toLowerCase();
     const phone = (row.phone || '').toLowerCase();
@@ -2641,9 +2617,9 @@ function refreshCustomerView(){
     const addrCount = (c && Array.isArray(c.addresses)) ? (c.addresses.filter(a=>a && a.active!==false && (a.address||'').trim()).length) : ((row.address||'').trim()?1:0);
 
     tr.innerHTML = `
-      <td>${highlightHtml(row.name || '')}</td>
-      <td>${highlightHtml(row.phone || '')}</td>
-      <td>${highlightHtml(defaultAddr || '')}</td>
+      <td>${escapeHtml(row.name || '')}</td>
+      <td>${escapeHtml(row.phone || '')}</td>
+      <td>${escapeHtml(defaultAddr || '')}</td>
       <td class="right-align">${addrCount}</td>
       <td><button type="button" class="btn btn-secondary btn-small" data-act="manage-addr">管理</button></td>
       <td>${escapeHtml(dateText || '')}</td>
@@ -2832,8 +2808,6 @@ function renderHistoryModal(customerKey, titleText) {
       if (!id) return;
       const ord = (typeof orders !== 'undefined') ? (orders.find(x => (x.id||x._id||'') === id) || null) : null;
       if (ord) {
-        // 切回主畫面並帶入該訂單
-        try { if (typeof setActiveView === 'function') setActiveView('main'); } catch(e){}
         if (typeof fillForm === 'function') fillForm(ord);
         // close modal
         modal.setAttribute('aria-hidden','true');

@@ -20,17 +20,7 @@
   const summaryEl = $('expenseSummary');
   if (summaryEl){
     if (!list.length){
-      const transportTotal = (orders || []).filter(o => {
-        if(!o.date) return false;
-        const d = new Date(o.date);
-        if (isNaN(d)) return false;
-        return d.getFullYear() === y && (d.getMonth() + 1) === m;
-      }).reduce((a,b)=> a + (Number(b.transportFee)||0), 0);
-      if (transportTotal){
-        summaryEl.textContent = `本月花費（僅車資）累計 ${fmtCurrency(transportTotal)}。`;
-      } else {
-        summaryEl.textContent = '本月尚未有任何花費。';
-      }
+      summaryEl.textContent = '本月尚未有任何花費。';
     } else {
       let total = 0;
       const byCat = {};
@@ -40,17 +30,6 @@
         const key = (e.category || '未分類').trim() || '未分類';
         byCat[key] = (byCat[key] || 0) + amt;
       });
-      // 訂單車資（作為花費的一部分）
-      const transportTotal = (orders || []).filter(o => {
-        if(!o.date) return false;
-        const d = new Date(o.date);
-        if (isNaN(d)) return false;
-        return d.getFullYear() === y && (d.getMonth() + 1) === m;
-      }).reduce((a,b)=> a + (Number(b.transportFee)||0), 0);
-      if (transportTotal){
-        total += transportTotal;
-        byCat['車資'] = (byCat['車資'] || 0) + transportTotal;
-      }
       const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
       const top = entries.slice(0,3)
         .map(([cat, amt]) => `${cat} ${fmtCurrency(amt)}`)

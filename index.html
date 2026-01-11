@@ -263,7 +263,22 @@
   <div class="item-group__body">
 <div class="row">
 <div class="col" style="grid-column:span 6"><label><b><span style="color:red;font-size:15px">直立式洗衣機</span></b></label><input id="washerTop" min="0" step="1" type="number" value="0"/></div>
-<div class="col" style="grid-column:span 6"><label>水塔</label><input id="waterTank" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6">
+  <label>水塔</label>
+  <input id="waterTank" min="0" step="1" type="number" value="0"/>
+  <div class="ladder-summary-row" style="margin-top:6px;">
+    <div id="waterTankLadderSummary" class="muted small">梯子：未設定</div>
+    <button type="button" class="btn-small" id="waterTankLadderBtn" title="設定水塔清洗梯子需求">設定梯子</button>
+  </div>
+
+  <!-- Hidden fields for water tank ladder requirement -->
+  <input id="waterTankLadderRequired" type="hidden" value="" />
+  <input id="waterTankLadderType" type="hidden" value="" />
+  <input id="waterTankLadderHeightRange" type="hidden" value="" />
+  <input id="waterTankLadderHeightFt" type="hidden" value="" />
+  <input id="waterTankLadderNotes" type="hidden" value="" />
+  <input id="waterTankLadderOnsiteFlags" type="hidden" value="" />
+</div>
 </div>
 
   </div>
@@ -775,6 +790,75 @@
     </footer>
   </div>
 </div>
+
+<!-- Water Tank Ladder Requirement Modal -->
+<div aria-hidden="true" class="modal" id="waterTankLadderModal">
+  <div class="modal-backdrop" data-close="true"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="waterTankLadderTitle" style="max-width:640px;">
+    <header class="modal-header">
+      <h3 id="waterTankLadderTitle">水塔清洗－梯子需求</h3>
+      <button aria-label="關閉" class="btn-small" id="waterTankLadderCloseBtn">✕</button>
+    </header>
+    <section class="modal-body">
+      <div class="row" style="row-gap:10px;">
+        <div class="col" style="grid-column:span 12;">
+          <label class="muted small" style="display:block; margin-bottom:6px;">是否需要攜帶梯子（必填）</label>
+          <div class="checkbox-group" style="display:flex; gap:12px; flex-wrap:wrap;">
+            <label class="pill"><input type="radio" name="wtLadderRequired" value="no" id="wtLadderReqNo"> <span>不需要</span></label>
+            <label class="pill"><input type="radio" name="wtLadderRequired" value="yes" id="wtLadderReqYes"> <span>需要</span></label>
+          </div>
+        </div>
+
+        <div class="col" style="grid-column:span 12;" id="wtLadderTypeWrap">
+          <label class="muted small" style="display:block; margin-bottom:6px;">梯子類型（需要時必填）</label>
+          <select id="wtLadderType" class="form-input">
+            <option value="">請選擇</option>
+            <option value="plastic">塑膠梯子</option>
+            <option value="5_8ft">5–8 尺梯子</option>
+            <option value="higher">更高的梯子（請選高度）</option>
+            <option value="climb">爬梯</option>
+          </select>
+        </div>
+
+        <div class="col" style="grid-column:span 12;" id="wtLadderHeightWrap">
+          <label class="muted small" style="display:block; margin-bottom:6px;">高度（更高的梯子必填）</label>
+          <div style="display:grid; grid-template-columns: 1fr 140px; gap:10px;">
+            <select id="wtLadderHeightRange" class="form-input">
+              <option value="">請選擇</option>
+              <option value="9_10">9–10 尺</option>
+              <option value="11_12">11–12 尺</option>
+              <option value="13_14">13–14 尺</option>
+              <option value="15_plus">15 尺以上（請填）</option>
+            </select>
+            <input id="wtLadderHeightFt" class="form-input" type="number" min="0" step="1" placeholder="尺數" />
+          </div>
+          <div class="muted small" style="margin-top:6px;">選「15 尺以上」時才需要填右側尺數。</div>
+        </div>
+
+        <div class="col" style="grid-column:span 12;">
+          <label class="muted small" style="display:block; margin-bottom:6px;">現場資訊（多選）</label>
+          <div class="checkbox-group" style="display:flex; gap:12px; flex-wrap:wrap;">
+            <label class="pill"><input type="checkbox" id="wtOnsiteHorizontal" value="horizontal"> <span>橫式擺放</span></label>
+            <label class="pill"><input type="checkbox" id="wtOnsiteVertical" value="vertical"> <span>立式擺放</span></label>
+            <label class="pill"><input type="checkbox" id="wtOnsiteFixedLadder" value="fixed_ladder"> <span>有固定梯可到水塔</span></label>
+            <label class="pill"><input type="checkbox" id="wtOnsiteNarrow" value="narrow_entry"> <span>頂樓入口狹窄/樓梯陡</span></label>
+            <label class="pill"><input type="checkbox" id="wtOnsiteTwoPerson" value="two_person"> <span>需要兩人作業</span></label>
+          </div>
+        </div>
+
+        <div class="col" style="grid-column:span 12;">
+          <label class="muted small" style="display:block; margin-bottom:6px;">備註（選填）</label>
+          <textarea id="wtLadderNotes" placeholder="例：現場有固定梯可用、入口狹窄、需要兩人作業…" style="min-height:90px;"></textarea>
+        </div>
+      </div>
+    </section>
+    <footer class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px;">
+      <button class="btn ghost" id="waterTankLadderCancelBtn" type="button">取消</button>
+      <button class="btn primary" id="waterTankLadderSaveBtn" type="button">儲存</button>
+    </footer>
+  </div>
+</div>
+
 <div aria-hidden="true" class="modal" id="historyModal">
 <div class="modal-backdrop" data-close="true"></div>
 <div class="modal-panel">

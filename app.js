@@ -453,6 +453,272 @@ function showAlert(title, message, okLabel = '確定') {
 // --- end modal helpers ---
 
 
+// --- Water tank ladder requirement modal ---
+(function(){
+  function $id(id){ return document.getElementById(id); }
+
+  function formatWaterTankLadderSummaryFromFields(){
+    const count = Number($id('waterTank')?.value || 0);
+    const req = ($id('waterTankLadderRequired')?.value || '').trim();
+    const type = ($id('waterTankLadderType')?.value || '').trim();
+    const range = ($id('waterTankLadderHeightRange')?.value || '').trim();
+    const ft = ($id('waterTankLadderHeightFt')?.value || '').trim();
+    const onsite = ($id('waterTankLadderOnsiteFlags')?.value || '').trim();
+    const notes = (($id('waterTankLadderNotes')?.value || '') + '').replace(/\s+/g,' ').trim();
+
+    function onsiteLabelsFromFlags(flagsStr){
+      const flags = (flagsStr ? flagsStr.split(',').map(s => s.trim()).filter(Boolean) : []);
+      const map = {
+        horizontal: '橫式擺放',
+        vertical: '立式擺放',
+        fixed_ladder: '有固定梯可到水塔',
+        narrow_entry: '頂樓入口狹窄/樓梯陡',
+        two_person: '需要兩人作業'
+      };
+      return flags.map(f => map[f]).filter(Boolean);
+    }
+
+    const onsiteLabels = onsiteLabelsFromFlags(onsite);
+
+    function joinParts(base){
+      const parts = [base];
+      if (onsiteLabels.length) parts.push('現場：' + onsiteLabels.join('、'));
+      if (notes) parts.push('備註：' + notes);
+      return parts.join('；');
+    }
+
+    if (!count || count <= 0) return joinParts('梯子：未設定');
+    if (!req) return joinParts('梯子：未設定');
+    if (req === 'no') return joinParts('梯子：不需要');
+
+    const typeLabel = (function(){
+      if (type === 'plastic') return '塑膠梯子';
+      if (type === '5_8ft') return '5–8尺';
+      if (type === 'climb') return '爬梯';
+      if (type === 'higher'){
+        let h = '';
+        if (range === '9_10') h = '9–10尺';
+        else if (range === '11_12') h = '11–12尺';
+        else if (range === '13_14') h = '13–14尺';
+        else if (range === '15_plus') h = (ft ? (ft + '尺') : '15尺以上');
+        else h = '更高';
+        return '更高（' + h + '）';
+      }
+      return '需要（未選類型）';
+    })();
+
+    return joinParts('梯子：需要 / ' + typeLabel);
+  }
+
+  window.updateWaterTankLadderSummary = function(){
+    const summaryEl = $id('waterTankLadderSummary');
+    const btn = $id('waterTankLadderBtn');
+    if (!summaryEl) return;
+    summaryEl.textContent = formatWaterTankLadderSummaryFromFields();
+    const count = Number($id('waterTank')?.value || 0);
+    if (btn) btn.disabled = !(count > 0);
+  };
+
+  function clearWaterTankLadderFields(){
+    if ($id('waterTankLadderRequired')) $id('waterTankLadderRequired').value = '';
+    if ($id('waterTankLadderType')) $id('waterTankLadderType').value = '';
+    if ($id('waterTankLadderHeightRange')) $id('waterTankLadderHeightRange').value = '';
+    if ($id('waterTankLadderHeightFt')) $id('waterTankLadderHeightFt').value = '';
+    if ($id('waterTankLadderNotes')) $id('waterTankLadderNotes').value = '';
+    if ($id('waterTankLadderOnsiteFlags')) $id('waterTankLadderOnsiteFlags').value = '';
+  }
+
+  function init(){
+    const modal = $id('waterTankLadderModal');
+    const openBtn = $id('waterTankLadderBtn');
+    if (!modal || !openBtn) return;
+
+    const backdrop = modal.querySelector('.modal-backdrop');
+    const closeBtn = $id('waterTankLadderCloseBtn');
+    const cancelBtn = $id('waterTankLadderCancelBtn');
+    const saveBtn = $id('waterTankLadderSaveBtn');
+
+    const reqNo = $id('wtLadderReqNo');
+    const reqYes = $id('wtLadderReqYes');
+    const typeSel = $id('wtLadderType');
+    const typeWrap = $id('wtLadderTypeWrap');
+    const heightWrap = $id('wtLadderHeightWrap');
+    const heightRange = $id('wtLadderHeightRange');
+    const heightFt = $id('wtLadderHeightFt');
+    const notes = $id('wtLadderNotes');
+    // onsite flags (multi-select)
+    const onsiteHorizontal = $id('wtOnsiteHorizontal');
+    const onsiteVertical = $id('wtOnsiteVertical');
+    const onsiteFixedLadder = $id('wtOnsiteFixedLadder');
+    const onsiteNarrow = $id('wtOnsiteNarrow');
+    const onsiteTwoPerson = $id('wtOnsiteTwoPerson');
+
+    function getOnsiteFlagsFromUI(){
+      const flags = [];
+      if (onsiteHorizontal?.checked) flags.push('horizontal');
+      if (onsiteVertical?.checked) flags.push('vertical');
+      if (onsiteFixedLadder?.checked) flags.push('fixed_ladder');
+      if (onsiteNarrow?.checked) flags.push('narrow_entry');
+      if (onsiteTwoPerson?.checked) flags.push('two_person');
+      return flags;
+    }
+
+    function setOnsiteFlagsToUI(flags){
+      const set = new Set((flags || []).filter(Boolean));
+      if (onsiteHorizontal) onsiteHorizontal.checked = set.has('horizontal');
+      if (onsiteVertical) onsiteVertical.checked = set.has('vertical');
+      if (onsiteFixedLadder) onsiteFixedLadder.checked = set.has('fixed_ladder');
+      if (onsiteNarrow) onsiteNarrow.checked = set.has('narrow_entry');
+      if (onsiteTwoPerson) onsiteTwoPerson.checked = set.has('two_person');
+    }
+
+    function setVisible(el, visible){ if(!el) return; el.style.display = visible ? '' : 'none'; }
+
+    function syncVisibility(){
+      const required = reqYes?.checked;
+      setVisible(typeWrap, !!required);
+      const isHigher = required && (typeSel?.value === 'higher');
+      setVisible(heightWrap, !!isHigher);
+      const needsFt = isHigher && (heightRange?.value === '15_plus');
+      if (heightFt) heightFt.disabled = !needsFt;
+      if (heightFt && !needsFt) heightFt.value = '';
+    }
+
+    function open(){
+      // populate from hidden fields
+      const req = ($id('waterTankLadderRequired')?.value || '').trim();
+      const type = ($id('waterTankLadderType')?.value || '').trim();
+      const range = ($id('waterTankLadderHeightRange')?.value || '').trim();
+      const ft = ($id('waterTankLadderHeightFt')?.value || '').trim();
+      const n = ($id('waterTankLadderNotes')?.value || '').trim();
+      const f = ($id('waterTankLadderOnsiteFlags')?.value || '').trim();
+
+      if (req === 'yes') { if (reqYes) reqYes.checked = true; }
+      else if (req === 'no') { if (reqNo) reqNo.checked = true; }
+      else { if (reqNo) reqNo.checked = false; if (reqYes) reqYes.checked = false; }
+
+      if (typeSel) typeSel.value = type || '';
+      if (heightRange) heightRange.value = range || '';
+      if (heightFt) heightFt.value = ft || '';
+      if (notes) notes.value = n || '';
+
+      // onsite flags
+      const flags = f ? f.split(',').map(s => s.trim()).filter(Boolean) : [];
+      setOnsiteFlagsToUI(flags);
+
+      syncVisibility();
+      modal.setAttribute('aria-hidden','false');
+    }
+
+    function close(){
+      modal.setAttribute('aria-hidden','true');
+    }
+
+    function save(){
+      const required = reqYes?.checked ? 'yes' : (reqNo?.checked ? 'no' : '');
+      if (!required){
+        if (typeof showAlert === 'function') { showAlert('請完成填寫', '請選擇「是否需要攜帶梯子」。'); }
+        else { alert('請選擇是否需要攜帶梯子'); }
+        return;
+      }
+      if (required === 'no'){
+        clearWaterTankLadderFields();
+        if ($id('waterTankLadderRequired')) $id('waterTankLadderRequired').value = 'no';
+        // notes still allowed even when not required
+        if ($id('waterTankLadderNotes')) $id('waterTankLadderNotes').value = (notes?.value||'').trim();
+        if ($id('waterTankLadderOnsiteFlags')) $id('waterTankLadderOnsiteFlags').value = getOnsiteFlagsFromUI().join(',');
+        window.updateWaterTankLadderSummary?.();
+        close();
+        return;
+      }
+
+      const type = (typeSel?.value || '').trim();
+      if (!type){
+        if (typeof showAlert === 'function') { showAlert('請完成填寫', '需要攜帶梯子時，請選擇梯子類型。'); }
+        else { alert('請選擇梯子類型'); }
+        return;
+      }
+
+      let range = (heightRange?.value || '').trim();
+      let ft = (heightFt?.value || '').trim();
+      if (type === 'higher'){
+        if (!range){
+          if (typeof showAlert === 'function') { showAlert('請完成填寫', '選擇「更高的梯子」時，請選擇高度區間。'); }
+          else { alert('請選擇高度區間'); }
+          return;
+        }
+        if (range === '15_plus'){
+          const n = Number(ft);
+          if (!Number.isFinite(n) || n < 15){
+            if (typeof showAlert === 'function') { showAlert('請完成填寫', '「15 尺以上」請填入合理尺數（例如 15、16…）。'); }
+            else { alert('15尺以上請填入合理尺數'); }
+            return;
+          }
+          ft = String(Math.round(n));
+        } else {
+          ft = '';
+        }
+      } else {
+        range = '';
+        ft = '';
+      }
+
+      if ($id('waterTankLadderRequired')) $id('waterTankLadderRequired').value = 'yes';
+      if ($id('waterTankLadderType')) $id('waterTankLadderType').value = type;
+      if ($id('waterTankLadderHeightRange')) $id('waterTankLadderHeightRange').value = range;
+      if ($id('waterTankLadderHeightFt')) $id('waterTankLadderHeightFt').value = ft;
+      if ($id('waterTankLadderNotes')) $id('waterTankLadderNotes').value = (notes?.value||'').trim();
+      if ($id('waterTankLadderOnsiteFlags')) $id('waterTankLadderOnsiteFlags').value = getOnsiteFlagsFromUI().join(',');
+
+      window.updateWaterTankLadderSummary?.();
+      close();
+    }
+
+    // open triggers
+    openBtn.addEventListener('click', () => {
+      const count = Number($id('waterTank')?.value || 0);
+      if (!(count > 0)){
+        if (typeof showAlert === 'function') { showAlert('提示', '請先設定水塔數量（大於 0）後再設定梯子需求。'); }
+        else { alert('請先設定水塔數量（大於 0）'); }
+        return;
+      }
+      open();
+    });
+
+    // close triggers
+    if (backdrop) backdrop.addEventListener('click', close);
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    if (cancelBtn) cancelBtn.addEventListener('click', close);
+    if (saveBtn) saveBtn.addEventListener('click', save);
+
+    // field listeners
+    if (reqNo) reqNo.addEventListener('change', syncVisibility);
+    if (reqYes) reqYes.addEventListener('change', syncVisibility);
+    if (typeSel) typeSel.addEventListener('change', syncVisibility);
+    if (heightRange) heightRange.addEventListener('change', syncVisibility);
+
+    // keep fields consistent with waterTank count
+    const tankInput = $id('waterTank');
+    if (tankInput){
+      tankInput.addEventListener('input', () => {
+        const v = Number(tankInput.value || 0);
+        if (!v || v <= 0){
+          clearWaterTankLadderFields();
+        }
+        window.updateWaterTankLadderSummary?.();
+      });
+    }
+
+    // initial state
+    window.updateWaterTankLadderSummary?.();
+    syncVisibility();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+// --- end water tank ladder modal ---
+
+
 
 // （已改為由操作列的第一顆按鈕提供📅上傳功能）
 // ---- concatenated from inline <script> blocks ----

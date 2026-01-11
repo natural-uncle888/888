@@ -2508,3 +2508,126 @@ label.pill:focus-within {
 
 /* Customer search highlight */
 mark.hl{ background:#ffeb3b; padding:0 0.2em; border-radius:3px; }
+
+/* === Water tank ladder modal + summary row (added by assistant) === */
+.ladder-summary-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.ladder-summary-row .btn-small{
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:600;
+}
+
+#waterTankLadderModal .modal-panel{
+  border-radius:14px;
+  padding:14px;
+}
+#waterTankLadderModal .modal-header{
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(0,0,0,0.06);
+}
+#waterTankLadderModal .modal-header h3{
+  margin:0;
+  font-size:18px;
+  letter-spacing:0.2px;
+}
+#waterTankLadderModal .modal-body{
+  padding-top:12px;
+}
+#waterTankLadderModal .modal-body .row{
+  row-gap:14px !important;
+}
+#waterTankLadderModal .modal-body .col{
+  background: rgba(0,0,0,0.02);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius:12px;
+  padding:12px;
+}
+#waterTankLadderModal .modal-body label.muted.small{
+  font-size:13px;
+  font-weight:700;
+  color: rgba(17,24,39,0.78);
+  letter-spacing:0.2px;
+}
+#waterTankLadderModal select.form-input,
+#waterTankLadderModal input.form-input,
+#waterTankLadderModal textarea{
+  background:#fff;
+  border-radius:10px;
+}
+#waterTankLadderModal textarea{
+  border:1px solid var(--border);
+  padding:10px 12px;
+}
+#waterTankLadderModal .modal-footer{
+  padding-top:10px;
+  border-top:1px solid rgba(0,0,0,0.06);
+  margin-top:10px;
+}
+
+/* Water tank ladder modal: footer action buttons */
+#waterTankLadderModal .modal-footer .btn{
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid rgba(148,163,184,0.85);
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.15);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease, border-color 0.15s ease;
+}
+
+#waterTankLadderModal .modal-footer .btn:hover{
+  box-shadow: 0 4px 10px rgba(15,23,42,0.22);
+  transform: translateY(-1px);
+}
+
+#waterTankLadderModal .modal-footer .btn:active{
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(15,23,42,0.18);
+}
+
+#waterTankLadderModal .modal-footer .btn.ghost{
+  background: rgba(255,255,255,0.75);
+  color: rgba(17,24,39,0.82);
+}
+
+#waterTankLadderModal .modal-footer .btn.ghost:hover{
+  background: rgba(255,255,255,0.95);
+}
+
+#waterTankLadderModal .modal-footer .btn.primary{
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+#waterTankLadderModal .modal-footer .btn.primary:hover{
+  background: #1e40af;
+  border-color: #1e40af;
+}
+
+/* Make pill styles work for radio as well as checkbox */
+label.pill input[type="radio"]{
+  position: absolute !important;
+  left: 8px;
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+label.pill input[type="radio"]:checked + span{
+  background: rgba(11,102,255,0.10);
+  border-color: rgba(11,102,255,0.35);
+  color: var(--accent, #0b66ff);
+}

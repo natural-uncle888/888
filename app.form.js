@@ -23,6 +23,13 @@ durationMinutes: +$('durationMinutes').value,
         acFloors:getChecked('acFloor'), washerFloors:getChecked('washerFloor'),
         contactMethod:$('contactMethod').value, status:$('status').value,
         acSplit:+$('acSplit').value||0, acDuct:+$('acDuct').value||0, washerTop:+$('washerTop').value||0, waterTank:+$('waterTank').value||0,
+        // Water tank ladder requirement (saved even if waterTank==0; UI will clear on 0)
+        waterTankLadderRequired: ($('waterTankLadderRequired')?.value||''),
+        waterTankLadderType: ($('waterTankLadderType')?.value||''),
+        waterTankLadderHeightRange: ($('waterTankLadderHeightRange')?.value||''),
+        waterTankLadderHeightFt: ($('waterTankLadderHeightFt')?.value||''),
+        waterTankLadderNotes: ($('waterTankLadderNotes')?.value||''),
+        waterTankLadderOnsiteFlags: ($('waterTankLadderOnsiteFlags')?.value||''),
         pipesAmount:+$('pipesAmount').value||0, antiMold:+$('antiMold').value||0, ozone:+$('ozone').value||0,
         transformerCount:+$('transformerCount').value||0, longSplitCount:+$('longSplitCount').value||0, onePieceTray:+$('onePieceTray').value||0,
         note:$('note').value.trim(),
@@ -54,6 +61,16 @@ durationMinutes: +$('durationMinutes').value,
       $('reminderNotified').checked=!!o.reminderNotified; $('reminderMuted').checked=!!o.reminderMuted;
       $('acFloorAbove').value=o.acFloorAbove||''; $('washerFloorAbove').value=o.washerFloorAbove||'';
       $('acSplit').value=o.acSplit||0; $('acDuct').value=o.acDuct||0; $('washerTop').value=o.washerTop||0; $('waterTank').value=o.waterTank||0;
+      // restore water tank ladder requirement
+      try{
+        if ($('waterTankLadderRequired')) $('waterTankLadderRequired').value = o.waterTankLadderRequired || '';
+        if ($('waterTankLadderType')) $('waterTankLadderType').value = o.waterTankLadderType || '';
+        if ($('waterTankLadderHeightRange')) $('waterTankLadderHeightRange').value = o.waterTankLadderHeightRange || '';
+        if ($('waterTankLadderHeightFt')) $('waterTankLadderHeightFt').value = o.waterTankLadderHeightFt || '';
+        if ($('waterTankLadderNotes')) $('waterTankLadderNotes').value = o.waterTankLadderNotes || '';
+        if ($('waterTankLadderOnsiteFlags')) $('waterTankLadderOnsiteFlags').value = o.waterTankLadderOnsiteFlags || '';
+        if (typeof window.updateWaterTankLadderSummary === 'function') window.updateWaterTankLadderSummary();
+      }catch(e){}
       $('pipesAmount').value=o.pipesAmount||0; $('antiMold').value=o.antiMold||0; $('ozone').value=o.ozone||0;
       $('transformerCount').value=o.transformerCount||0; $('longSplitCount').value=o.longSplitCount||0; $('onePieceTray').value=o.onePieceTray||0;
       $('note').value=o.note||'';
@@ -64,6 +81,8 @@ durationMinutes: +$('durationMinutes').value,
       try{ if(window.updateAcBrandOtherVisibility) window.updateAcBrandOtherVisibility(); }catch(e){}
       setFormLock(!!o.locked);
       document.getElementById('durationMinutes').value = (o.durationMinutes ?? '');
+
+      try{ if (typeof window.updateWaterTankLadderSummary === 'function') window.updateWaterTankLadderSummary(); }catch(e){}
     }
     function recalcTotals(){ const total=calcTotal(gatherForm()); $('total').value=total; const extra=Math.max(0,+$('extraCharge').value||0); const discount=Math.max(0,+$('discount').value||0); $('netTotal').value=Math.max(0,total+extra-discount); }
 

@@ -570,7 +570,30 @@ recalcTotals();
               if (+o2.acSplit) arr.push('分離式冷氣 ' + o2.acSplit + ' 台');
               if (+o2.acDuct) arr.push('管道式冷氣 ' + o2.acDuct + ' 台');
               if (+o2.washerTop) arr.push('洗衣機 ' + o2.washerTop + ' 台');
-              if (+o2.waterTank) arr.push('水塔 ' + o2.waterTank + ' 個');
+              if (+o2.waterTank) {
+                let ladder = '';
+                try{
+                  const req = (o2.waterTankLadderRequired || '').trim();
+                  const type = (o2.waterTankLadderType || '').trim();
+                  const range = (o2.waterTankLadderHeightRange || '').trim();
+                  const ft = (o2.waterTankLadderHeightFt || '').trim();
+                  if (req === 'no') ladder = '梯子不需要';
+                  if (req === 'yes'){
+                    if (type === 'plastic') ladder = '梯子塑膠梯';
+                    else if (type === '5_8ft') ladder = '梯子5–8尺';
+                    else if (type === 'climb') ladder = '梯子爬梯';
+                    else if (type === 'higher'){
+                      let h='';
+                      if (range === '9_10') h='9–10尺';
+                      else if (range === '11_12') h='11–12尺';
+                      else if (range === '13_14') h='13–14尺';
+                      else if (range === '15_plus') h=(ft? (ft+'尺'):'15尺以上');
+                      ladder = '梯子更高' + (h?('('+h+')'):'');
+                    }
+                  }
+                }catch(e){}
+                arr.push('水塔 ' + o2.waterTank + ' 個' + (ladder ? ('（' + ladder + '）') : ''));
+              }
               if (+o2.pipesAmount) arr.push('管線 ' + o2.pipesAmount);
               if (+o2.antiMold) arr.push('防霉 ' + o2.antiMold);
               if (+o2.ozone) arr.push('臭氧 ' + o2.ozone);

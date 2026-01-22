@@ -15,9 +15,20 @@ document.addEventListener('change', (e)=>{
 
 
 // --- Logout (event delegation; supports dynamic settings render) ---
+const __logoutHoldState = { active:false, fired:false, tipEl:null, interval:null, startTs:0, duration:10000 };
+
 document.addEventListener('click', (e) => {
   const btn = e.target && e.target.closest ? e.target.closest('#logoutBtn') : null;
   if (!btn) return;
+  // If a long-press reset is in progress or has just fired, ignore the normal click logout.
+  if (__logoutHoldState.active || __logoutHoldState.fired) {
+    if (__logoutHoldState.fired) {
+      // Consume the fired flag so subsequent clicks behave normally.
+      __logoutHoldState.fired = false;
+    }
+    return;
+  }
+
 
   e.preventDefault();
   e.stopPropagation();
@@ -29,6 +40,118 @@ document.addEventListener('click', (e) => {
     console.warn('[logout] Auth module not ready.');
     alert('系統尚未完成初始化，請重新整理頁面後再試一次。');
   }
+
+// Long-press (10s) on Logout: open password reset (hard reset of stored credentials).
+
+// --- Logout: 10s long-press to hard reset credentials (with countdown) ---
+(() => {
+  let t = null;
+
+  function ensureTip() {
+    if (__logoutHoldState.tipEl) return __logoutHoldState.tipEl;
+    const el = document.createElement('div');
+    el.id = 'logoutHoldTip';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.className = 'hold-tip hidden';
+    el.innerHTML = '<div class="hold-tip__title">長按重設密碼</div><div class="hold-tip__count"><span class="hold-tip__num">10</span><span class="hold-tip__unit">秒</span></div><div class="hold-tip__hint">持續按住不要放開</div>';
+    document.body.appendChild(el);
+    __logoutHoldState.tipEl = el;
+    return el;
+  }
+
+  function positionTip(btn) {
+    const el = ensureTip();
+    if (!btn || !btn.getBoundingClientRect) return;
+    const r = btn.getBoundingClientRect();
+    // Place above the button, centered
+    const x = r.left + r.width / 2;
+    const y = r.top - 10;
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top = `${Math.round(y)}px`;
+  }
+
+  function showTip(btn) {
+    const el = ensureTip();
+    positionTip(btn);
+    el.classList.remove('hidden');
+  }
+
+  function hideTip() {
+    const el = __logoutHoldState.tipEl;
+    if (!el) return;
+    el.classList.add('hidden');
+  }
+
+  function setCount(sec) {
+    const el = __logoutHoldState.tipEl;
+    if (!el) return;
+    const num = el.querySelector('.hold-tip__num');
+    if (num) num.textContent = String(sec);
+  }
+
+  function clearTimer() {
+    if (t) {
+      clearTimeout(t);
+      t = null;
+    }
+    if (__logoutHoldState.interval) {
+      clearInterval(__logoutHoldState.interval);
+      __logoutHoldState.interval = null;
+    }
+    __logoutHoldState.active = false;
+    hideTip();
+  }
+
+  function startCountdown(btn) {
+    __logoutHoldState.active = true;
+    __logoutHoldState.fired = false;
+    __logoutHoldState.startTs = Date.now();
+    showTip(btn);
+    setCount(10);
+
+    // Update remaining seconds (10 -> 0)
+    __logoutHoldState.interval = setInterval(() => {
+      if (!__logoutHoldState.active) return;
+      const elapsed = Date.now() - __logoutHoldState.startTs;
+      const remainMs = Math.max(0, __logoutHoldState.duration - elapsed);
+      const remainSec = Math.ceil(remainMs / 1000);
+      setCount(remainSec);
+      positionTip(btn);
+    }, 120);
+  }
+
+  document.addEventListener('pointerdown', (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('#logoutBtn') : null;
+    if (!btn) return;
+
+    // Start 10s hold timer + countdown
+    clearTimer();
+    startCountdown(btn);
+
+    t = setTimeout(() => {
+      t = null;
+      __logoutHoldState.fired = true;
+      __logoutHoldState.active = false;
+      hideTip();
+
+      const Auth = window.Auth;
+      if (Auth && typeof Auth.hardResetCredentials === 'function') {
+        Auth.hardResetCredentials();
+      } else {
+        alert('找不到重設密碼功能（Auth 尚未完成初始化）。請重新整理頁面後再試一次。');
+      }
+    }, __logoutHoldState.duration);
+  }, { passive: true });
+
+  // Cancel hold on any release/cancel/leave
+  ['pointerup','pointercancel','pointerleave','pointerout','blur','visibilitychange'].forEach((evt) => {
+    window.addEventListener(evt, clearTimer, { passive: true });
+  });
+})();
+
+
+
 });
 
 // ---------- Due Soon Panel ----------

@@ -171,8 +171,14 @@
     // Also clear enable toggle if present
     localStorage.removeItem(LS_ENABLED);
 
-    // Full refresh is the simplest & safest: the app will re-enter setup mode.
-    location.reload();
+    // After clearing, force the login overlay to reopen in setup mode.
+    // Do NOT rely on a full reload, because the app may not automatically
+    // open the overlay when auth is disabled.
+    setSessionOk(false);
+    setAdminSessionOk(false);
+    try { closeAuthSettings(); } catch (_) {}
+    refreshSettingsUi();
+    openLogin();
   }
 
 

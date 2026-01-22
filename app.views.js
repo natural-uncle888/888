@@ -745,6 +745,7 @@ function initViewTabs(){
       $('sameDayNextBtn')?.addEventListener('click', duplicateSameDayNextLocation);
 $('exportJson').addEventListener('click', exportJSON);
 $('importJson').addEventListener('click', importJSON);
+$('logoutBtn')?.addEventListener('click', () => window.Auth?.logout());
       $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const msg='確定要清空所有訂單資料嗎？此動作無法復原。'; const ok = (typeof showConfirm === 'function') ? await showConfirm('清空所有訂單', msg, '是的，清空全部', '取消', { danger:true }) : confirm(msg); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
       $('addStaffBtn').addEventListener('click', addStaff);
       $('addContactMethod').addEventListener('click', addContact);

@@ -384,6 +384,16 @@ function initPricingLogic(){
 
 // 重新綁定「匯出Excel」按鈕，避免沿用舊的 SheetJS 事件處理器
 window.addEventListener('DOMContentLoaded', () => {
+  // --- Auth Gate ---
+  try {
+    if (window.Auth && window.Auth.isEnabled && window.Auth.isEnabled() && !window.Auth.isAuthed()) {
+      window.Auth.openLogin();
+      return;
+    }
+  } catch (e) {
+    console.warn('Auth gate error:', e);
+  }
+
   const btn = document.getElementById('exportXlsx');
   if (btn && typeof window.exportXLSX === 'function') {
     const clone = btn.cloneNode(true);           // 移除既有所有 listener

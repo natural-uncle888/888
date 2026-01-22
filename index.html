@@ -1040,5 +1040,26 @@
 </div>
 </div>
 </div>
+<div class="modal" id="resetConfirmModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close="true"></div>
+  <div class="modal-panel" style="max-width:520px;">
+    <header class="modal-header">
+      <h3 style="margin:0;">重設密碼</h3>
+      <button class="btn-small" id="resetConfirmCloseBtn" aria-label="關閉">✕</button>
+    </header>
+    <div class="modal-body" style="padding:16px;">
+      <p style="margin:0 0 10px; line-height:1.6;">
+        即將清除本裝置在此網站的所有登入密碼設定（一般密碼 / 管理者密碼 / 記住的密碼）。
+      </p>
+      <p style="margin:0; line-height:1.6;">
+        清除後需要重新設定密碼才能登入。確定要繼續嗎？
+      </p>
+    </div>
+    <footer class="modal-footer" style="padding:12px 16px; display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn-secondary" id="resetConfirmCancelBtn">取消</button>
+      <button class="btn-danger" id="resetConfirmOkBtn">確認清除</button>
+    </footer>
+  </div>
+</div>
 </body>
 </html>

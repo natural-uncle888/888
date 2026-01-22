@@ -100,28 +100,79 @@
 
   // Hard reset: clear stored credentials on this origin (Netlify domain),
   // then reopen login in setup mode. Intended for admin recovery only.
+  
+  // Hard reset: clear stored credentials on this origin (Netlify domain),
+  // then reopen login in setup mode. Intended for admin recovery only.
   function hardResetCredentials() {
-    const ok = confirm('即將清除本裝置在此網站的所有登入密碼設定（一般密碼 / 管理者密碼 / 記住的密碼）。\n\n清除後需要重新設定密碼才能登入。\n\n確定要繼續嗎？');
-    if (!ok) return;
+    // Prefer a styled in-app modal; fall back to native confirm if modal is missing.
+    const modal = document.getElementById('resetConfirmModal');
+    if (!modal) {
+      const ok = confirm('即將清除本裝置在此網站的所有登入密碼設定（一般密碼 / 管理者密碼 / 記住的密碼）。\n\n清除後需要重新設定密碼才能登入。\n\n確定要繼續嗎？');
+      if (!ok) return;
+      return doHardReset();
+    }
 
+    // One-time wiring
+    if (!hardResetCredentials.__inited) {
+      const closeBtn = document.getElementById('resetConfirmCloseBtn');
+      const cancelBtn = document.getElementById('resetConfirmCancelBtn');
+      const okBtn = document.getElementById('resetConfirmOkBtn');
+      const backdrop = modal.querySelector('.modal-backdrop');
+
+      const close = () => {
+        modal.setAttribute('aria-hidden', 'true');
+        hardResetCredentials.__pending = null;
+      };
+
+      const open = (onOk) => {
+        hardResetCredentials.__pending = onOk;
+        modal.setAttribute('aria-hidden', 'false');
+      };
+
+      // expose internally
+      hardResetCredentials.__open = open;
+      hardResetCredentials.__close = close;
+
+      closeBtn && closeBtn.addEventListener('click', close);
+      cancelBtn && cancelBtn.addEventListener('click', close);
+      backdrop && backdrop.addEventListener('click', (e) => {
+        // only close when clicking the backdrop itself
+        if (e && e.target && (e.target.getAttribute('data-close') === 'true')) close();
+      });
+
+      okBtn && okBtn.addEventListener('click', () => {
+        const fn = hardResetCredentials.__pending;
+        close();
+        if (typeof fn === 'function') fn();
+      });
+
+      // ESC to close
+      document.addEventListener('keydown', (e) => {
+        if (e && e.key === 'Escape' && modal.getAttribute('aria-hidden') === 'false') close();
+      });
+
+      hardResetCredentials.__inited = true;
+    }
+
+    // Open confirm modal
+    hardResetCredentials.__open(() => doHardReset());
+  }
+
+  function doHardReset() {
     // Clear hashes & saved password
     localStorage.removeItem(LS_MASTER_HASH);
     localStorage.removeItem(LS_ADMIN_HASH);
     localStorage.removeItem(LS_SAVED_PWD);
 
-    // Keep gate enabled so user can re-setup immediately
-    localStorage.setItem(LS_ENABLED, '1');
+    // Clear gate/session flags
+    sessionStorage.removeItem(SS_OK);
+    sessionStorage.removeItem(SS_ADMIN_OK);
 
-    // Clear sessions
-    setSessionOk(false);
-    setAdminSessionOk(false);
+    // Also clear enable toggle if present
+    localStorage.removeItem(LS_ENABLED);
 
-    // Ensure admin mode is off so setup defaults to general password
-    if (adminModeChk) adminModeChk.checked = false;
-
-    // Re-open login overlay (will go to setup because hashes are now missing)
-    openLogin();
-    refreshSettingsUi();
+    // Full refresh is the simplest & safest: the app will re-enter setup mode.
+    location.reload();
   }
 
 

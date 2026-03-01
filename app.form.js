@@ -34,7 +34,7 @@ durationMinutes: +$('durationMinutes').value,
         transformerCount:+$('transformerCount').value||0, longSplitCount:+$('longSplitCount').value||0, onePieceTray:+$('onePieceTray').value||0,
         note:$('note').value.trim(),
         acBrands: getChecked('acBrand'),
-        acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, transportFee:+$('transportFee').value||0, netTotal:+$('netTotal').value||0,
+        acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, transportFee:+$('transportFee').value||0, helperEnabled: !!($('helperEnabled')?.checked), helperCount:+$('helperCount')?.value||0, helperDailyWage:+$('helperDailyWage')?.value||0, helperCost:+$('helperCost')?.value||0, netTotal:+$('netTotal').value||0,
         createdAt:$('id').value ? undefined : new Date().toISOString()
       };
     }
@@ -75,7 +75,16 @@ durationMinutes: +$('durationMinutes').value,
       $('transformerCount').value=o.transformerCount||0; $('longSplitCount').value=o.longSplitCount||0; $('onePieceTray').value=o.onePieceTray||0;
       $('note').value=o.note||'';
       // restore AC brand selections
-      try{ setChecked('acBrand', o.acBrands||[]); if(document.getElementById('acBrandOtherText')){ document.getElementById('acBrandOtherText').classList.toggle('hidden', !((o.acBrands||[]).includes && (o.acBrands||[]).includes('其他'))); $('acBrandOtherText').value = o.acBrandOther||''; } }catch(e){console.warn(e);}  $('extraCharge').value = o.extraCharge || 0; $('discount').value=o.discount||0; if($('transportFee')) $('transportFee').value = o.transportFee || 0; $('total').value=o.total||0; $('netTotal').value=o.netTotal||0;
+      try{ setChecked('acBrand', o.acBrands||[]); if(document.getElementById('acBrandOtherText')){ document.getElementById('acBrandOtherText').classList.toggle('hidden', !((o.acBrands||[]).includes && (o.acBrands||[]).includes('其他'))); $('acBrandOtherText').value = o.acBrandOther||''; } }catch(e){console.warn(e);}  $('extraCharge').value = o.extraCharge || 0; $('discount').value=o.discount||0; if($('transportFee')) $('transportFee').value = o.transportFee || 0;
+      // day-wage helper
+      try{
+        if($('helperEnabled')) $('helperEnabled').checked = !!o.helperEnabled;
+        if($('helperCount')) $('helperCount').value = (o.helperCount!=null? o.helperCount : 1);
+        if($('helperDailyWage')) $('helperDailyWage').value = (o.helperDailyWage!=null? o.helperDailyWage : (typeof getDefaultHelperWage==='function'? getDefaultHelperWage() : 2000));
+        if (typeof recalcHelperCost === 'function') recalcHelperCost();
+        else if($('helperCost')) $('helperCost').value = o.helperCost || 0;
+      }catch(e){}
+      $('total').value=o.total||0; $('netTotal').value=o.netTotal||0;
       $('deleteBtn').disabled=!o.id; $('formTitle').textContent=o.id?'編輯訂單':'新增訂單';
 
       try{ if(window.updateAcBrandOtherVisibility) window.updateAcBrandOtherVisibility(); }catch(e){}
@@ -84,10 +93,43 @@ durationMinutes: +$('durationMinutes').value,
 
       try{ if (typeof window.updateWaterTankLadderSummary === 'function') window.updateWaterTankLadderSummary(); }catch(e){}
     }
-    function recalcTotals(){ const total=calcTotal(gatherForm()); $('total').value=total; const extra=Math.max(0,+$('extraCharge').value||0); const discount=Math.max(0,+$('discount').value||0); $('netTotal').value=Math.max(0,total+extra-discount); }
+    function recalcHelperCost(){
+      const enabled = !!($('helperEnabled')?.checked);
+      const countEl = $('helperCount');
+      const wageEl = $('helperDailyWage');
+      const costEl = $('helperCost');
+
+      if(countEl) countEl.disabled = !enabled;
+      if(wageEl) wageEl.disabled = !enabled;
+
+      let count = Math.max(0, Math.floor(Number(countEl ? countEl.value : 0) || 0));
+      let wage = Math.max(0, Math.floor(Number(wageEl ? wageEl.value : 0) || 0));
+
+      if(enabled){
+        if(count <= 0){ count = 1; if(countEl) countEl.value = 1; }
+        if(wage <= 0){
+          const def = (typeof getDefaultHelperWage === 'function') ? getDefaultHelperWage() : 2000;
+          wage = def;
+          if(wageEl) wageEl.value = def;
+        }
+      }
+
+      const cost = enabled ? (count * wage) : 0;
+      if(costEl) costEl.value = cost;
+      return cost;
+    }
+
+    function recalcTotals(){
+      recalcHelperCost();
+      const total = calcTotal(gatherForm());
+      $('total').value = total;
+      const extra = Math.max(0, +$('extraCharge').value || 0);
+      const discount = Math.max(0, +$('discount').value || 0);
+      $('netTotal').value = Math.max(0, total + extra - discount);
+    }
 
     function setFormLock(lock){
-      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','recalc'];
+      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','recalc','helperEnabled','helperCount','helperDailyWage'];
       ids.forEach(id=>{ const el=$(id); if(el){ el.disabled = !!lock; el.readOnly = !!lock; }});
       $('toggleLock').textContent = lock ? '解除鎖定（允許修改）' : '解鎖金額編輯';
       $('lockInfo').textContent = lock ? '金額已鎖定（完成）' : '';

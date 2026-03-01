@@ -1436,11 +1436,22 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
       const totalCount = filtered.length;
       const totalAmount = filtered.reduce((s,o)=> s + (+o.total||0), 0);
       const netAmount   = filtered.reduce((s,o)=> s + (+o.netTotal||0), 0);
-      const expenseTotal = (exp || []).filter(e => {
-        if(!e.date) return false;
-        const y = new Date(e.date).getFullYear();
-        return targetYear === 'all' ? true : (y == targetYear);
-      }).reduce((s,e)=> s + (+e.amount||0), 0);
+      const expenseTotalBase = (exp || []).filter(e => {
+  if(!e.date) return false;
+  const y = new Date(e.date).getFullYear();
+  return targetYear === 'all' ? true : (y == targetYear);
+}).reduce((s,e)=> s + (+e.amount||0), 0);
+
+// 訂單內花費：車資 + 日薪助手（依訂單日期計）
+const expenseTotalOrders = (orders || []).filter(o => {
+  if(!o.date) return false;
+  const d = new Date(o.date);
+  if (isNaN(d)) return false;
+  const y = d.getFullYear();
+  return targetYear === 'all' ? true : (y == targetYear);
+}).reduce((s,o)=> s + (typeof orderExpenseAmount === 'function' ? orderExpenseAmount(o) : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0))), 0);
+
+const expenseTotal = expenseTotalBase + expenseTotalOrders;
       const completed = filtered.filter(o=> o.status === '完成').length;
       const doneRate = totalCount ? ((completed/totalCount*100).toFixed(1) + '%') : '—';
       const netIncome = netAmount - expenseTotal;
@@ -1487,6 +1498,21 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
         if (targetYear !== 'all' && y !== +targetYear) return;
         expenseByMonth[m] += (+e.amount || 0);
       });
+
+// 加上訂單內花費（車資 + 日薪助手）
+(orders || []).forEach(o => {
+  if (!o.date) return;
+  const d = new Date(o.date);
+  if (isNaN(d)) return;
+  const y = d.getFullYear();
+  const m = d.getMonth(); // 0~11
+  if (targetYear !== 'all' && y !== +targetYear) return;
+  const amt = (typeof orderExpenseAmount === 'function')
+    ? orderExpenseAmount(o)
+    : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
+  expenseByMonth[m] += amt;
+});
+
 
       // ---- Chart.js 繪製 ----
       if (window.Chart){
@@ -1638,6 +1664,19 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
       expense[m] += (+e.amount || 0);
     });
 
+// 加上訂單內花費（車資 + 日薪助手）
+(orders || []).forEach(o => {
+  if (!o || !o.date) return;
+  const d = new Date(o.date);
+  if (isNaN(d)) return;
+  if (d.getFullYear() !== year) return;
+  const m = d.getMonth();
+  const amt = (typeof orderExpenseAmount === 'function')
+    ? orderExpenseAmount(o)
+    : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
+  expense[m] += amt;
+});
+
     if (metric === 'count'){
       return { labels, data: count };
     } else if (metric === 'revenue'){
@@ -1691,6 +1730,22 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
       if (idx < 0 || idx >= days) return;
       expense[idx] += (+e.amount || 0);
     });
+
+// 加上訂單內花費（車資 + 日薪助手）
+(orders || []).forEach(o => {
+  if (!o || !o.date) return;
+  const dt = new Date(o.date);
+  if (isNaN(dt)) return;
+  if (dt.getFullYear() !== year) return;
+  if ((dt.getMonth()+1) !== month) return;
+  const day = dt.getDate();
+  const idx = day - 1;
+  if (idx < 0 || idx >= days) return;
+  const amt = (typeof orderExpenseAmount === 'function')
+    ? orderExpenseAmount(o)
+    : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
+  expense[idx] += amt;
+});
 
     if (metric === 'count'){
       return { labels, data: count };
@@ -1964,6 +2019,26 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
           byCatB[cat] = (byCatB[cat] || 0) + amt;
         }
       });
+// 訂單內花費也納入分類（車資 / 日薪助手）
+(orders || []).forEach(o => {
+  if (!o || !o.date) return;
+  const dt = new Date(o.date);
+  if (isNaN(dt)) return;
+  if (dt.getFullYear() !== year) return;
+  const month = dt.getMonth() + 1;
+
+  const transport = Number(o.transportFee) || 0;
+  const helper = Number(o.helperCost) || 0;
+
+  if (month === mA){
+    if (transport) byCatA['車資'] = (byCatA['車資'] || 0) + transport;
+    if (helper) byCatA['日薪助手'] = (byCatA['日薪助手'] || 0) + helper;
+  }
+  if (mB && month === mB){
+    if (transport) byCatB['車資'] = (byCatB['車資'] || 0) + transport;
+    if (helper) byCatB['日薪助手'] = (byCatB['日薪助手'] || 0) + helper;
+  }
+});
 
       const labelSet = new Set([
         ...Object.keys(byCatA),
@@ -2100,6 +2175,9 @@ populateYearSelects();
     const exp = Array.isArray(window.expenses) ? window.expenses
       : (typeof expenses !== 'undefined' && Array.isArray(expenses) ? expenses : []);
 
+
+const ordRaw = Array.isArray(window.orders) ? window.orders
+  : (typeof orders !== 'undefined' && Array.isArray(orders) ? orders : []);
     const oFiltered = ord.filter(o => inRange(o.date));
     const eFiltered = exp.filter(e => inRange(e.date));
 
@@ -2120,6 +2198,18 @@ populateYearSelects();
       const v = Number(e.amount || 0);
       if (!Number.isNaN(v)) expenseTotal += v;
     });
+
+    // 訂單內花費：車資 + 日薪助手
+    let orderExpenseTotal = 0;
+    (ordRaw || []).forEach(o => {
+      if (!o || !o.date) return;
+      if (!inRange(o.date)) return;
+      const amt = (typeof orderExpenseAmount === 'function')
+        ? orderExpenseAmount(o)
+        : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
+      orderExpenseTotal += amt;
+    });
+    expenseTotal += orderExpenseTotal;
 
     const netIncome = revenue - expenseTotal;
 

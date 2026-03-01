@@ -878,7 +878,7 @@ function initViewTabs(){
       $('deleteBtn').addEventListener('click', deleteOrder);
       $('resetBtn').addEventListener('click', resetForm);
       $('recalc').addEventListener('click', recalcTotals);
-      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount']
+      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','helperEnabled','helperCount','helperDailyWage']
         .forEach(id => $(id).addEventListener('input', recalcTotals));
       $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
       $('quickNextBtn')?.addEventListener('click', quickCreateNextOrder);
@@ -945,6 +945,28 @@ $('lineId').addEventListener('blur', ()=>{
         if (phoneEl && phoneEl.dataset.touched !== '1' && !getPhones()) setFirstPhone(c3.phone || ''); }
       });
       // removed: phone blur handler (replaced by delegation)
+
+
+// 日薪助手：預設每人日薪設定
+try{
+  const wageInput = $('defaultHelperWage');
+  const wageBtn = $('saveHelperWageBtn');
+  const wageHint = $('helperWageHint');
+  if(wageInput){
+    const def = (typeof getDefaultHelperWage === 'function') ? getDefaultHelperWage() : 2000;
+    wageInput.value = def;
+    if(wageHint) wageHint.textContent = `目前預設：${def.toLocaleString('zh-TW')} 元/人`;
+  }
+  if(wageBtn && wageInput){
+    wageBtn.addEventListener('click', async ()=>{
+      const v = Number(wageInput.value || 0);
+      const saved = (typeof setDefaultHelperWage === 'function') ? setDefaultHelperWage(v) : Math.round(v||0);
+      wageInput.value = saved;
+      if(wageHint) wageHint.textContent = `已儲存：${saved.toLocaleString('zh-TW')} 元/人`;
+      if (typeof showAlert === 'function') { try{ await showAlert('日薪助手', '預設日薪已儲存。'); }catch(e){} }
+    });
+  }
+}catch(e){}
 
       // expenses
       $('expenseForm').addEventListener('submit', saveExpense);

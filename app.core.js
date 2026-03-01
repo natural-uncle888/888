@@ -133,6 +133,88 @@ function hasAnyPhone(){
     let expenses = load(EXP_KEY, []);
     let expCats = load(EXP_CAT_KEY, ['材料','加油','停車','工具/維修','其他']);
 
+// ---------- Day-wage helper (日薪助手) ----------
+const HELPER_CFG_KEY = 'yl_clean_helper_cfg_v1';
+const DEFAULT_HELPER_CFG = { dailyWage: 2000 };
+let helperConfig = load(HELPER_CFG_KEY, DEFAULT_HELPER_CFG);
+
+function getDefaultHelperWage(){
+  const n = Number(helperConfig && helperConfig.dailyWage);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : DEFAULT_HELPER_CFG.dailyWage;
+}
+function setDefaultHelperWage(v){
+  const n = Number(v);
+  helperConfig = helperConfig && typeof helperConfig === 'object' ? helperConfig : {};
+  helperConfig.dailyWage = (Number.isFinite(n) && n >= 0) ? Math.round(n) : DEFAULT_HELPER_CFG.dailyWage;
+  save(HELPER_CFG_KEY, helperConfig);
+  return helperConfig.dailyWage;
+}
+
+// 訂單內的「花費」：目前包含 車資 + 日薪助手（可擴充）
+function orderExpenseAmount(o){
+  if(!o) return 0;
+  return (Number(o.transportFee)||0) + (Number(o.helperCost)||0);
+}
+function sumOrderExpensesByMonth(year, month){ // month: 1-12
+  let t = 0;
+  (orders||[]).forEach(o=>{
+    if(!o || !o.date) return;
+    const d = new Date(o.date);
+    if(isNaN(d)) return;
+    if(d.getFullYear() !== +year) return;
+    if((d.getMonth()+1) !== +month) return;
+    t += orderExpenseAmount(o);
+  });
+  return t;
+}
+function sumOrderExpensesByYear(year){
+  let t = 0;
+  (orders||[]).forEach(o=>{
+    if(!o || !o.date) return;
+    const d = new Date(o.date);
+    if(isNaN(d)) return;
+    if(d.getFullYear() !== +year) return;
+    t += orderExpenseAmount(o);
+  });
+  return t;
+}
+function orderExpensesByMonthArray(year){
+  const arr = new Array(12).fill(0);
+  (orders||[]).forEach(o=>{
+    if(!o || !o.date) return;
+    const d = new Date(o.date);
+    if(isNaN(d)) return;
+    if(d.getFullYear() !== +year) return;
+    const m = d.getMonth();
+    arr[m] += orderExpenseAmount(o);
+  });
+  return arr;
+}
+function orderExpensesByDayArray(year, month){ // month: 1-12
+  const days = new Date(year, month, 0).getDate();
+  const arr = new Array(days).fill(0);
+  (orders||[]).forEach(o=>{
+    if(!o || !o.date) return;
+    const dt = new Date(o.date);
+    if(isNaN(dt)) return;
+    if(dt.getFullYear() !== +year) return;
+    if((dt.getMonth()+1) !== +month) return;
+    const idx = dt.getDate()-1;
+    if(idx>=0 && idx<days) arr[idx] += orderExpenseAmount(o);
+  });
+  return arr;
+}
+
+// expose
+window.getDefaultHelperWage = getDefaultHelperWage;
+window.setDefaultHelperWage = setDefaultHelperWage;
+window.orderExpenseAmount = orderExpenseAmount;
+window.sumOrderExpensesByMonth = sumOrderExpensesByMonth;
+window.sumOrderExpensesByYear = sumOrderExpensesByYear;
+window.orderExpensesByMonthArray = orderExpensesByMonthArray;
+window.orderExpensesByDayArray = orderExpensesByDayArray;
+
+
 
     const CONTACTS_KEY = 'yl_clean_contacts_v1';
     let contacts = load(CONTACTS_KEY, []); // {id,name,phone,address,lineId,addresses:[]}

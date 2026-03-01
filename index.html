@@ -212,8 +212,8 @@
 </div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6"><label>安排時段（可複選）</label><div class="checkbox-group" id="slotGroup"></div><input class="hidden tiny" id="slotNote" placeholder="請輸入指定日期／時段" type="text"/></div>
-<div class="col" style="grid-column:span 6"><label>方便聯繫時間（可複選）</label><div class="checkbox-group" id="contactTimesGroup"></div><input class="hidden tiny" id="contactTimeNote" placeholder="請輸入指定時間" type="text"/></div>
+<div class="col" style="grid-column:span 6"><label>安排時段（可複選）</label><div class="checkbox-group" id="slotGroup"></div><input class="hidden" id="slotNote" placeholder="請輸入指定日期／時段" type="text"/></div>
+<div class="col" style="grid-column:span 6"><label>方便聯繫時間（可複選）</label><div class="checkbox-group" id="contactTimesGroup"></div><input class="hidden" id="contactTimeNote" placeholder="請輸入指定時間" type="text"/></div>
 <div class="col" style="grid-column:span 8"><label>與我司聯繫方式</label><div class="toolbar" style="gap:8px"><select id="contactMethod"></select><button class="inline-btn" id="addContactMethod" type="button">新增聯繫方式</button></div></div>
 <div class="col" style="grid-column:span 4"><label>狀況</label><select id="status"><option value="排定">排定</option><option value="完成">完成</option><option value="未完成">未完成</option></select></div>
 </div>
@@ -223,7 +223,7 @@
 <div class="col" style="grid-column:span 6">
 <div class="toolbar" id="reminderToolbar" style="gap:8px; align-items:center; flex-wrap:wrap">
 <label class="pill"><input checked="" id="reminderEnabled" type="checkbox"/> <span>啟用提醒</span></label>
-<label class="muted">提醒週期（月）</label><input class="tiny compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
+<label class="muted">提醒週期（月）</label><input class="compact" id="reminderMonths" min="0" placeholder="例如 12" step="1" type="number" value="24"/>
 <label class="pill"><input id="reminderNotified" type="checkbox"/> <span>已通知</span></label>
 <label class="pill danger"><input id="reminderMuted" type="checkbox"/> <span>不再提醒</span></label>
 </div>
@@ -287,7 +287,7 @@
 <div class="col" style="grid-column:span 12"><label>備註</label><textarea id="note" placeholder="其他補充事項"></textarea></div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 12"><label>預約冷氣品牌（可複選）</label><div class="checkbox-group" id="acBrandGroup"></div><input class="hidden tiny" id="acBrandOtherText" placeholder="請輸入其他品牌" type="text"/></div>
+<div class="col" style="grid-column:span 12"><label>預約冷氣品牌（可複選）</label><div class="checkbox-group" id="acBrandGroup"></div><input class="hidden" id="acBrandOtherText" placeholder="請輸入其他品牌" type="text"/></div>
 </div>
 <div class="row" id="photoUrlBlock"><div class="col" style="grid-column:span 6"><label>清洗照片網址（可多筆）</label><div id="photoUrlContainer"></div><div id="photoUrlViewer" style="display:none; margin-top: 4px;"></div><button id="editPhotoUrlsBtn" onclick="enablePhotoUrlEdit()" style="display:none; margin: 6px 0; padding: 6px 12px; border-radius: 6px; border: none; background-color: #28a745; color: white; cursor: pointer;" type="button">✏️ 編輯網址</button><button class="btn btn-blue" id="addPhotoUrlBtn" style="margin-top: 4px; margin-bottom: 4px;" type="button">＋新增網址</button></div></div>
 </details>
@@ -338,6 +338,26 @@
 <input id="transportFee" min="0" step="1" type="number" value="0"/>
 </div>
 <div class="col" style="grid-column:span 9"></div>
+</div>
+<div class="row">
+  <div class="col" style="grid-column:span 3">
+    <label class="big-toggle" for="helperEnabled">
+      <input id="helperEnabled" name="helperEnabled" type="checkbox"/>
+      <span class="big-toggle-text">有請日薪助手（花費）</span>
+    </label>
+  </div>
+  <div class="col" style="grid-column:span 3">
+    <label>助手人數</label>
+    <input id="helperCount" min="1" step="1" type="number" value="1"/>
+  </div>
+  <div class="col" style="grid-column:span 3">
+    <label>每人日薪</label>
+    <input id="helperDailyWage" min="0" step="1" type="number" value="2000"/>
+  </div>
+  <div class="col" style="grid-column:span 3">
+    <label>日薪成本（花費，自動）</label>
+    <input id="helperCost" readonly="" type="number" value="0"/>
+  </div>
 </div>
 <div class="row">
 <div class="col" style="grid-column:span 12; text-align:right;">
@@ -663,6 +683,19 @@
 <p>管理冷氣 / 洗衣機等項目的預設價格。</p>
 <button class="accent" id="openPricingBtn" type="button">💰價格設定</button>
 </section>
+<section class="settings-group">
+  <h3>日薪助手</h3>
+  <p>設定「每人日薪」的預設值，訂單勾選「有請日薪助手」時會自動帶入。</p>
+  <div class="settings-actions" style="align-items:center; gap:8px; flex-wrap:wrap;">
+    <div class="pill" style="display:flex; align-items:center; gap:6px;">
+      <span>每人日薪</span>
+      <input id="defaultHelperWage" min="0" step="1" style="width:140px;" type="number" value="2000"/>
+    </div>
+    <button class="accent" id="saveHelperWageBtn" type="button">儲存</button>
+    <span class="muted" id="helperWageHint" style="font-size:13px;"></span>
+  </div>
+</section>
+
 <section class="settings-group">
 <h3>匯出 / 匯入</h3>
 <p>備份或還原本機資料（JSON）。</p>

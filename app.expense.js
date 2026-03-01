@@ -26,8 +26,17 @@
         if (isNaN(d)) return false;
         return d.getFullYear() === y && (d.getMonth() + 1) === m;
       }).reduce((a,b)=> a + (Number(b.transportFee)||0), 0);
-      if (transportTotal){
-        summaryEl.textContent = `本月花費（僅車資）累計 ${fmtCurrency(transportTotal)}。`;
+      const helperTotal = (orders || []).filter(o => {
+  if(!o.date) return false;
+  const d = new Date(o.date);
+  if (isNaN(d)) return false;
+  return d.getFullYear() === y && (d.getMonth() + 1) === m;
+}).reduce((a,b)=> a + (Number(b.helperCost)||0), 0);
+      if (transportTotal || helperTotal){
+        const parts = [];
+        if (transportTotal) parts.push(`車資 ${fmtCurrency(transportTotal)}`);
+        if (helperTotal) parts.push(`日薪助手 ${fmtCurrency(helperTotal)}`);
+        summaryEl.textContent = `本月花費（訂單內花費）累計 ${parts.join('、')}。`;
       } else {
         summaryEl.textContent = '本月尚未有任何花費。';
       }
@@ -47,9 +56,19 @@
         if (isNaN(d)) return false;
         return d.getFullYear() === y && (d.getMonth() + 1) === m;
       }).reduce((a,b)=> a + (Number(b.transportFee)||0), 0);
+      const helperTotal = (orders || []).filter(o => {
+  if(!o.date) return false;
+  const d = new Date(o.date);
+  if (isNaN(d)) return false;
+  return d.getFullYear() === y && (d.getMonth() + 1) === m;
+}).reduce((a,b)=> a + (Number(b.helperCost)||0), 0);
       if (transportTotal){
         total += transportTotal;
         byCat['車資'] = (byCat['車資'] || 0) + transportTotal;
+      }
+      if (helperTotal){
+        total += helperTotal;
+        byCat['日薪助手'] = (byCat['日薪助手'] || 0) + helperTotal;
       }
       const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
       const top = entries.slice(0,3)

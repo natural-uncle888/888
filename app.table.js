@@ -266,14 +266,15 @@
       const pending = monthly.filter(o=>o.status!=='完成').length;
       const undatedCount = orders.filter(o=>!o.date).length;
       const transportTotal = monthly.reduce((a,b)=>a+(+b.transportFee||0),0);
-      const monthExpense = (expenses.filter(e=>{ if(!e.date) return false; const d=new Date(e.date); return d.getFullYear()===y && (d.getMonth()+1)===m; }).reduce((a,b)=>a+(+b.amount||0),0)) + transportTotal;
+      const helperTotal = monthly.reduce((a,b)=>a+(+b.helperCost||0),0);
+      const monthExpense = (expenses.filter(e=>{ if(!e.date) return false; const d=new Date(e.date); return d.getFullYear()===y && (d.getMonth()+1)===m; }).reduce((a,b)=>a+(+b.amount||0),0)) + transportTotal + helperTotal;
 const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='box';box.innerHTML=`<div class="small muted">${t}</div><div class="number">${v}</div>${h?`<div class="small muted">${h}</div>`:''}`;return box;};
       if(sumEl){
         // 關鍵指標：本月案件數 / 完成狀態 / 本月金額小計（折後）
         sumEl.appendChild(mk('本月案件數', count));
         sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
         sumEl.appendChild(mk('本月金額小計', fmtCurrency(net)));
-        sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense), transportTotal ? `車資 ${fmtCurrency(transportTotal)}` : '車資 0'));
+        sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense), `車資 ${fmtCurrency(transportTotal)}、日薪助手 ${fmtCurrency(helperTotal)}`));
         sumEl.appendChild(mk('本月淨利', fmtCurrency(net - monthExpense), '本月金額小計 − 本月花費'));
         if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
       }

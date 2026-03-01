@@ -66,6 +66,9 @@
     .status.N未完成{color:#ef4444;border-color:#fecaca;background:#fef2f2}
     .sum{display:flex;gap:12px;flex-wrap:wrap}
     .sum .box{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-width:170px;box-shadow:var(--shadow)}
+    /* KPI breakdown lines (e.g., 本月花費：車資 / 日薪助手) */
+    .kpi-breakdown{margin-top:4px;display:flex;flex-direction:column;gap:2px}
+    .kpi-breakdown-item{white-space:nowrap}
     .number{font-size:18px;font-weight:700}
     .small{font-size:12px}
     .hr{height:1px;background:var(--border);margin:8px 0 16px}

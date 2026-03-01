@@ -274,7 +274,12 @@ const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='b
         sumEl.appendChild(mk('本月案件數', count));
         sumEl.appendChild(mk('完成 / 未完成', `${done} / ${pending}`));
         sumEl.appendChild(mk('本月金額小計', fmtCurrency(net)));
-        sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense), `車資 ${fmtCurrency(transportTotal)}、日薪助手 ${fmtCurrency(helperTotal)}`));
+        // Breakdown: keep each item on its own line to avoid awkward wrapping on narrow cards
+        const breakdownHtml = `<div class="kpi-breakdown">`
+          + `<div class="kpi-breakdown-item">車資 ${fmtCurrency(transportTotal)}</div>`
+          + `<div class="kpi-breakdown-item">日薪助手 ${fmtCurrency(helperTotal)}</div>`
+          + `</div>`;
+        sumEl.appendChild(mk('本月花費', fmtCurrency(monthExpense), breakdownHtml));
         sumEl.appendChild(mk('本月淨利', fmtCurrency(net - monthExpense), '本月金額小計 − 本月花費'));
         if(undatedCount>0) sumEl.appendChild(mk('未排期訂單數', undatedCount, '可勾選上方「顯示未排期」查看'));
       }

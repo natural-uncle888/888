@@ -60,6 +60,13 @@
     thead th{background:#f3f4f6;color:#374151;font-weight:600;text-align:left;font-size:12px;padding:10px;border-bottom:1px solid var(--border)}
     tbody td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
     tbody tr:hover{background:#fafafa}
+
+    /* 未排期訂單：用底色區隔，避免跟一般訂單混在一起 */
+    tbody tr.undated-row{background:#fff7ed}
+    tbody tr.undated-row:hover{background:#ffedd5}
+    tbody tr.undated-row td.editable:hover{background:#ffedd5}
+    tbody tr.undated-row .badge-soft{background:#fed7aa;color:#9a3412}
+
     .status{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid;cursor:pointer;user-select:none}
     .status.P排定{color:#2563eb;border-color:#93c5fd;background:#eff6ff}
     .status.C完成{color:#10b981;border-color:#a7f3d0;background:#ecfdf5}

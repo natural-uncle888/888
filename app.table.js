@@ -98,6 +98,9 @@
         const o = item.order;
         const tr = document.createElement('tr');
 
+        // 未排期（沒有日期）的訂單：加上醒目底色，避免與一般訂單混在一起難辨識
+        if(!o.date) tr.classList.add('undated-row');
+
         const dateCell = o.date ? escapeHtml(o.date) : '<span class="badge-soft">未排期</span>';
         tr.innerHTML = `
           <td class="small muted" data-label="#">${idx+1}</td>

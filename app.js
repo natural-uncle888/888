@@ -502,7 +502,7 @@ function showAlert(title, message, okLabel = '確定') {
     if (req === 'no') return joinParts('梯子：不需要');
 
     const typeLabel = (function(){
-      if (type === 'plastic') return '塑膠梯子';
+      if (type === 'plastic') return '三步梯';
       if (type === '5_8ft') return '5–8尺';
       if (type === 'climb') return '爬梯';
       if (type === 'higher'){

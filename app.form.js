@@ -34,7 +34,9 @@ durationMinutes: +$('durationMinutes').value,
         transformerCount:+$('transformerCount').value||0, longSplitCount:+$('longSplitCount').value||0, onePieceTray:+$('onePieceTray').value||0,
         note:$('note').value.trim(),
         acBrands: getChecked('acBrand'),
-        acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, transportFee:+$('transportFee').value||0, helperEnabled: !!($('helperEnabled')?.checked), helperCount:+$('helperCount')?.value||0, helperDailyWage:+$('helperDailyWage')?.value||0, helperCost:+$('helperCost')?.value||0, netTotal:+$('netTotal').value||0,
+        acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, transportFee:+$('transportFee').value||0, helperEnabled: !!($('helperEnabled')?.checked), helperCount:+$('helperCount')?.value||0, helperDailyWage:+$('helperDailyWage')?.value||0, helperCost:+$('helperCost')?.value||0,
+        taxIncluded: !!($('taxIncluded')?.checked), taxRate: (Number($('taxRate')?.value) || 5), taxAmount: (+$('taxAmount')?.value||0), netBeforeTax: (+$('netBeforeTax')?.value||0),
+        netTotal:+$('netTotal').value||0,
         createdAt:$('id').value ? undefined : new Date().toISOString()
       };
     }
@@ -84,7 +86,19 @@ durationMinutes: +$('durationMinutes').value,
         if (typeof recalcHelperCost === 'function') recalcHelperCost();
         else if($('helperCost')) $('helperCost').value = o.helperCost || 0;
       }catch(e){}
-      $('total').value=o.total||0; $('netTotal').value=o.netTotal||0;
+      $('total').value=o.total||0;
+      // tax controls
+      try{
+        const included = !!o.taxIncluded;
+        if($('taxIncluded')) $('taxIncluded').checked = included;
+        if($('taxRate')) $('taxRate').value = (o.taxRate!=null ? o.taxRate : 5);
+        const base = Math.max(0, (+o.total||0) + (+o.extraCharge||0) - (+o.discount||0));
+        if($('netBeforeTax')) $('netBeforeTax').value = base;
+        const taxAmt = included ? Math.max(0, (+o.netTotal||0) - base) : 0;
+        if($('taxAmount')) $('taxAmount').value = taxAmt;
+        if($('taxRate')) $('taxRate').disabled = !included;
+      }catch(e){}
+      $('netTotal').value=o.netTotal||0;
       $('deleteBtn').disabled=!o.id; $('formTitle').textContent=o.id?'編輯訂單':'新增訂單';
 
       try{ if(window.updateAcBrandOtherVisibility) window.updateAcBrandOtherVisibility(); }catch(e){}
@@ -125,11 +139,23 @@ durationMinutes: +$('durationMinutes').value,
       $('total').value = total;
       const extra = Math.max(0, +$('extraCharge').value || 0);
       const discount = Math.max(0, +$('discount').value || 0);
-      $('netTotal').value = Math.max(0, total + extra - discount);
+      const base = Math.max(0, total + extra - discount);
+      if($('netBeforeTax')) $('netBeforeTax').value = base;
+
+      const included = !!($('taxIncluded')?.checked);
+      const rateEl = $('taxRate');
+      let rate = Number(rateEl ? rateEl.value : 5);
+      if(!Number.isFinite(rate) || rate < 0) rate = 5;
+      if(rateEl){ rateEl.value = rate; rateEl.disabled = !included; }
+
+      const tax = included ? Math.max(0, Math.round(base * rate / 100)) : 0;
+      if($('taxAmount')) $('taxAmount').value = tax;
+
+      $('netTotal').value = included ? (base + tax) : base;
     }
 
     function setFormLock(lock){
-      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','recalc','helperEnabled','helperCount','helperDailyWage'];
+      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','recalc','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate'];
       ids.forEach(id=>{ const el=$(id); if(el){ el.disabled = !!lock; el.readOnly = !!lock; }});
       $('toggleLock').textContent = lock ? '解除鎖定（允許修改）' : '解鎖金額編輯';
       $('lockInfo').textContent = lock ? '金額已鎖定（完成）' : '';

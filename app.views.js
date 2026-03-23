@@ -878,7 +878,7 @@ function initViewTabs(){
       $('deleteBtn').addEventListener('click', deleteOrder);
       $('resetBtn').addEventListener('click', resetForm);
       $('recalc').addEventListener('click', recalcTotals);
-      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','helperEnabled','helperCount','helperDailyWage']
+      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate']
         .forEach(id => $(id).addEventListener('input', recalcTotals));
       $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
       $('quickNextBtn')?.addEventListener('click', quickCreateNextOrder);
@@ -888,6 +888,7 @@ $('importJson').addEventListener('click', importJSON);
       $('clearAll').addEventListener('click', ()=>{ (async ()=>{ const msg='確定要清空所有訂單資料嗎？此動作無法復原。'; const ok = (typeof showConfirm === 'function') ? await showConfirm('清空所有訂單', msg, '是的，清空全部', '取消', { danger:true }) : confirm(msg); if(ok){ orders=[]; save(KEY, orders); refreshTable(); } })(); });
       $('addStaffBtn').addEventListener('click', addStaff);
       $('addContactMethod').addEventListener('click', addContact);
+      $('manageContactMethod')?.addEventListener('click', ()=>{ if(typeof openContactManager==='function') openContactManager(); });
       // 新增 LINE/Facebook ID 按鈕動作：在 #lineIdContainer 新增一個輸入欄位
       $('addLineIdBtn')?.addEventListener('click', ()=>{
         const container = document.getElementById('lineIdContainer');

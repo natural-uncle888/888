@@ -956,27 +956,241 @@ function addStaff(){
   showInputModal('新增作業人員','輸入新作業人員名稱：','姓名', '', function(name){
     name = (name||'').trim();
     if(!name) return;
-    const staffList = loadStaffList ? loadStaffList() : (window.staffList||[]);
-    if(!staffList.includes(name)){
-      staffList.push(name);
-      saveStaffList && saveStaffList(staffList);
-      initStaffSelects && initStaffSelects();
+
+    // Use global staffList (from app.core.js) when available; fallback to localStorage.
+    const key = (typeof STAFF_KEY !== 'undefined') ? STAFF_KEY : 'yl_clean_staff_v1';
+    let list = (typeof staffList !== 'undefined' && Array.isArray(staffList))
+      ? staffList
+      : (()=>{
+          try{ return JSON.parse(localStorage.getItem(key) || 'null') || []; }catch(e){ return []; }
+        })();
+
+    if(!list.includes(name)){
+      list.push(name);
+      try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){}
+      if(typeof staffList !== 'undefined') staffList = list; // keep global in sync
+      if(typeof initStaffSelects === 'function') initStaffSelects();
     }
-    $('staff').value = name; $('staffFilter').value = '';
+    if($('staff')) $('staff').value = name; 
+    if($('staffFilter')) $('staffFilter').value = '';
   });
 }
 function addContact(){ 
   showInputModal('新增聯繫方式','輸入新聯繫方式：','例如：Line/Email/電話', '', function(name){
     name = (name||'').trim();
     if(!name) return;
-    const contactList = loadContactList ? loadContactList() : (window.contactList||[]);
-    if(!contactList.includes(name)){
-      contactList.push(name);
-      saveContactList && saveContactList(contactList);
-      initContactSelect && initContactSelect();
+
+    // Use global contactList (from app.core.js) when available; fallback to localStorage.
+    const key = (typeof CONTACT_KEY !== 'undefined') ? CONTACT_KEY : 'yl_clean_contact_v1';
+    let list = (typeof contactList !== 'undefined' && Array.isArray(contactList))
+      ? contactList
+      : (()=>{
+          try{ return JSON.parse(localStorage.getItem(key) || 'null') || []; }catch(e){ return []; }
+        })();
+
+    if(!list.includes(name)){
+      list.push(name);
+      try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){}
+      if(typeof contactList !== 'undefined') contactList = list; // keep global in sync
+      if(typeof initContactSelect === 'function') initContactSelect();
     }
-    $('contactMethod').value = name;
+    if($('contactMethod')) $('contactMethod').value = name;
   });
+}
+
+
+// ---- Contact method manager (delete / sort) ----
+let __contactManagerState = { list: [] };
+
+function __getContactKey(){
+  return (typeof CONTACT_KEY !== 'undefined') ? CONTACT_KEY : 'yl_clean_contact_v1';
+}
+
+function __loadContactListSafe(){
+  const key = __getContactKey();
+  // Prefer global in-memory list when valid
+  let list = (typeof contactList !== 'undefined' && Array.isArray(contactList)) ? contactList : null;
+  if(!Array.isArray(list)){
+    try{ list = JSON.parse(localStorage.getItem(key) || 'null'); }catch(e){ list = null; }
+  }
+  if(!Array.isArray(list)) list = [];
+  // normalize
+  list = list.map(x=>String(x||'').trim()).filter(Boolean);
+  // de-dup while keeping order
+  const seen = new Set();
+  list = list.filter(x=>{ if(seen.has(x)) return false; seen.add(x); return true; });
+  return list;
+}
+
+function __saveContactList(list){
+  const key = __getContactKey();
+  try{ localStorage.setItem(key, JSON.stringify(list)); }catch(e){}
+  if(typeof contactList !== 'undefined') contactList = list;
+  if(typeof initContactSelect === 'function') initContactSelect();
+}
+
+function openContactManager(){
+  const modal = document.getElementById('contactManagerModal');
+  if(!modal) return;
+
+  const backdrop = modal.querySelector('.modal-backdrop');
+  const btnClose = document.getElementById('contactManagerCloseBtn');
+  const btnDone = document.getElementById('contactManagerDoneBtn');
+  const btnAdd = document.getElementById('contactManagerAddBtn');
+  const btnReset = document.getElementById('contactManagerResetBtn');
+  const listEl = document.getElementById('contactManagerList');
+
+  function close(){
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  async function confirmAsk(title, msg, danger){
+    try{
+      if(typeof showConfirm === 'function'){
+        return await showConfirm(title, msg, danger ? '確定' : '好', '取消', { danger: !!danger });
+      }
+    }catch(e){}
+    return confirm(msg);
+  }
+
+  function render(){
+    if(!listEl) return;
+    const list = __contactManagerState.list || [];
+    if(list.length === 0){
+      listEl.innerHTML = '<div class="cm-empty muted">目前沒有聯繫方式。可按「恢復預設」或「新增」。</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    list.forEach((name, i)=>{
+      const row = document.createElement('div');
+      row.className = 'cm-item';
+
+      const label = document.createElement('div');
+      label.className = 'cm-name';
+      label.textContent = name;
+
+      const actions = document.createElement('div');
+      actions.className = 'cm-actions';
+
+      const upBtn = document.createElement('button');
+      upBtn.className = 'btn-small';
+      upBtn.type = 'button';
+      upBtn.textContent = '↑';
+      upBtn.disabled = (i === 0);
+      upBtn.title = '上移';
+      upBtn.addEventListener('click', ()=>{
+        if(i<=0) return;
+        const arr = __contactManagerState.list;
+        [arr[i-1], arr[i]] = [arr[i], arr[i-1]];
+        __saveContactList(arr);
+        render();
+      });
+
+      const downBtn = document.createElement('button');
+      downBtn.className = 'btn-small';
+      downBtn.type = 'button';
+      downBtn.textContent = '↓';
+      downBtn.disabled = (i === list.length - 1);
+      downBtn.title = '下移';
+      downBtn.addEventListener('click', ()=>{
+        const arr = __contactManagerState.list;
+        if(i >= arr.length - 1) return;
+        [arr[i+1], arr[i]] = [arr[i], arr[i+1]];
+        __saveContactList(arr);
+        render();
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-small';
+      delBtn.type = 'button';
+      delBtn.textContent = '🗑';
+      delBtn.title = '刪除';
+      delBtn.addEventListener('click', async ()=>{
+        const arr = __contactManagerState.list;
+        if(arr.length <= 1){
+          if(typeof showAlert === 'function') showAlert('提示', '至少保留一個聯繫方式。若想回復預設，請按「恢復預設」。');
+          else alert('至少保留一個聯繫方式。若想回復預設，請按「恢復預設」。');
+          return;
+        }
+        const ok = await confirmAsk('刪除聯繫方式', `確定要刪除「${name}」嗎？`, true);
+        if(!ok) return;
+        __contactManagerState.list = arr.filter((x, idx)=> idx !== i);
+        __saveContactList(__contactManagerState.list);
+        // If the current select value was deleted, move it to first item.
+        try{
+          const sel = document.getElementById('contactMethod');
+          if(sel && sel.value === name){
+            sel.value = (__contactManagerState.list[0] || '');
+          }
+        }catch(e){}
+        render();
+      });
+
+      actions.appendChild(upBtn);
+      actions.appendChild(downBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(label);
+      row.appendChild(actions);
+      listEl.appendChild(row);
+    });
+  }
+
+  async function addFromManager(){
+    if(typeof showInputModal !== 'function'){
+      const name = prompt('新增聯繫方式：');
+      if(name) __contactManagerState.list.push(name.trim());
+      __contactManagerState.list = __contactManagerState.list.map(x=>String(x||'').trim()).filter(Boolean);
+      __saveContactList(__contactManagerState.list);
+      render();
+      return;
+    }
+    showInputModal('新增聯繫方式','輸入新聯繫方式：','例如：Line/Email/電話', '', function(name){
+      name = (name||'').trim();
+      if(!name) return;
+      const arr = __contactManagerState.list || [];
+      if(arr.includes(name)){
+        if(typeof showAlert === 'function') showAlert('提示', '此聯繫方式已存在。');
+        else alert('此聯繫方式已存在。');
+        return;
+      }
+      arr.push(name);
+      __contactManagerState.list = arr;
+      __saveContactList(arr);
+      render();
+      try{
+        const sel = document.getElementById('contactMethod');
+        if(sel) sel.value = name;
+      }catch(e){}
+    });
+  }
+
+  async function resetDefaults(){
+    const ok = await confirmAsk('恢復預設', '確定要恢復預設的聯繫方式清單嗎？（目前清單會被覆蓋）', true);
+    if(!ok) return;
+    const defaults = (typeof DEFAULT_CONTACT_LIST !== 'undefined' && Array.isArray(DEFAULT_CONTACT_LIST))
+      ? DEFAULT_CONTACT_LIST.slice()
+      : ['Line','Facebook粉絲團','直接線上預約','直接來電','裕良電器行','其他'];
+    __contactManagerState.list = defaults;
+    __saveContactList(defaults);
+    render();
+  }
+
+  // bind only once
+  if(!modal.__cmBound){
+    backdrop?.addEventListener('click', (e)=>{
+      if(e.target && e.target.getAttribute('data-close')==='true') close();
+    });
+    btnClose?.addEventListener('click', close);
+    btnDone?.addEventListener('click', close);
+    btnAdd?.addEventListener('click', addFromManager);
+    btnReset?.addEventListener('click', resetDefaults);
+    modal.__cmBound = true;
+  }
+
+  __contactManagerState.list = __loadContactListSafe();
+  render();
+  modal.setAttribute('aria-hidden','false');
 }
 
 

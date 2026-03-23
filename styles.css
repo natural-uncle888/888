@@ -2892,3 +2892,13 @@ label.pill input[type="radio"]:checked + span{
   border-right: 7px solid transparent;
   border-top: 7px solid rgba(17, 24, 39, 0.92);
 }
+
+
+/* --- Contact Manager Modal --- */
+.cm-list{ display:flex; flex-direction:column; gap:8px; }
+.cm-item{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 10px; border:1px solid var(--border); border-radius:10px; background:var(--card-bg,#fff); }
+.cm-name{ flex:1; min-width:0; font-weight:600; }
+.cm-actions{ display:flex; gap:6px; align-items:center; }
+.cm-actions button{ min-width:36px; }
+.cm-empty{ padding:14px 10px; border:1px dashed var(--border); border-radius:10px; text-align:center; }
+

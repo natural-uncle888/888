@@ -108,7 +108,7 @@ function hasAnyPhone(){
     const SLOT_OPTS = ['平日','假日','上午','下午','皆可','日期指定'];
     const BRAND_OPTS = ['HITACHI 日立','Panasonic 國際牌','DAIKIN 大金','MITSUBISHI 三菱','FUJITSU 富士通','LG','TECO 東元','SANLUX 三洋','SAMPO 聲寶','Heran 禾聯','Kolin 歌林','TATUNG 大同','MAXE 萬士益','國產貼牌','其他'];
 
-    const CONTACT_TIME_OPTS = ['平日白天','平日晚上','假日白天','假日晚上','時間指定'];
+    const CONTACT_TIME_OPTS = ['平日白天','平日晚上','假日白天','假日晚上','時間皆可','時間指定'];
     const FLOOR_OPTS = ['1F','2F','3F','4F','5F','5F以上','大樓（同樓層）','透天（同樓層）'];
     const STATUS_FLOW = ['排定','完成','未完成'];
 
@@ -128,8 +128,10 @@ function hasAnyPhone(){
     const load = (k, fallback) => { try{ return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; }catch{ return fallback; } }
     const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
     let orders = load(KEY, []);
-    let staffList = load(STAFF_KEY, ['自然大叔']);
-    let contactList = load(CONTACT_KEY, ['Line','Facebook粉絲團','直接線上預約','直接來電','裕良電器行','其他']);
+    const DEFAULT_STAFF_LIST = ['自然大叔'];
+    const DEFAULT_CONTACT_LIST = ['Line','Facebook粉絲團','直接線上預約','直接來電','裕良電器行','其他'];
+    let staffList = load(STAFF_KEY, DEFAULT_STAFF_LIST.slice());
+    let contactList = load(CONTACT_KEY, DEFAULT_CONTACT_LIST.slice());
     let expenses = load(EXP_KEY, []);
     let expCats = load(EXP_CAT_KEY, ['材料','加油','停車','工具/維修','其他']);
 
@@ -461,8 +463,45 @@ function findContactByPhone(phone){
       $('completedRange').onchange = refreshTable;
       $('searchInput').addEventListener('input', refreshTable);
     }
-    function initStaffSelects(){ $('staff').innerHTML = staffList.map(s=>`<option value="${s}">${s}</option>`).join(''); initFilters(); initReminderFilters(); }
-    function initContactSelect(){ $('contactMethod').innerHTML = contactList.map(c=>`<option value="${c}">${c}</option>`).join(''); }
+    function ensureStaffDefaults(){
+      try{
+        if(!Array.isArray(staffList)) staffList = [];
+        // if empty, restore defaults
+        if(staffList.length === 0){ staffList = DEFAULT_STAFF_LIST.slice(); }
+        // ensure all defaults exist
+        DEFAULT_STAFF_LIST.forEach(d=>{ if(!staffList.includes(d)) staffList.unshift(d); });
+        staffList = Array.from(new Set(staffList));
+        save(STAFF_KEY, staffList);
+      }catch(e){ console.warn('ensureStaffDefaults failed', e); }
+      return staffList;
+    }
+    function initStaffSelects(){
+      ensureStaffDefaults();
+      $('staff').innerHTML = staffList.map(s=>`<option value="${s}">${s}</option>`).join('');
+      initFilters();
+      initReminderFilters();
+    }
+    function ensureContactDefaults(){
+      try{
+        const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(CONTACT_KEY) : null;
+        const hasStored = raw !== null; // distinguish "never set" vs "set to []"
+        if(!Array.isArray(contactList)) contactList = [];
+        // If storage is missing OR list is empty (possibly from a previous bug), restore defaults.
+        if(!hasStored || contactList.length === 0){
+          contactList = DEFAULT_CONTACT_LIST.slice();
+        }
+        // normalize + de-dup (keep order)
+        contactList = contactList.map(x=>String(x||'').trim()).filter(Boolean);
+        const seen = new Set();
+        contactList = contactList.filter(x=>{ if(seen.has(x)) return false; seen.add(x); return true; });
+        save(CONTACT_KEY, contactList);
+      }catch(e){ console.warn('ensureContactDefaults failed', e); }
+      return contactList;
+    }
+    function initContactSelect(){
+      ensureContactDefaults();
+      $('contactMethod').innerHTML = contactList.map(c=>`<option value="${c}">${c}</option>`).join('');
+    }
     function initCheckboxes(){ renderChecks('slotGroup', SLOT_OPTS, 'slot');
       renderChecks('acBrandGroup', BRAND_OPTS, 'acBrand');
       try{ updateAcBrandOtherVisibility(); }catch(e){}

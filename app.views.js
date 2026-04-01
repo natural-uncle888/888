@@ -880,6 +880,27 @@ function initViewTabs(){
       $('recalc').addEventListener('click', recalcTotals);
       ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate']
         .forEach(id => $(id).addEventListener('input', recalcTotals));
+
+      // 變形金剛機型：台數變更時同步位置子表單
+      try{
+        $('transformerCount')?.addEventListener('input', ()=>{
+          if (typeof window.syncTransformerLocationUI === 'function') window.syncTransformerLocationUI([]);
+        });
+      }catch(e){}
+
+      // 長度>182cm：台數變更時同步位置子表單
+      try{
+        $('longSplitCount')?.addEventListener('input', ()=>{
+          if (typeof window.syncLongSplitLocationUI === 'function') window.syncLongSplitLocationUI([]);
+        });
+      }catch(e){}
+
+      // 一體式水盤：台數變更時同步位置子表單
+      try{
+        $('onePieceTray')?.addEventListener('input', ()=>{
+          if (typeof window.syncOnePieceTrayLocationUI === 'function') window.syncOnePieceTrayLocationUI([]);
+        });
+      }catch(e){}
       $('newBtn').addEventListener('click', ()=>{ fillForm({}); });
       $('quickNextBtn')?.addEventListener('click', quickCreateNextOrder);
       $('sameDayNextBtn')?.addEventListener('click', duplicateSameDayNextLocation);

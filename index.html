@@ -275,11 +275,38 @@
 </div>
 <div class="row">
 <div class="col" style="grid-column:span 6"><label>臭氧殺菌</label><input id="ozone" min="0" step="1" type="number" value="0"/></div>
-<div class="col" style="grid-column:span 6"><label>變形金剛機型</label><input id="transformerCount" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6">
+  <label>變形金剛機型</label>
+  <input id="transformerCount" min="0" step="1" type="number" value="0"/>
+
+  <!-- 變形金剛機型：室內機位置（依台數動態產生） -->
+  <div class="subform hidden" id="transformerLocationWrap" style="margin-top:10px;">
+    <div class="subform__title">變形金剛機型：室內機位置</div>
+    <div class="muted small">請針對每一台填寫位置（客廳 / 房間 / 手動）與樓層（1F~4F / 手動）。</div>
+    <div class="long-split-loc-list" id="transformerLocationList"></div>
+  </div>
+</div>
 </div>
 <div class="row">
-<div class="col" style="grid-column:span 6"><label>分離式室內機長度 &gt; 182cm</label><input id="longSplitCount" min="0" step="1" type="number" value="0"/></div>
-<div class="col" style="grid-column:span 6"><label>一體式水盤</label><input id="onePieceTray" min="0" step="1" type="number" value="0"/></div>
+<div class="col" style="grid-column:span 6">
+  <label>分離式室內機長度 &gt; 182cm</label>
+  <input id="longSplitCount" min="0" step="1" type="number" value="0"/>
+
+  <!-- 長度 > 182cm 室內機位置（依台數動態產生） -->
+  <div class="subform hidden" id="longSplitLocationWrap" style="margin-top:10px;">
+    <div class="subform__title">長度 &gt; 182cm 室內機位置</div>
+    <div class="muted small">請針對每一台填寫位置（客廳 / 房間 / 手動）與樓層（選填）。</div>
+    <div class="long-split-loc-list" id="longSplitLocationList"></div>
+  </div>
+</div>
+<div class="col" style="grid-column:span 6"><label>一體式水盤</label><input id="onePieceTray" min="0" step="1" type="number" value="0"/>
+
+  <!-- 一體式水盤：室內機位置（依台數動態產生） -->
+  <div class="subform hidden" id="onePieceTrayLocationWrap" style="margin-top:10px;">
+    <div class="subform__title">一體式水盤：室內機位置</div>
+    <div class="muted small">請針對每一台填寫位置（客廳 / 房間 / 手動）與樓層（1F~4F / 手動）。</div>
+    <div class="long-split-loc-list" id="onePieceTrayLocationList"></div>
+  </div></div>
 </div>
 </div>
 </details>
@@ -921,7 +948,7 @@
 <label class="muted small" style="display:block; margin-bottom:6px;">梯子類型（需要時必填）</label>
 <select class="form-input" id="wtLadderType">
 <option value="">請選擇</option>
-<option value="plastic">塑膠梯子</option>
+<option value="plastic">三層梯</option>
 <option value="5_8ft">5–8 尺梯子</option>
 <option value="higher">更高的梯子（請選高度）</option>
 <option value="climb">爬梯</option>

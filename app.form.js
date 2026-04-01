@@ -31,7 +31,15 @@ durationMinutes: +$('durationMinutes').value,
         waterTankLadderNotes: ($('waterTankLadderNotes')?.value||''),
         waterTankLadderOnsiteFlags: ($('waterTankLadderOnsiteFlags')?.value||''),
         pipesAmount:+$('pipesAmount').value||0, antiMold:+$('antiMold').value||0, ozone:+$('ozone').value||0,
-        transformerCount:+$('transformerCount').value||0, longSplitCount:+$('longSplitCount').value||0, onePieceTray:+$('onePieceTray').value||0,
+        transformerCount:+$('transformerCount').value||0,
+        // 變形金剛機型：室內機位置（依台數）
+        transformerLocations: (typeof window.gatherTransformerLocations === 'function') ? window.gatherTransformerLocations() : [],
+        longSplitCount:+$('longSplitCount').value||0,
+        // 長度>182cm 室內機位置（依台數）
+        longSplitLocations: (typeof window.gatherLongSplitLocations === 'function') ? window.gatherLongSplitLocations() : [],
+        onePieceTray:+$('onePieceTray').value||0,
+        // 一體式水盤：室內機位置（依台數）
+        onePieceTrayLocations: (typeof window.gatherOnePieceTrayLocations === 'function') ? window.gatherOnePieceTrayLocations() : [],
         note:$('note').value.trim(),
         acBrands: getChecked('acBrand'),
         acBrandOther: $('acBrandOtherText')? $('acBrandOtherText').value.trim() : '', total:+$('total').value||0, extraCharge:+$('extraCharge').value||0, discount:+$('discount').value||0, transportFee:+$('transportFee').value||0, helperEnabled: !!($('helperEnabled')?.checked), helperCount:+$('helperCount')?.value||0, helperDailyWage:+$('helperDailyWage')?.value||0, helperCost:+$('helperCost')?.value||0,
@@ -75,6 +83,12 @@ durationMinutes: +$('durationMinutes').value,
       }catch(e){}
       $('pipesAmount').value=o.pipesAmount||0; $('antiMold').value=o.antiMold||0; $('ozone').value=o.ozone||0;
       $('transformerCount').value=o.transformerCount||0; $('longSplitCount').value=o.longSplitCount||0; $('onePieceTray').value=o.onePieceTray||0;
+      // restore 變形金剛機型室內機位置
+      try{ if (typeof window.syncTransformerLocationUI === 'function') window.syncTransformerLocationUI(o.transformerLocations||[]); }catch(e){}
+      // restore 長度>182cm 室內機位置
+      try{ if (typeof window.syncLongSplitLocationUI === 'function') window.syncLongSplitLocationUI(o.longSplitLocations||[]); }catch(e){}
+      // restore 一體式水盤 室內機位置
+      try{ if (typeof window.syncOnePieceTrayLocationUI === 'function') window.syncOnePieceTrayLocationUI(o.onePieceTrayLocations||[]); }catch(e){}
       $('note').value=o.note||'';
       // restore AC brand selections
       try{ setChecked('acBrand', o.acBrands||[]); if(document.getElementById('acBrandOtherText')){ document.getElementById('acBrandOtherText').classList.toggle('hidden', !((o.acBrands||[]).includes && (o.acBrands||[]).includes('其他'))); $('acBrandOtherText').value = o.acBrandOther||''; } }catch(e){console.warn(e);}  $('extraCharge').value = o.extraCharge || 0; $('discount').value=o.discount||0; if($('transportFee')) $('transportFee').value = o.transportFee || 0;
@@ -157,9 +171,453 @@ durationMinutes: +$('durationMinutes').value,
     function setFormLock(lock){
       const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','recalc','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate'];
       ids.forEach(id=>{ const el=$(id); if(el){ el.disabled = !!lock; el.readOnly = !!lock; }});
+
+      // 長度>182cm 室內機位置子表單（跟著鎖定）
+      try{
+        const wrap = document.getElementById('longSplitLocationWrap');
+        if(wrap){
+          wrap.querySelectorAll('input, select, button, textarea').forEach(el=>{ el.disabled = !!lock; });
+        }
+      }catch(e){}
       $('toggleLock').textContent = lock ? '解除鎖定（允許修改）' : '解鎖金額編輯';
       $('lockInfo').textContent = lock ? '金額已鎖定（完成）' : '';
     }
 
 
-    
+// ---------------- 長度>182cm 室內機位置：動態 UI + 序列化 ----------------
+// 儲存格式：[{ place: '客廳'|'房間'|'手動', custom: 'xxx', floor: '3' }, ...]
+
+function normalizeLongSplitLocItem(x){
+  const out = { place:'客廳', custom:'', floor:'' };
+  if(!x || typeof x !== 'object') return out;
+  const p = String(x.place || x.type || '').trim();
+  if(p === '客廳' || p === '房間' || p === '手動') out.place = p;
+  out.custom = String(x.custom || x.text || '').trim();
+  out.floor = String(x.floor || '').trim();
+  return out;
+}
+
+function readLongSplitLocationsFromDOM(){
+  const list = document.getElementById('longSplitLocationList');
+  if(!list) return [];
+  const rows = Array.from(list.querySelectorAll('.long-split-loc-row'));
+  return rows.map(r=>{
+    const place = (r.querySelector('.ls-place')?.value || '客廳');
+    const custom = (r.querySelector('.ls-custom')?.value || '').trim();
+
+    const floorSel = (r.querySelector('.ls-floorSel')?.value || '');
+    const floorCustom = (r.querySelector('.ls-floorCustom')?.value || '').trim();
+    const floor = (floorSel === '手動') ? floorCustom : floorSel;
+
+    return normalizeLongSplitLocItem({ place, custom, floor });
+  });
+}
+
+function renderLongSplitLocationsToDOM(items){
+  const wrap = document.getElementById('longSplitLocationWrap');
+  const list = document.getElementById('longSplitLocationList');
+  if(!wrap || !list) return;
+
+  const qty = Math.max(0, Math.floor(Number(document.getElementById('longSplitCount')?.value || 0) || 0));
+  if(qty <= 0){
+    wrap.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  wrap.classList.remove('hidden');
+
+  const safe = (Array.isArray(items) ? items : []).slice(0, qty).map(normalizeLongSplitLocItem);
+  while(safe.length < qty) safe.push(normalizeLongSplitLocItem(null));
+
+  list.innerHTML = safe.map((it, idx)=>{
+    const showCustom = (it.place === '手動');
+    const customCls = showCustom ? '' : 'hidden';
+    const esc = (s)=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');
+    const customVal = esc(it.custom || '');
+    const floorVal = esc(it.floor || '');
+    const isPresetFloor = (floorVal==='1F' || floorVal==='2F' || floorVal==='3F' || floorVal==='4F');
+    const floorSelVal = isPresetFloor ? floorVal : (floorVal ? '手動' : '');
+    const floorCustomVal = isPresetFloor ? '' : floorVal;
+    return `
+      <div class="long-split-loc-row" data-idx="${idx}">
+        <div class="ls-label">第${idx+1}台</div>
+        <div>
+          <select class="ls-place" aria-label="第${idx+1}台位置">
+            <option value="客廳" ${it.place==='客廳'?'selected':''}>客廳</option>
+            <option value="房間" ${it.place==='房間'?'selected':''}>房間</option>
+            <option value="手動" ${it.place==='手動'?'selected':''}>手動填寫</option>
+          </select>
+        </div>
+        <div>
+          <input class="ls-custom ${customCls}" type="text" placeholder="請輸入位置（例：書房、主臥…）" value="${customVal}" aria-label="第${idx+1}台手動位置" />
+        </div>
+        <div class="ls-floor-wrap">
+          <select class="ls-floorSel" aria-label="第${idx+1}台樓層選擇">
+            <option value="" ${floorSelVal===''?'selected':''}>樓層</option>
+            <option value="1F" ${floorSelVal==='1F'?'selected':''}>1F</option>
+            <option value="2F" ${floorSelVal==='2F'?'selected':''}>2F</option>
+            <option value="3F" ${floorSelVal==='3F'?'selected':''}>3F</option>
+            <option value="4F" ${floorSelVal==='4F'?'selected':''}>4F</option>
+            <option value="手動" ${floorSelVal==='手動'?'selected':''}>手動填寫</option>
+          </select>
+          <input class="ls-floorCustom ${floorSelVal==='手動'?'':'hidden'}" type="text" placeholder="請輸入樓層（例：B1、5F）" value="${floorCustomVal}" aria-label="第${idx+1}台樓層手動填寫" />
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // attach per-row behaviors
+  list.querySelectorAll('.long-split-loc-row').forEach(row=>{
+    const sel = row.querySelector('.ls-place');
+    const custom = row.querySelector('.ls-custom');
+    if(sel && custom){
+      sel.addEventListener('change', ()=>{
+        const v = sel.value;
+        if(v === '手動') custom.classList.remove('hidden');
+        else custom.classList.add('hidden');
+      });
+    }
+
+    const fsel = row.querySelector('.ls-floorSel');
+    const fcustom = row.querySelector('.ls-floorCustom');
+    if(fsel && fcustom){
+      fsel.addEventListener('change', ()=>{
+        if(fsel.value === '手動') fcustom.classList.remove('hidden');
+        else fcustom.classList.add('hidden');
+      });
+    }
+  });
+}
+
+// 對外：在 qty 變更 / fillForm 時呼叫，會盡量保留既有輸入
+window.syncLongSplitLocationUI = function syncLongSplitLocationUI(seed){
+  try{
+    const qty = Math.max(0, Math.floor(Number(document.getElementById('longSplitCount')?.value || 0) || 0));
+    const current = readLongSplitLocationsFromDOM();
+    const incoming = (Array.isArray(seed) ? seed : []).map(normalizeLongSplitLocItem);
+
+    // 優先保留目前表單上的輸入；若目前是空表單（例如剛 fillForm），就使用 incoming
+    const base = (current && current.length) ? current : incoming;
+    const out = base.slice(0, qty);
+    while(out.length < qty) out.push(normalizeLongSplitLocItem(null));
+    renderLongSplitLocationsToDOM(out);
+  }catch(e){
+    console.warn('syncLongSplitLocationUI error', e);
+  }
+};
+
+window.gatherLongSplitLocations = function gatherLongSplitLocations(){
+  try{
+    const qty = Math.max(0, Math.floor(Number(document.getElementById('longSplitCount')?.value || 0) || 0));
+    if(qty <= 0) return [];
+    const arr = readLongSplitLocationsFromDOM().slice(0, qty).map(normalizeLongSplitLocItem);
+    // 若 place != 手動，custom 直接清空，避免髒資料
+    return arr.map(x=>{
+      const y = normalizeLongSplitLocItem(x);
+      if(y.place !== '手動') y.custom = '';
+      return y;
+    });
+  }catch(e){
+    console.warn('gatherLongSplitLocations error', e);
+    return [];
+  }
+};
+
+// 初始：頁面載入時先同步一次（避免既有資料匯入後 UI 未生成）
+window.addEventListener('load', ()=>{
+  try{ if(typeof window.syncLongSplitLocationUI === 'function') window.syncLongSplitLocationUI([]); }catch(e){}
+});
+
+
+// ---------------- 變形金剛機型：室內機位置：動態 UI + 序列化 ----------------
+// 儲存格式：[{ place: '客廳'|'房間'|'手動', custom: 'xxx', floor: '1F'|'2F'|'3F'|'4F'|'<自訂>' }, ...]
+
+function normalizeTransformerLocItem(x){
+  const out = { place:'客廳', custom:'', floor:'' };
+  if(!x || typeof x !== 'object') return out;
+  const p = String(x.place || x.type || '').trim();
+  if(p === '客廳' || p === '房間' || p === '手動') out.place = p;
+  out.custom = String(x.custom || x.text || '').trim();
+  out.floor = String(x.floor || '').trim();
+  return out;
+}
+
+function readTransformerLocationsFromDOM(){
+  const list = document.getElementById('transformerLocationList');
+  if(!list) return [];
+  const rows = Array.from(list.querySelectorAll('.long-split-loc-row'));
+  return rows.map(r=>{
+    const place = (r.querySelector('.ls-place')?.value || '客廳');
+    const custom = (r.querySelector('.ls-custom')?.value || '').trim();
+
+    const floorSel = (r.querySelector('.ls-floorSel')?.value || '');
+    const floorCustom = (r.querySelector('.ls-floorCustom')?.value || '').trim();
+    const floor = (floorSel === '手動') ? floorCustom : floorSel;
+
+    return normalizeTransformerLocItem({ place, custom, floor });
+  });
+}
+
+function renderTransformerLocationsToDOM(items){
+  const wrap = document.getElementById('transformerLocationWrap');
+  const list = document.getElementById('transformerLocationList');
+  if(!wrap || !list) return;
+
+  const qty = Math.max(0, Math.floor(Number(document.getElementById('transformerCount')?.value || 0) || 0));
+  if(qty <= 0){
+    wrap.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  wrap.classList.remove('hidden');
+
+  const safe = (Array.isArray(items) ? items : []).slice(0, qty).map(normalizeTransformerLocItem);
+  while(safe.length < qty) safe.push(normalizeTransformerLocItem(null));
+
+  list.innerHTML = safe.map((it, idx)=>{
+    const showCustom = (it.place === '手動');
+    const customCls = showCustom ? '' : 'hidden';
+    const esc = (s)=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\"/g,'&quot;');
+    const customVal = esc(it.custom || '');
+    const floorVal = esc(it.floor || '');
+    const isPresetFloor = (floorVal==='1F' || floorVal==='2F' || floorVal==='3F' || floorVal==='4F');
+    const floorSelVal = isPresetFloor ? floorVal : (floorVal ? '手動' : '');
+    const floorCustomVal = isPresetFloor ? '' : floorVal;
+
+    return `
+      <div class="long-split-loc-row" data-idx="${idx}">
+        <div class="ls-label">第${idx+1}台</div>
+        <div>
+          <select class="ls-place" aria-label="第${idx+1}台位置">
+            <option value="客廳" ${it.place==='客廳'?'selected':''}>客廳</option>
+            <option value="房間" ${it.place==='房間'?'selected':''}>房間</option>
+            <option value="手動" ${it.place==='手動'?'selected':''}>手動填寫</option>
+          </select>
+        </div>
+        <div>
+          <input class="ls-custom ${customCls}" type="text" placeholder="請輸入位置（例：書房、主臥…）" value="${customVal}" aria-label="第${idx+1}台手動位置" />
+        </div>
+        <div class="ls-floor-wrap">
+          <select class="ls-floorSel" aria-label="第${idx+1}台樓層選擇">
+            <option value="" ${floorSelVal===''?'selected':''}>樓層</option>
+            <option value="1F" ${floorSelVal==='1F'?'selected':''}>1F</option>
+            <option value="2F" ${floorSelVal==='2F'?'selected':''}>2F</option>
+            <option value="3F" ${floorSelVal==='3F'?'selected':''}>3F</option>
+            <option value="4F" ${floorSelVal==='4F'?'selected':''}>4F</option>
+            <option value="手動" ${floorSelVal==='手動'?'selected':''}>手動填寫</option>
+          </select>
+          <input class="ls-floorCustom ${floorSelVal==='手動'?'':'hidden'}" type="text" placeholder="請輸入樓層（例：B1、5F）" value="${floorCustomVal}" aria-label="第${idx+1}台樓層手動填寫" />
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // attach per-row behaviors
+  list.querySelectorAll('.long-split-loc-row').forEach(row=>{
+    const sel = row.querySelector('.ls-place');
+    const custom = row.querySelector('.ls-custom');
+    if(sel && custom){
+      sel.addEventListener('change', ()=>{
+        const v = sel.value;
+        if(v === '手動') custom.classList.remove('hidden');
+        else custom.classList.add('hidden');
+      });
+    }
+
+    const fsel = row.querySelector('.ls-floorSel');
+    const fcustom = row.querySelector('.ls-floorCustom');
+    if(fsel && fcustom){
+      fsel.addEventListener('change', ()=>{
+        if(fsel.value === '手動') fcustom.classList.remove('hidden');
+        else fcustom.classList.add('hidden');
+      });
+    }
+  });
+}
+
+// 對外：在 qty 變更 / fillForm 時呼叫，會盡量保留既有輸入
+window.syncTransformerLocationUI = function syncTransformerLocationUI(seed){
+  try{
+    const qty = Math.max(0, Math.floor(Number(document.getElementById('transformerCount')?.value || 0) || 0));
+    const current = readTransformerLocationsFromDOM();
+    const incoming = (Array.isArray(seed) ? seed : []).map(normalizeTransformerLocItem);
+
+    // 優先保留目前表單上的輸入；若目前是空表單（例如剛 fillForm），就使用 incoming
+    const base = (current && current.length) ? current : incoming;
+    const out = base.slice(0, qty);
+    while(out.length < qty) out.push(normalizeTransformerLocItem(null));
+    renderTransformerLocationsToDOM(out);
+  }catch(e){
+    console.warn('syncTransformerLocationUI error', e);
+  }
+};
+
+window.gatherTransformerLocations = function gatherTransformerLocations(){
+  try{
+    const qty = Math.max(0, Math.floor(Number(document.getElementById('transformerCount')?.value || 0) || 0));
+    if(qty <= 0) return [];
+    const arr = readTransformerLocationsFromDOM().slice(0, qty).map(normalizeTransformerLocItem);
+    // 若 place != 手動，custom 直接清空，避免髒資料
+    return arr.map(x=>{
+      const y = normalizeTransformerLocItem(x);
+      if(y.place !== '手動') y.custom = '';
+      return y;
+    });
+  }catch(e){
+    console.warn('gatherTransformerLocations error', e);
+    return [];
+  }
+};
+
+// 初始：頁面載入時先同步一次
+window.addEventListener('load', ()=>{
+  try{ if(typeof window.syncTransformerLocationUI === 'function') window.syncTransformerLocationUI([]); }catch(e){}
+});
+
+
+// ---------------- 一體式水盤：室內機位置：動態 UI + 序列化 ----------------
+// 儲存格式：[{ place: '客廳'|'房間'|'手動', custom: 'xxx', floor: '1F'|'2F'|'3F'|'4F'|'<自訂>' }, ...]
+
+function normalizeOnePieceTrayLocItem(x){
+  const out = { place:'客廳', custom:'', floor:'' };
+  if(!x || typeof x !== 'object') return out;
+  const p = String(x.place || x.type || '').trim();
+  if(p === '客廳' || p === '房間' || p === '手動') out.place = p;
+  out.custom = String(x.custom || x.text || '').trim();
+  out.floor = String(x.floor || '').trim();
+  return out;
+}
+
+function readOnePieceTrayLocationsFromDOM(){
+  const list = document.getElementById('onePieceTrayLocationList');
+  if(!list) return [];
+  const rows = Array.from(list.querySelectorAll('.long-split-loc-row'));
+  return rows.map(r=>{
+    const place = (r.querySelector('.ls-place')?.value || '客廳');
+    const custom = (r.querySelector('.ls-custom')?.value || '').trim();
+
+    const floorSel = (r.querySelector('.ls-floorSel')?.value || '');
+    const floorCustom = (r.querySelector('.ls-floorCustom')?.value || '').trim();
+    const floor = (floorSel === '手動') ? floorCustom : floorSel;
+
+    return normalizeOnePieceTrayLocItem({ place, custom, floor });
+  });
+}
+
+function renderOnePieceTrayLocationsToDOM(items){
+  const wrap = document.getElementById('onePieceTrayLocationWrap');
+  const list = document.getElementById('onePieceTrayLocationList');
+  if(!wrap || !list) return;
+
+  const qty = Math.max(0, Math.floor(Number(document.getElementById('onePieceTray')?.value || 0) || 0));
+  if(qty <= 0){
+    wrap.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  wrap.classList.remove('hidden');
+
+  const safe = (Array.isArray(items) ? items : []).slice(0, qty).map(normalizeOnePieceTrayLocItem);
+  while(safe.length < qty) safe.push(normalizeOnePieceTrayLocItem(null));
+
+  list.innerHTML = safe.map((it, idx)=>{
+    const showCustom = (it.place === '手動');
+    const customCls = showCustom ? '' : 'hidden';
+    const esc = (s)=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\"/g,'&quot;');
+    const customVal = esc(it.custom || '');
+    const floorVal = esc(it.floor || '');
+    const isPresetFloor = (floorVal==='1F' || floorVal==='2F' || floorVal==='3F' || floorVal==='4F');
+    const floorSelVal = isPresetFloor ? floorVal : (floorVal ? '手動' : '');
+    const floorCustomVal = isPresetFloor ? '' : floorVal;
+
+    return `
+      <div class="long-split-loc-row" data-idx="${idx}">
+        <div class="ls-label">第${idx+1}台</div>
+        <div>
+          <select class="ls-place" aria-label="一體式水盤第${idx+1}台位置">
+            <option value="客廳" ${it.place==='客廳'?'selected':''}>客廳</option>
+            <option value="房間" ${it.place==='房間'?'selected':''}>房間</option>
+            <option value="手動" ${it.place==='手動'?'selected':''}>手動填寫</option>
+          </select>
+        </div>
+        <div>
+          <input class="ls-custom ${customCls}" type="text" placeholder="請輸入位置（例：書房、主臥…）" value="${customVal}" aria-label="一體式水盤第${idx+1}台手動位置" />
+        </div>
+        <div class="ls-floor-wrap">
+          <select class="ls-floorSel" aria-label="一體式水盤第${idx+1}台樓層選擇">
+            <option value="" ${floorSelVal===''?'selected':''}>樓層</option>
+            <option value="1F" ${floorSelVal==='1F'?'selected':''}>1F</option>
+            <option value="2F" ${floorSelVal==='2F'?'selected':''}>2F</option>
+            <option value="3F" ${floorSelVal==='3F'?'selected':''}>3F</option>
+            <option value="4F" ${floorSelVal==='4F'?'selected':''}>4F</option>
+            <option value="手動" ${floorSelVal==='手動'?'selected':''}>手動填寫</option>
+          </select>
+          <input class="ls-floorCustom ${floorSelVal==='手動'?'':'hidden'}" type="text" placeholder="請輸入樓層（例：B1、5F）" value="${floorCustomVal}" aria-label="一體式水盤第${idx+1}台樓層手動填寫" />
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // attach per-row behaviors
+  list.querySelectorAll('.long-split-loc-row').forEach(row=>{
+    const sel = row.querySelector('.ls-place');
+    const custom = row.querySelector('.ls-custom');
+    if(sel && custom){
+      sel.addEventListener('change', ()=>{
+        const v = sel.value;
+        if(v === '手動') custom.classList.remove('hidden');
+        else custom.classList.add('hidden');
+      });
+    }
+
+    const fsel = row.querySelector('.ls-floorSel');
+    const fcustom = row.querySelector('.ls-floorCustom');
+    if(fsel && fcustom){
+      fsel.addEventListener('change', ()=>{
+        if(fsel.value === '手動') fcustom.classList.remove('hidden');
+        else fcustom.classList.add('hidden');
+      });
+    }
+  });
+}
+
+// 對外：在 qty 變更 / fillForm 時呼叫，會盡量保留既有輸入
+window.syncOnePieceTrayLocationUI = function syncOnePieceTrayLocationUI(seed){
+  try{
+    const qty = Math.max(0, Math.floor(Number(document.getElementById('onePieceTray')?.value || 0) || 0));
+    const current = readOnePieceTrayLocationsFromDOM();
+    const incoming = (Array.isArray(seed) ? seed : []).map(normalizeOnePieceTrayLocItem);
+
+    // 優先保留目前表單上的輸入；若目前是空表單（例如剛 fillForm），就使用 incoming
+    const base = (current && current.length) ? current : incoming;
+    const out = base.slice(0, qty);
+    while(out.length < qty) out.push(normalizeOnePieceTrayLocItem(null));
+    renderOnePieceTrayLocationsToDOM(out);
+  }catch(e){
+    console.warn('syncOnePieceTrayLocationUI error', e);
+  }
+};
+
+window.gatherOnePieceTrayLocations = function gatherOnePieceTrayLocations(){
+  try{
+    const qty = Math.max(0, Math.floor(Number(document.getElementById('onePieceTray')?.value || 0) || 0));
+    if(qty <= 0) return [];
+    const arr = readOnePieceTrayLocationsFromDOM().slice(0, qty).map(normalizeOnePieceTrayLocItem);
+    // 若 place != 手動，custom 直接清空，避免髒資料
+    return arr.map(x=>{
+      const y = normalizeOnePieceTrayLocItem(x);
+      if(y.place !== '手動') y.custom = '';
+      return y;
+    });
+  }catch(e){
+    console.warn('gatherOnePieceTrayLocations error', e);
+    return [];
+  }
+};
+
+// 初始：頁面載入時先同步一次
+window.addEventListener('load', ()=>{
+  try{ if(typeof window.syncOnePieceTrayLocationUI === 'function') window.syncOnePieceTrayLocationUI([]); }catch(e){}
+});
+
+

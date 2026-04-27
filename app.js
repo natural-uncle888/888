@@ -4981,3 +4981,56 @@ function getLineIds(){
     try{ bindOnce(); refresh(); }catch(e){}
   };
 })();
+
+
+// 快捷操作：手機/平板底部固定欄、桌機右下角浮動按鈕
+(function(){
+  function triggerNewOrder(){
+    const btn = document.getElementById('newBtn');
+    if (btn) {
+      btn.click();
+      return;
+    }
+    if (typeof setActiveView === 'function') setActiveView('main');
+    if (typeof fillForm === 'function') fillForm({});
+    const acc = document.getElementById('orderAccordion');
+    if (acc) {
+      acc.open = true;
+      acc.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+  }
+
+  function triggerNewQuotation(){
+    const btn = document.getElementById('openQuotationBtn');
+    if (btn) {
+      btn.click();
+      return;
+    }
+    window.open('https://unclequotation.netlify.app','_blank','noopener');
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('[data-quick-action]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const action = btn.getAttribute('data-quick-action');
+        if (action === 'new-order') triggerNewOrder();
+        if (action === 'new-quotation') triggerNewQuotation();
+        document.querySelector('.quick-actions-fab')?.classList.remove('is-open');
+        document.querySelector('.quick-actions-fab__main')?.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    const fab = document.querySelector('.quick-actions-fab');
+    const fabMain = document.querySelector('.quick-actions-fab__main');
+    fabMain?.addEventListener('click', function(){
+      const isOpen = fab?.classList.toggle('is-open');
+      fabMain.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    document.addEventListener('click', function(e){
+      if (!fab || fab.contains(e.target)) return;
+      fab.classList.remove('is-open');
+      fabMain?.setAttribute('aria-expanded', 'false');
+    });
+  });
+})();

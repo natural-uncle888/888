@@ -2917,3 +2917,114 @@ label.pill input[type="radio"]:checked + span{
 .cm-actions button{ min-width:36px; }
 .cm-empty{ padding:14px 10px; border:1px dashed var(--border); border-radius:10px; text-align:center; }
 
+
+
+/* 快捷操作：手機/平板底部固定欄、桌機右下角浮動按鈕 */
+.quick-actions,
+.quick-actions-fab{
+  display:none;
+}
+
+.quick-actions__btn,
+.quick-actions-fab__main,
+.quick-actions-fab__item{
+  border:0;
+  cursor:pointer;
+  font-weight:700;
+  -webkit-tap-highlight-color:transparent;
+}
+
+@media (max-width:1024px){
+  body{
+    padding-bottom:calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .quick-actions--bottom{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:9999;
+    display:flex;
+    gap:10px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background:rgba(255,255,255,.96);
+    border-top:1px solid var(--border);
+    box-shadow:0 -8px 24px rgba(15,23,42,.16);
+    backdrop-filter:saturate(1.2) blur(10px);
+  }
+
+  .quick-actions__btn{
+    flex:1;
+    min-height:48px;
+    border-radius:14px;
+    color:#fff;
+    font-size:16px;
+    box-shadow:0 8px 18px rgba(15,23,42,.16);
+  }
+
+  .quick-actions__btn--order{
+    background:var(--accent);
+  }
+
+  .quick-actions__btn--quote{
+    background:var(--primary);
+  }
+}
+
+@media (min-width:1025px){
+  .quick-actions-fab{
+    position:fixed;
+    right:24px;
+    bottom:24px;
+    z-index:9999;
+    display:flex;
+    flex-direction:column-reverse;
+    align-items:flex-end;
+    gap:10px;
+  }
+
+  .quick-actions-fab__main{
+    width:58px;
+    height:58px;
+    border-radius:999px;
+    background:var(--accent);
+    color:#fff;
+    font-size:30px;
+    line-height:1;
+    box-shadow:0 12px 28px rgba(15,23,42,.28);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+
+  .quick-actions-fab.is-open .quick-actions-fab__main{
+    transform:rotate(45deg);
+  }
+
+  .quick-actions-fab__menu{
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    align-items:flex-end;
+  }
+
+  .quick-actions-fab.is-open .quick-actions-fab__menu,
+  .quick-actions-fab:hover .quick-actions-fab__menu,
+  .quick-actions-fab:focus-within .quick-actions-fab__menu{
+    display:flex;
+  }
+
+  .quick-actions-fab__item{
+    min-width:132px;
+    padding:12px 16px;
+    border-radius:999px;
+    background:#fff;
+    color:var(--text);
+    border:1px solid var(--border);
+    box-shadow:0 8px 22px rgba(15,23,42,.18);
+    text-align:center;
+  }
+
+  .quick-actions-fab__item:hover{
+    background:#f8fafc;
+  }
+}

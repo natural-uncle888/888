@@ -40,6 +40,38 @@ function extractCityDistrict(address) {
   }
   return { photoUrls: getPhotoUrls(), city: '', district: '' };
 }
+
+function getCalendarToolAlerts(o) {
+  const data = o || {};
+  const residenceText = [data.residenceType, data.residenceOther].filter(Boolean).join(' ').trim();
+  const isBuilding = /大樓/.test(residenceText);
+  const antiMoldCount = Number(data.antiMold || 0);
+  const ozoneCount = Number(data.ozone || 0);
+
+  const icons = [];
+  const reminders = [];
+
+  if (isBuilding) {
+    icons.push('🏢');
+    reminders.push(`🏢 大樓案件：${residenceText || '大樓'}，請留意停車、電梯、管理室與工具搬運`);
+  }
+  if (antiMoldCount > 0) {
+    icons.push('🧴');
+    reminders.push(`🧴 需帶防霉噴劑：${antiMoldCount}台份`);
+  }
+  if (ozoneCount > 0) {
+    icons.push('💨');
+    reminders.push(`💨 需帶臭氧殺菌設備：${ozoneCount}間份`);
+  }
+
+  return {
+    icons,
+    prefix: icons.length ? icons.join('') : '',
+    reminders,
+    hasAlerts: icons.length > 0
+  };
+}
+
 function getOrderItems(o) {
   let items = [];
   if (+o.acSplit > 0) items.push(`分離式冷氣${o.acSplit}台`);
@@ -180,120 +212,355 @@ async function restoreFromDrive(token) {
 
 const CLIENT_ID = '894514639805-g3073pmjvadbasfp1g25r24rjhl9iacb.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+const GOOGLE_CALENDAR_ID = 'primary';
 let gToken = null;
 
-async function handleUploadWithAuth(orderData) {
-  if (!orderData.date || !orderData.time) {
-    await showAlert('錯誤', '請先填寫此訂單的日期與時間');
-    return;
-  }
-  
-  // Validate duration: require durationMinutes or duration (positive number)
-  const durRaw = orderData?.durationMinutes ?? orderData?.duration ?? orderData?.durationMin ?? orderData?.workMinutes;
-  const hasDur = typeof durRaw !== 'undefined' && durRaw !== null && String(durRaw).trim() !== '';
-  const durNum = hasDur ? Number(durRaw) : NaN;
-  if (!hasDur || isNaN(durNum) || durNum <= 0) {
-    await showAlert('缺少資料', '請輸入有效的工作時長（分鐘，需大於 0）。');
-    return;
-  }
-const okUpload = await showConfirm('上傳 Google 日曆', '確定要將此訂單上傳至 Google 日曆嗎？');
-  if (!okUpload) return;
-  if (gToken) {
-    uploadEventToCalendar(orderData);
-  } else {
-    gTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: (tokenResponse) => {
-        gToken = tokenResponse.access_token;
-        uploadEventToCalendar(orderData);
-      }
-    });
-    gTokenClient.requestAccessToken();
-  }
+function getOrderDurationMinutes(o) {
+  const raw = o?.durationMinutes ?? o?.duration ?? o?.durationMin ?? o?.workMinutes;
+  const num = Number(raw);
+  return Number.isFinite(num) && num > 0 ? num : 0;
 }
 
-async function uploadEventToCalendar(o) {
-  const start = new Date(`${o.date}T${o.time}:00`);
-  const duration = +o.durationMinutes || 120;
-  const end = new Date(start.getTime() + duration * 60 * 1000);
+function normalizeOrderDuration(o) {
+  const durationMinutes = getOrderDurationMinutes(o);
+  return {
+    ...o,
+    durationMinutes,
+    duration: durationMinutes
+  };
+}
 
-  // 新增：自動組合縣市區＋姓名＋清洗項目
+function getCalendarSyncStore() {
+  if (!window.__calendarSyncByOrderId || typeof window.__calendarSyncByOrderId !== 'object') {
+    window.__calendarSyncByOrderId = {};
+  }
+  return window.__calendarSyncByOrderId;
+}
+
+function getCalendarSyncFieldsForOrderId(orderId) {
+  if (!orderId) return {};
+  try {
+    if (Array.isArray(orders)) {
+      const found = orders.find(x => x && x.id === orderId);
+      if (found) {
+        return {
+          googleCalendarEventId: found.googleCalendarEventId || '',
+          googleCalendarHtmlLink: found.googleCalendarHtmlLink || '',
+          googleCalendarUploadedAt: found.googleCalendarUploadedAt || '',
+          googleCalendarUpdatedAt: found.googleCalendarUpdatedAt || '',
+          googleCalendarLastAction: found.googleCalendarLastAction || ''
+        };
+      }
+    }
+  } catch (e) {}
+  return getCalendarSyncStore()[orderId] || {};
+}
+
+function ensureCalendarOrderId(orderData) {
+  const o = orderData || {};
+  let id = (o.id || '').trim();
+  try {
+    const idEl = document.getElementById('id');
+    if (id) {
+      if (idEl && !idEl.value) idEl.value = id;
+      return id;
+    }
+    id = (idEl?.value || '').trim();
+  } catch (e) {}
+  if (!id) {
+    id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+  }
+  try {
+    const idEl = document.getElementById('id');
+    if (idEl && !idEl.value) idEl.value = id;
+  } catch (e) {}
+  o.id = id;
+  return id;
+}
+
+function mergeCalendarSyncFields(orderData) {
+  const o = { ...(orderData || {}) };
+  const orderId = ensureCalendarOrderId(o);
+  const syncFields = getCalendarSyncFieldsForOrderId(orderId);
+  return {
+    ...syncFields,
+    ...o,
+    id: orderId
+  };
+}
+
+function persistCalendarSyncToOrder(orderData, googleEvent, action) {
+  const orderId = ensureCalendarOrderId(orderData);
+  const now = new Date().toISOString();
+  const fields = {
+    googleCalendarEventId: googleEvent?.id || orderData.googleCalendarEventId || '',
+    googleCalendarHtmlLink: googleEvent?.htmlLink || orderData.googleCalendarHtmlLink || '',
+    googleCalendarUploadedAt: orderData.googleCalendarUploadedAt || now,
+    googleCalendarUpdatedAt: now,
+    googleCalendarLastAction: action || 'synced'
+  };
+
+  Object.assign(orderData, fields);
+  getCalendarSyncStore()[orderId] = fields;
+
+  try {
+    if (Array.isArray(orders)) {
+      const idx = orders.findIndex(x => x && x.id === orderId);
+      if (idx >= 0) {
+        orders[idx] = { ...orders[idx], ...fields };
+        save(KEY, orders);
+        if (typeof refreshTable === 'function') refreshTable();
+      }
+    }
+  } catch (e) {
+    console.warn('persistCalendarSyncToOrder failed', e);
+  }
+  return fields;
+}
+
+function buildGoogleCalendarEvent(orderData) {
+  const o = normalizeOrderDuration(orderData || {});
+  const start = new Date(`${o.date}T${o.time}:00`);
+  const end = new Date(start.getTime() + o.durationMinutes * 60 * 1000);
+
   const { city, district } = extractCityDistrict(o.address || '');
+  const area = `${city || ''}${district || ''}`.trim();
   const orderItems = getOrderItems(o);
-  const summary = `${city}${district} ${o.customer || ''} ${orderItems}`;
+  const toolAlerts = getCalendarToolAlerts(o);
+  const baseSummary = [area, o.customer, orderItems].filter(Boolean).join(' ');
+  const summary = [toolAlerts.prefix, baseSummary].filter(Boolean).join(' ');
 
   const descArr = [];
-    descArr.push(`姓名：${o.customer || ''}`);
-    descArr.push(`電話：${o.phone || ''}`);
-    if (o.acFloors && o.acFloors.length > 0) {
-      let s = `冷氣位於樓層：${(o.acFloors||[]).join('、')}`;
-      if ((o.acFloorAbove||'').trim()) s += `（實際：${(o.acFloorAbove||'').trim()}）`;
-      descArr.push(s);
-    }
-    if (o.washerFloors && o.washerFloors.length > 0) {
-      let s2 = `洗衣機位於樓層：${(o.washerFloors||[]).join('、')}`;
-      if ((o.washerFloorAbove||'').trim()) s2 += `（實際：${(o.washerFloorAbove||'').trim()}）`;
-      descArr.push(s2);
-    }
-    if (o.netTotal || o.total) descArr.push(`金額(折後)：${o.netTotal||o.total||0}`);
-    if (o.acBrands && o.acBrands.length) descArr.push(`品牌：${(o.acBrands||[]).join('、')}${o.acBrandOther ? '（'+o.acBrandOther+'）' : ''}`);
-    if (o.note) descArr.push(`備註：${o.note}`);
-    const description = descArr.join('\n');
+  descArr.push(`姓名：${o.customer || ''}`);
+  descArr.push(`電話：${o.phone || ''}`);
+  if (o.acFloors && o.acFloors.length > 0) {
+    let s = `冷氣位於樓層：${(o.acFloors || []).join('、')}`;
+    if ((o.acFloorAbove || '').trim()) s += `（實際：${(o.acFloorAbove || '').trim()}）`;
+    descArr.push(s);
+  }
+  if (o.washerFloors && o.washerFloors.length > 0) {
+    let s2 = `洗衣機位於樓層：${(o.washerFloors || []).join('、')}`;
+    if ((o.washerFloorAbove || '').trim()) s2 += `（實際：${(o.washerFloorAbove || '').trim()}）`;
+    descArr.push(s2);
+  }
+  if (o.netTotal || o.total) descArr.push(`金額(折後)：${o.netTotal || o.total || 0}`);
+  if (o.acBrands && o.acBrands.length) descArr.push(`品牌：${(o.acBrands || []).join('、')}${o.acBrandOther ? '（' + o.acBrandOther + '）' : ''}`);
+  if (o.note) descArr.push(`備註：${o.note}`);
+  if (toolAlerts.hasAlerts) {
+    descArr.push('');
+    descArr.push('【工具提醒】');
+    toolAlerts.reminders.forEach(line => descArr.push(line));
+  }
 
-    const event = {
-      summary,
-      location: o.address || '',
-      description: description,
-      start: { dateTime: start.toISOString() },
-      end: { dateTime: end.toISOString() }
-    };
+  return {
+    summary,
+    location: o.address || '',
+    description: descArr.join('\n'),
+    start: { dateTime: start.toISOString() },
+    end: { dateTime: end.toISOString() }
+  };
+}
 
-  const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-    method: 'POST',
+
+function escapeCalendarPreviewHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatCalendarPreviewDateTime(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatCalendarPreviewTimeRange(orderData) {
+  const o = normalizeOrderDuration(orderData || {});
+  const start = new Date(`${o.date}T${o.time}:00`);
+  const end = new Date(start.getTime() + o.durationMinutes * 60 * 1000);
+  return {
+    start,
+    end,
+    text: `${formatCalendarPreviewDateTime(start)} ～ ${formatCalendarPreviewDateTime(end)}（${o.durationMinutes} 分鐘）`
+  };
+}
+
+function buildCalendarUploadPreview(orderData) {
+  const o = normalizeOrderDuration(orderData || {});
+  const event = buildGoogleCalendarEvent(o);
+  const timeRange = formatCalendarPreviewTimeRange(o);
+  const descriptionLines = (event.description || '').split('\n').filter(Boolean);
+  return {
+    event,
+    timeRange,
+    rows: [
+      ['動作', o.googleCalendarEventId ? '更新既有事件' : '新增事件'],
+      ['標題', event.summary || '未命名事件'],
+      ['時間', timeRange.text || ''],
+      ['地點', event.location || '未填寫'],
+      ['Google Event ID', o.googleCalendarEventId || '尚未建立']
+    ],
+    descriptionLines
+  };
+}
+
+async function showCalendarUploadPreview(orderData) {
+  const o = normalizeOrderDuration(orderData || {});
+  const preview = buildCalendarUploadPreview(o);
+  const title = o.googleCalendarEventId ? '預覽更新 Google 日曆' : '預覽新增 Google 日曆';
+  const confirmButtonText = o.googleCalendarEventId ? '確認更新' : '確認上傳';
+
+  const descriptionHtml = preview.descriptionLines.length
+    ? `<div style="white-space:pre-wrap;background:#f1f5f9;border:2px solid #94a3b8;border-radius:12px;padding:12px 14px;line-height:1.65;color:#111827;font-size:15px;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.75);">${preview.descriptionLines.map(line => `<div style="padding:1px 0;">${escapeCalendarPreviewHtml(line)}</div>`).join('')}</div>`
+    : '<div style="color:#475569;background:#f1f5f9;border:2px solid #94a3b8;border-radius:12px;padding:12px 14px;font-weight:700;">沒有描述內容</div>';
+
+  const rowsHtml = preview.rows.map(([label, value], index) => {
+    const valueBg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+    const valueText = label === '時間' ? '#0f172a' : '#1f2937';
+    return `
+      <div style="display:grid;grid-template-columns:118px minmax(0,1fr);border-bottom:1.5px solid #94a3b8;${index === 0 ? 'border-top:1.5px solid #94a3b8;' : ''}">
+        <div style="background:#dbeafe;color:#1e3a8a;font-weight:900;padding:10px 12px;border-right:1.5px solid #94a3b8;line-height:1.35;display:flex;align-items:center;">${escapeCalendarPreviewHtml(label)}</div>
+        <div style="background:${valueBg};color:${valueText};font-weight:700;padding:10px 12px;line-height:1.45;word-break:break-word;overflow-wrap:anywhere;">${escapeCalendarPreviewHtml(value)}</div>
+      </div>`;
+  }).join('');
+
+  if (typeof Swal !== 'undefined' && Swal.fire) {
+    const result = await Swal.fire({
+      icon: 'info',
+      title,
+      html: `
+        <div style="text-align:left;font-size:15px;color:#111827;">
+          <div style="border:2px solid #64748b;border-radius:14px;overflow:hidden;background:#ffffff;box-shadow:0 10px 24px rgba(15,23,42,.14);margin:8px 0 16px;">
+            ${rowsHtml}
+          </div>
+          <div style="margin:12px 0 8px;font-weight:900;color:#0f172a;font-size:16px;display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:#2563eb;"></span>
+            日曆描述
+          </div>
+          ${descriptionHtml}
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText,
+      cancelButtonText: '取消',
+      focusConfirm: false,
+      width: 760
+    });
+    return !!result.isConfirmed;
+  }
+
+  const plainRows = preview.rows.map(([label, value]) => `${label}：${value}`).join('\n');
+  const plainDesc = preview.descriptionLines.length ? preview.descriptionLines.join('\n') : '沒有描述內容';
+  if (typeof showConfirm === 'function') {
+    return await showConfirm(title, `${plainRows}\n\n日曆描述：\n${plainDesc}`, confirmButtonText, '取消');
+  }
+  return confirm(`${title}\n\n${plainRows}\n\n日曆描述：\n${plainDesc}`);
+}
+
+function getCalendarApiUrl(eventId) {
+  const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`;
+  return eventId ? `${base}/${encodeURIComponent(eventId)}?fields=id,htmlLink,updated,created` : `${base}?fields=id,htmlLink,updated,created`;
+}
+
+async function requestCalendarEvent(method, eventId, event) {
+  const res = await fetch(getCalendarApiUrl(eventId), {
+    method,
     headers: {
       'Authorization': 'Bearer ' + gToken,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(event)
   });
+  let payload = null;
+  try { payload = await res.json(); } catch (e) {}
+  return { res, payload };
+}
 
-  if (res.ok) {
-  // 使用 SweetAlert2 美化成功彈窗
-  if (typeof Swal !== 'undefined' && Swal.fire) {
-    Swal.fire({
-      icon: 'success',
-      title: '已成功加入 Google 日曆',
-      text: `${o.customer || '這筆訂單'} 已新增到行事曆中。`,
-      footer: '可以到 Google 日曆查看與編輯這筆排程。',
-      showConfirmButton: true,
-      confirmButtonText: '太好了！',
-      // 如果想要自動關閉，可以加上這兩行：
-      // timer: 1800,
-      // timerProgressBar: true,
-    });
-  } else if (typeof showAlert === 'function') {
-    // 若 SweetAlert2 不在，就走你自訂的 Alert Modal
-    showAlert('上傳成功', '已成功加入 Google 日曆！');
-  } else {
-    // 最後保險：才用原生 alert
-    alert('✅ 已成功加入 Google 日曆！');
+async function handleUploadWithAuth(orderData) {
+  const normalizedOrder = normalizeOrderDuration(mergeCalendarSyncFields(orderData));
+  if (!normalizedOrder.date || !normalizedOrder.time) {
+    await showAlert('錯誤', '請先填寫此訂單的日期與時間');
+    return;
   }
-} else {
-  const err = await res.json();
+
+  if (!normalizedOrder.durationMinutes) {
+    await showAlert('缺少資料', '請輸入有效的工作時長（分鐘，需大於 0）。');
+    return;
+  }
+
+  const okUpload = await showCalendarUploadPreview(normalizedOrder);
+  if (!okUpload) return;
+
+  const runUpload = () => uploadEventToCalendar(normalizedOrder);
+  if (gToken) {
+    await runUpload();
+  } else {
+    gTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: async (tokenResponse) => {
+        gToken = tokenResponse.access_token;
+        await runUpload();
+      }
+    });
+    gTokenClient.requestAccessToken();
+  }
+}
+
+async function uploadEventToCalendar(orderData) {
+  const o = normalizeOrderDuration(mergeCalendarSyncFields(orderData));
+  const event = buildGoogleCalendarEvent(o);
+  const existingEventId = (o.googleCalendarEventId || '').trim();
+  let action = existingEventId ? 'updated' : 'created';
+  let result = await requestCalendarEvent(existingEventId ? 'PATCH' : 'POST', existingEventId, event);
+
+  if (existingEventId && (result.res.status === 404 || result.res.status === 410)) {
+    const recreate = (typeof showConfirm === 'function')
+      ? await showConfirm('找不到原本的日曆事件', 'Google 日曆中找不到原本連結的事件。是否改為重新建立一筆新的日曆事件？', '重新建立', '取消')
+      : confirm('Google 日曆中找不到原本連結的事件。是否改為重新建立一筆新的日曆事件？');
+    if (!recreate) return;
+    o.googleCalendarEventId = '';
+    result = await requestCalendarEvent('POST', '', event);
+    action = 'recreated';
+  }
+
+  if (result.res.ok) {
+    const fields = persistCalendarSyncToOrder(o, result.payload, action);
+    const actionText = action === 'created' ? '新增' : (action === 'recreated' ? '重新建立' : '更新');
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+      Swal.fire({
+        icon: 'success',
+        title: `已成功${actionText} Google 日曆`,
+        text: `${o.customer || '這筆訂單'} 已${actionText}到行事曆中。`,
+        footer: fields.googleCalendarHtmlLink ? `<a href="${fields.googleCalendarHtmlLink}" target="_blank" rel="noopener">開啟 Google 日曆事件</a>` : '可以到 Google 日曆查看與編輯這筆排程。',
+        showConfirmButton: true,
+        confirmButtonText: '太好了！'
+      });
+    } else if (typeof showAlert === 'function') {
+      showAlert('上傳成功', `已成功${actionText} Google 日曆！`);
+    } else {
+      alert(`✅ 已成功${actionText} Google 日曆！`);
+    }
+    return result.payload;
+  }
+
+  const message = result.payload?.error?.message || '未知錯誤，請稍後再試。';
   if (typeof Swal !== 'undefined' && Swal.fire) {
     Swal.fire({
       icon: 'error',
       title: '上傳失敗',
-      text: err.error?.message || '未知錯誤，請稍後再試。',
+      text: message,
       confirmButtonText: '了解'
     });
   } else if (typeof showAlert === 'function') {
-    showAlert('上傳失敗', err.error?.message || '未知錯誤，請稍後再試。');
+    showAlert('上傳失敗', message);
   } else {
-    alert(`❌ 上傳失敗：${err.error?.message || '未知錯誤'}`);
+    alert(`❌ 上傳失敗：${message}`);
   }
 }
-}
+
 
 // ---- concatenated from inline <script> blocks ----

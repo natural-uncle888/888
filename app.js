@@ -4002,78 +4002,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 
 async function safeUploadToCalendar(eventData) {
+  // 統一入口：所有「加入 Google 日曆」流程都改走 handleUploadWithAuth。
+  // handleUploadWithAuth 會負責欄位驗證、授權、判斷新增/更新，以及寫回 googleCalendarEventId。
   try {
-    // Build useful fields with flexible keys
-    const id = eventData?.id || eventData?.orderId || eventData?._id || '';
-    const name = eventData?.customer || eventData?.name || eventData?.clientName || '';
-    const phone = (Array.isArray(eventData?.phones) && eventData.phones[0]) || eventData?.phone || eventData?.tel || '';
-    const address = eventData?.address || eventData?.addr || eventData?.location || '';
-
-    // Date/time extraction
-    let dateVal = eventData?.date || eventData?._date || eventData?.datetime || null;
-    let timeVal = eventData?.time || eventData?._time || null;
-    if (!dateVal && eventData?._ts) {
-      const d = new Date(eventData._ts);
-      if (!isNaN(d)) {
-        dateVal = dateVal || d.toLocaleDateString();
-        timeVal = timeVal || d.toLocaleTimeString();
-      }
+    if (typeof handleUploadWithAuth === 'function') {
+      return await handleUploadWithAuth(eventData);
     }
-    if (!timeVal && typeof dateVal === 'string' && dateVal.indexOf('T') !== -1) {
-      const parts = dateVal.split('T');
-      dateVal = parts[0];
-      timeVal = parts[1] ? parts[1].split('.')[0] : timeVal;
-    }
-
-    // Treat duration as required: must be present and positive number
-    const durationRaw = eventData?.duration;
-    const hasDuration = typeof durationRaw !== 'undefined' && durationRaw !== null && String(durationRaw).trim() !== '';
-    const durationValid = hasDuration && !isNaN(Number(durationRaw)) && Number(durationRaw) > 0;
-
-    const missing = [];
-    if (!dateVal) missing.push('日期');
-    if (!timeVal) missing.push('時間');
-    if (!hasDuration) missing.push('工作時長（未填）');
-    else if (!durationValid) missing.push('工作時長（需為正數）');
-
-    // Build summary
-    const summaryLines = [
-      `訂單：${id || '-'}`,
-      `客戶：${name || '-'}`,
-      `電話：${phone || '-'}`,
-      `地址：${address || '-'}`,
-      `日期：${dateVal || '-'}`,
-      `時間：${timeVal || '-'}`,
-      `工作時長：${hasDuration ? String(durationRaw) : '-'}`
-    ];
-    const summary = summaryLines.join('\\n');
-
-    if (missing.length) {
-      const missText = missing.map((m,i)=>`${i+1}. ${m}`).join('\\n');
-      const msg = summary + '\\n\\n缺少或不正確的欄位：\\n' + missText + '\\n\\n請補齊後再上傳。';
-      if (typeof showAlert === 'function') {
-        await showAlert('缺少資料', msg);
-      } else {
-        alert(msg);
-      }
-      return;
-    }
-
-    const confirmMsg = summary + '\\n\\n確定要將此訂單加入 Google 日曆嗎？';
-    let ok;
-    if (typeof showConfirm === 'function') {
-      ok = await showConfirm('加入 Google 日曆', confirmMsg, '加入', '取消');
+    console.warn('handleUploadWithAuth not found');
+    if (typeof showAlert === 'function') {
+      await showAlert('錯誤', '找不到 Google 日曆上傳功能。');
     } else {
-      ok = confirm(confirmMsg);
-    }
-    if (!ok) return;
-
-    if (typeof uploadEventToCalendar === 'function') {
-      uploadEventToCalendar(eventData);
-    } else if (typeof handleUploadWithAuth === 'function') {
-      handleUploadWithAuth(eventData);
-    } else {
-      console.warn('uploadEventToCalendar / handleUploadWithAuth not found');
+      alert('找不到 Google 日曆上傳功能。');
     }
   } catch (e) {
     console.error('safeUploadToCalendar error', e);
@@ -4084,6 +4023,7 @@ async function safeUploadToCalendar(eventData) {
     }
   }
 }
+
 
 
 

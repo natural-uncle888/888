@@ -541,7 +541,7 @@ window.mergeOrdersByBundle = function mergeOrdersByBundle(input){
     const numericKeys = [
       'total','netTotal','discount','extraCharge',
       'acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone',
-      'transformerCount','longSplitCount','onePieceTray','durationMinutes'
+      'transformerCount','longSplitCount','onePieceTray','durationMinutes','duration','duration'
     ];
     const statusRank = (s)=>{
       if (s === '未完成') return 3;

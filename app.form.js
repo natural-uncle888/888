@@ -120,6 +120,7 @@ durationMinutes: +$('durationMinutes').value,
       try{ if(window.updateAcBrandOtherVisibility) window.updateAcBrandOtherVisibility(); }catch(e){}
       setFormLock(!!o.locked);
       document.getElementById('durationMinutes').value = (o.durationMinutes ?? '');
+      try{ if (typeof refreshCalendarFormButtons === 'function') refreshCalendarFormButtons(o); }catch(e){}
 
       try{ if (typeof window.updateWaterTankLadderSummary === 'function') window.updateWaterTankLadderSummary(); }catch(e){}
     }

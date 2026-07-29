@@ -157,3 +157,11 @@
 ## 版本資訊
 
 - 此版本包含「報表明細（訂單）」lazy load + 年份選單的效能更新。
+
+
+## Google Calendar 行程刪除與失效 Event ID 修復
+
+- 已連結 Google Calendar 的訂單會顯示「刪除日曆」操作；刪除日曆行程不會刪除訂單。
+- 刪除成功後會清除本地 `googleCalendarEventId` 與連結，之後可以重新新增。
+- 若事件已在 Google Calendar 手動刪除，系統會辨識 404、410、cancelled 與 deleted 狀態，清除失效 Event ID 並允許重建。
+- 更新既有事件前會先查詢 Event ID 是否仍存在，避免對已刪除事件持續 PATCH。

@@ -289,17 +289,30 @@ function mergeCalendarSyncFields(orderData) {
   };
 }
 
-function persistCalendarSyncToOrder(orderData, googleEvent, action) {
-  const orderId = ensureCalendarOrderId(orderData);
-  const now = new Date().toISOString();
-  const fields = {
-    googleCalendarEventId: googleEvent?.id || orderData.googleCalendarEventId || '',
-    googleCalendarHtmlLink: googleEvent?.htmlLink || orderData.googleCalendarHtmlLink || '',
-    googleCalendarUploadedAt: orderData.googleCalendarUploadedAt || now,
-    googleCalendarUpdatedAt: now,
-    googleCalendarLastAction: action || 'synced'
-  };
+function refreshCalendarFormButtons(orderData) {
+  try {
+    const currentId = (orderData?.id || document.getElementById('id')?.value || '').trim();
+    const fields = currentId ? getCalendarSyncFieldsForOrderId(currentId) : {};
+    const eventId = (orderData?.googleCalendarEventId || fields.googleCalendarEventId || '').trim();
+    const uploadBtn = document.getElementById('calendarUploadBtn');
+    const deleteBtn = document.getElementById('calendarDeleteBtn');
 
+    if (uploadBtn) {
+      uploadBtn.textContent = eventId ? '📅 更新日曆' : '📅 新增日曆';
+      uploadBtn.title = eventId ? '更新已連結的 Google Calendar 行程' : '新增 Google Calendar 行程';
+    }
+    if (deleteBtn) {
+      deleteBtn.hidden = !eventId;
+      deleteBtn.disabled = !eventId;
+      deleteBtn.title = eventId ? `刪除 Google Calendar 行程（Event ID：${eventId}）` : '尚未建立 Google Calendar 行程';
+    }
+  } catch (e) {
+    console.warn('refreshCalendarFormButtons failed', e);
+  }
+}
+
+function writeCalendarSyncFieldsToOrder(orderData, fields) {
+  const orderId = ensureCalendarOrderId(orderData);
   Object.assign(orderData, fields);
   getCalendarSyncStore()[orderId] = fields;
 
@@ -313,9 +326,34 @@ function persistCalendarSyncToOrder(orderData, googleEvent, action) {
       }
     }
   } catch (e) {
-    console.warn('persistCalendarSyncToOrder failed', e);
+    console.warn('writeCalendarSyncFieldsToOrder failed', e);
   }
+
+  refreshCalendarFormButtons({ ...orderData, ...fields, id: orderId });
   return fields;
+}
+
+function persistCalendarSyncToOrder(orderData, googleEvent, action) {
+  const now = new Date().toISOString();
+  const fields = {
+    googleCalendarEventId: googleEvent?.id || orderData.googleCalendarEventId || '',
+    googleCalendarHtmlLink: googleEvent?.htmlLink || orderData.googleCalendarHtmlLink || '',
+    googleCalendarUploadedAt: orderData.googleCalendarUploadedAt || now,
+    googleCalendarUpdatedAt: now,
+    googleCalendarLastAction: action || 'synced'
+  };
+  return writeCalendarSyncFieldsToOrder(orderData, fields);
+}
+
+function clearCalendarSyncFromOrder(orderData, action) {
+  const now = new Date().toISOString();
+  return writeCalendarSyncFieldsToOrder(orderData, {
+    googleCalendarEventId: '',
+    googleCalendarHtmlLink: '',
+    googleCalendarUploadedAt: '',
+    googleCalendarUpdatedAt: now,
+    googleCalendarLastAction: action || 'deleted'
+  });
 }
 
 function buildGoogleCalendarEvent(orderData) {
@@ -462,21 +500,60 @@ async function showCalendarUploadPreview(orderData) {
 
 function getCalendarApiUrl(eventId) {
   const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(GOOGLE_CALENDAR_ID)}/events`;
-  return eventId ? `${base}/${encodeURIComponent(eventId)}?fields=id,htmlLink,updated,created` : `${base}?fields=id,htmlLink,updated,created`;
+  const fields = 'id,htmlLink,updated,created,status';
+  return eventId ? `${base}/${encodeURIComponent(eventId)}?fields=${encodeURIComponent(fields)}` : `${base}?fields=${encodeURIComponent(fields)}`;
 }
 
 async function requestCalendarEvent(method, eventId, event) {
-  const res = await fetch(getCalendarApiUrl(eventId), {
+  const options = {
     method,
     headers: {
-      'Authorization': 'Bearer ' + gToken,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(event)
-  });
+      'Authorization': 'Bearer ' + gToken
+    }
+  };
+  if (event !== undefined && method !== 'GET' && method !== 'DELETE') {
+    options.headers['Content-Type'] = 'application/json';
+    options.body = JSON.stringify(event);
+  }
+
+  const res = await fetch(getCalendarApiUrl(eventId), options);
   let payload = null;
-  try { payload = await res.json(); } catch (e) {}
+  if (res.status !== 204) {
+    try { payload = await res.json(); } catch (e) {}
+  }
   return { res, payload };
+}
+
+function isCalendarEventMissing(result) {
+  const status = Number(result?.res?.status || 0);
+  const reason = String(result?.payload?.error?.errors?.[0]?.reason || '').toLowerCase();
+  const message = String(result?.payload?.error?.message || '').toLowerCase();
+  const eventStatus = String(result?.payload?.status || '').toLowerCase();
+  return status === 404 || status === 410 || eventStatus === 'cancelled' ||
+    reason === 'notfound' || reason === 'deleted' ||
+    message.includes('not found') || message.includes('has been deleted') || message.includes('resource has been deleted');
+}
+
+async function runWithGoogleCalendarAuth(action) {
+  if (gToken) return await action();
+  if (!window.google?.accounts?.oauth2) {
+    await showAlert('Google 授權尚未就緒', 'Google 登入元件尚未載入，請重新整理頁面後再試。');
+    return;
+  }
+
+  gTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (tokenResponse) => {
+      if (tokenResponse?.error) {
+        await showAlert('Google 授權失敗', tokenResponse.error_description || tokenResponse.error);
+        return;
+      }
+      gToken = tokenResponse.access_token;
+      await action();
+    }
+  });
+  gTokenClient.requestAccessToken();
 }
 
 async function handleUploadWithAuth(orderData) {
@@ -494,20 +571,7 @@ async function handleUploadWithAuth(orderData) {
   const okUpload = await showCalendarUploadPreview(normalizedOrder);
   if (!okUpload) return;
 
-  const runUpload = () => uploadEventToCalendar(normalizedOrder);
-  if (gToken) {
-    await runUpload();
-  } else {
-    gTokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: async (tokenResponse) => {
-        gToken = tokenResponse.access_token;
-        await runUpload();
-      }
-    });
-    gTokenClient.requestAccessToken();
-  }
+  await runWithGoogleCalendarAuth(() => uploadEventToCalendar(normalizedOrder));
 }
 
 async function uploadEventToCalendar(orderData) {
@@ -515,19 +579,43 @@ async function uploadEventToCalendar(orderData) {
   const event = buildGoogleCalendarEvent(o);
   const existingEventId = (o.googleCalendarEventId || '').trim();
   let action = existingEventId ? 'updated' : 'created';
-  let result = await requestCalendarEvent(existingEventId ? 'PATCH' : 'POST', existingEventId, event);
+  let result;
 
-  if (existingEventId && (result.res.status === 404 || result.res.status === 410)) {
-    const recreate = (typeof showConfirm === 'function')
-      ? await showConfirm('找不到原本的日曆事件', 'Google 日曆中找不到原本連結的事件。是否改為重新建立一筆新的日曆事件？', '重新建立', '取消')
-      : confirm('Google 日曆中找不到原本連結的事件。是否改為重新建立一筆新的日曆事件？');
-    if (!recreate) return;
-    o.googleCalendarEventId = '';
+  if (existingEventId) {
+    // 先確認事件仍存在。若使用者已在 Google Calendar 手動刪除，避免直接 PATCH 舊 Event ID。
+    const lookup = await requestCalendarEvent('GET', existingEventId);
+    if (isCalendarEventMissing(lookup)) {
+      const recreate = (typeof showConfirm === 'function')
+        ? await showConfirm(
+            '原日曆事件已不存在',
+            '這筆訂單保存的 Google Event ID 已失效，可能已在 Google Calendar 手動刪除。是否清除舊連結並重新建立行程？',
+            '重新建立',
+            '取消'
+          )
+        : confirm('原本的 Google 日曆事件已不存在。是否清除舊連結並重新建立？');
+      if (!recreate) return;
+      clearCalendarSyncFromOrder(o, 'stale-link-cleared');
+      o.googleCalendarEventId = '';
+      o.googleCalendarHtmlLink = '';
+      result = await requestCalendarEvent('POST', '', event);
+      action = 'recreated';
+    } else if (!lookup.res.ok) {
+      result = lookup;
+    } else {
+      result = await requestCalendarEvent('PATCH', existingEventId, event);
+      if (isCalendarEventMissing(result)) {
+        clearCalendarSyncFromOrder(o, 'stale-link-cleared');
+        o.googleCalendarEventId = '';
+        o.googleCalendarHtmlLink = '';
+        result = await requestCalendarEvent('POST', '', event);
+        action = 'recreated';
+      }
+    }
+  } else {
     result = await requestCalendarEvent('POST', '', event);
-    action = 'recreated';
   }
 
-  if (result.res.ok) {
+  if (result?.res?.ok) {
     const fields = persistCalendarSyncToOrder(o, result.payload, action);
     const actionText = action === 'created' ? '新增' : (action === 'recreated' ? '重新建立' : '更新');
     if (typeof Swal !== 'undefined' && Swal.fire) {
@@ -547,7 +635,7 @@ async function uploadEventToCalendar(orderData) {
     return result.payload;
   }
 
-  const message = result.payload?.error?.message || '未知錯誤，請稍後再試。';
+  const message = result?.payload?.error?.message || '未知錯誤，請稍後再試。';
   if (typeof Swal !== 'undefined' && Swal.fire) {
     Swal.fire({
       icon: 'error',
@@ -561,6 +649,65 @@ async function uploadEventToCalendar(orderData) {
     alert(`❌ 上傳失敗：${message}`);
   }
 }
+
+async function handleDeleteCalendarWithAuth(orderData) {
+  const o = mergeCalendarSyncFields(orderData);
+  const eventId = (o.googleCalendarEventId || '').trim();
+  if (!eventId) {
+    await showAlert('沒有可刪除的日曆行程', '這筆訂單目前沒有保存 Google Event ID，可直接按「新增日曆」建立新行程。');
+    refreshCalendarFormButtons(o);
+    return;
+  }
+
+  const label = [o.date, o.time, o.customer].filter(Boolean).join(' ');
+  const ok = (typeof showConfirm === 'function')
+    ? await showConfirm(
+        '刪除 Google Calendar 行程',
+        `確定刪除「${label || '這筆訂單'}」的 Google Calendar 行程嗎？\n\n只會刪除日曆行程，訂單資料會保留；刪除後可再次按「新增日曆」重新建立。`,
+        '刪除日曆行程',
+        '取消',
+        { danger: true }
+      )
+    : confirm(`確定刪除「${label || '這筆訂單'}」的 Google Calendar 行程嗎？訂單資料會保留。`);
+  if (!ok) return;
+
+  await runWithGoogleCalendarAuth(() => deleteEventFromCalendar(o));
+}
+
+async function deleteEventFromCalendar(orderData) {
+  const o = mergeCalendarSyncFields(orderData);
+  const eventId = (o.googleCalendarEventId || '').trim();
+  if (!eventId) {
+    clearCalendarSyncFromOrder(o, 'local-link-cleared');
+    await showAlert('已清除日曆連結', '本地端沒有可用的 Google Event ID。');
+    return;
+  }
+
+  const result = await requestCalendarEvent('DELETE', eventId);
+  if (result.res.ok || isCalendarEventMissing(result)) {
+    const wasAlreadyMissing = !result.res.ok;
+    clearCalendarSyncFromOrder(o, wasAlreadyMissing ? 'already-deleted' : 'deleted');
+    const title = wasAlreadyMissing ? '日曆行程已不存在' : '已刪除 Google 日曆行程';
+    const message = wasAlreadyMissing
+      ? 'Google Calendar 中找不到這筆行程，系統已清除失效的 Event ID，現在可以重新新增。'
+      : '日曆行程已刪除，訂單資料仍保留；之後可重新新增 Google Calendar 行程。';
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+      await Swal.fire({ icon: 'success', title, text: message, confirmButtonText: '完成' });
+    } else {
+      await showAlert(title, message);
+    }
+    return true;
+  }
+
+  const message = result.payload?.error?.message || 'Google Calendar 刪除失敗，請稍後再試。';
+  if (typeof Swal !== 'undefined' && Swal.fire) {
+    await Swal.fire({ icon: 'error', title: '刪除失敗', text: message, confirmButtonText: '了解' });
+  } else {
+    await showAlert('刪除失敗', message);
+  }
+  return false;
+}
+
 
 
 // ---- concatenated from inline <script> blocks ----

@@ -202,10 +202,21 @@
 
         // op buttons
         const op = tr.querySelector('.op-cell');
-        const calBtn2 = document.createElement('button'); calBtn2.className='icon-btn'; calBtn2.textContent='📅';
-        calBtn2.title = '加入 Google 日曆';
+        const hasCalendarEvent = !!String(o.googleCalendarEventId || '').trim();
+        const calBtn2 = document.createElement('button'); calBtn2.className='icon-btn'; calBtn2.textContent = hasCalendarEvent ? '📅↻' : '📅＋';
+        calBtn2.title = hasCalendarEvent ? '更新 Google Calendar 行程' : '新增 Google Calendar 行程';
+        calBtn2.setAttribute('aria-label', calBtn2.title);
         calBtn2.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleUploadWithAuth(o); });
         op.appendChild(calBtn2);
+        if (hasCalendarEvent) {
+          const calDeleteBtn = document.createElement('button');
+          calDeleteBtn.className = 'icon-btn danger calendar-delete-btn';
+          calDeleteBtn.textContent = '📅✕';
+          calDeleteBtn.title = '刪除 Google Calendar 行程（訂單會保留）';
+          calDeleteBtn.setAttribute('aria-label', calDeleteBtn.title);
+          calDeleteBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleDeleteCalendarWithAuth(o); });
+          op.appendChild(calDeleteBtn);
+        }
         const delBtn = document.createElement('button'); delBtn.className='icon-btn danger'; delBtn.textContent='刪';
         delBtn.addEventListener('click', async (ev)=>{ ev.stopPropagation(); const msg='確定要刪除此訂單嗎？'; const ok = (typeof showConfirm === 'function') ? await showConfirm('刪除訂單', msg, '刪除', '取消', { danger:true }) : confirm(msg); if(ok) { orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
         op.appendChild(delBtn);

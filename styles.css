@@ -3028,3 +3028,11 @@ label.pill input[type="radio"]:checked + span{
     background:#f8fafc;
   }
 }
+
+
+/* Google Calendar 行程操作 */
+.calendar-action-btn{white-space:nowrap;}
+.op-cell .calendar-delete-btn{margin-left:4px;}
+@media (max-width: 760px){
+  .toolbar .right .calendar-action-btn{padding-left:9px;padding-right:9px;}
+}

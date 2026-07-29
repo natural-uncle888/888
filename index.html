@@ -423,7 +423,10 @@
 <button id="sameDayNextBtn" title="同一位技師同日跑第二地點：複製此訂單、地址自動切換到下一個" type="button">同日新增第二地點</button>
 <div class="right">
 <span class="lock-badge" id="lockInfo"></span>
-<div style="display:inline-block; margin-right:8px;"><label style="margin-right:4px;">時長(分)</label><input id="durationMinutes" min="15" placeholder="分鐘" step="15" style="width:80px;" type="number"/></div><button class="btn" onclick="handleUploadWithAuth(gatherForm())">📅</button><button class="warn" id="toggleLock" type="button">解鎖金額編輯</button>
+<div style="display:inline-block; margin-right:8px;"><label style="margin-right:4px;">時長(分)</label><input id="durationMinutes" min="15" placeholder="分鐘" step="15" style="width:80px;" type="number"/></div>
+<button class="btn calendar-action-btn" id="calendarUploadBtn" onclick="handleUploadWithAuth(gatherForm())" title="新增 Google Calendar 行程" type="button">📅 新增日曆</button>
+<button class="danger calendar-action-btn" hidden="" id="calendarDeleteBtn" onclick="handleDeleteCalendarWithAuth(gatherForm())" title="刪除 Google Calendar 行程（訂單會保留）" type="button">📅✕ 刪除日曆</button>
+<button class="warn" id="toggleLock" type="button">解鎖金額編輯</button>
 <button class="danger" disabled="" id="deleteBtn" type="button">刪除此訂單</button>
 </div>
 </div>

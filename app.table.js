@@ -1,6 +1,192 @@
 // ---------- Table & quick status ----------
+    let activeOrderActionsTrigger = null;
+    let orderActionsPopover = null;
+    let orderActionsPopoverEventsBound = false;
+
+    function closeOrderActionsPopover(restoreFocus = false){
+      if(!orderActionsPopover || orderActionsPopover.hidden) return;
+      orderActionsPopover.hidden = true;
+      orderActionsPopover.replaceChildren();
+      if(activeOrderActionsTrigger){
+        activeOrderActionsTrigger.classList.remove('is-open');
+        activeOrderActionsTrigger.setAttribute('aria-expanded', 'false');
+        if(restoreFocus){
+          try { activeOrderActionsTrigger.focus({ preventScroll:true }); } catch(e) { activeOrderActionsTrigger.focus(); }
+        }
+      }
+      activeOrderActionsTrigger = null;
+    }
+
+    function ensureOrderActionsPopover(){
+      if(orderActionsPopover && document.body.contains(orderActionsPopover)) return orderActionsPopover;
+
+      orderActionsPopover = document.createElement('div');
+      orderActionsPopover.id = 'orderActionsPopover';
+      orderActionsPopover.className = 'order-actions-popover';
+      orderActionsPopover.setAttribute('role', 'menu');
+      orderActionsPopover.setAttribute('aria-label', '訂單操作');
+      orderActionsPopover.hidden = true;
+      document.body.appendChild(orderActionsPopover);
+
+      if(!orderActionsPopoverEventsBound){
+        orderActionsPopoverEventsBound = true;
+
+        document.addEventListener('pointerdown', (ev)=>{
+          if(!orderActionsPopover || orderActionsPopover.hidden) return;
+          if(orderActionsPopover.contains(ev.target)) return;
+          if(activeOrderActionsTrigger && activeOrderActionsTrigger.contains(ev.target)) return;
+          closeOrderActionsPopover(false);
+        }, true);
+
+        document.addEventListener('keydown', (ev)=>{
+          if(ev.key === 'Escape' && orderActionsPopover && !orderActionsPopover.hidden){
+            ev.preventDefault();
+            closeOrderActionsPopover(true);
+          }
+        });
+
+        window.addEventListener('resize', ()=>closeOrderActionsPopover(false));
+        window.addEventListener('scroll', ()=>closeOrderActionsPopover(false), true);
+      }
+
+      return orderActionsPopover;
+    }
+
+    function positionOrderActionsPopover(trigger, popover){
+      popover.style.left = '0px';
+      popover.style.top = '0px';
+      popover.style.visibility = 'hidden';
+      popover.hidden = false;
+
+      const triggerRect = trigger.getBoundingClientRect();
+      const popoverRect = popover.getBoundingClientRect();
+      const gap = 7;
+      const edge = 8;
+
+      let left = triggerRect.right - popoverRect.width;
+      left = Math.max(edge, Math.min(left, window.innerWidth - popoverRect.width - edge));
+
+      let top = triggerRect.bottom + gap;
+      if(top + popoverRect.height > window.innerHeight - edge){
+        top = triggerRect.top - popoverRect.height - gap;
+      }
+      top = Math.max(edge, Math.min(top, window.innerHeight - popoverRect.height - edge));
+
+      popover.style.left = `${Math.round(left)}px`;
+      popover.style.top = `${Math.round(top)}px`;
+      popover.style.visibility = '';
+    }
+
+    function appendOrderActionMenuItem(popover, options){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `order-actions-popover__item ${options.className || ''}`.trim();
+      btn.setAttribute('role', 'menuitem');
+      btn.innerHTML = `<span class="order-actions-popover__icon" aria-hidden="true">${options.icon || ''}</span><span>${options.label}</span>`;
+      btn.addEventListener('click', async (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        closeOrderActionsPopover(false);
+        await options.onClick();
+      });
+      popover.appendChild(btn);
+      return btn;
+    }
+
+    function openOrderActionsPopover(trigger, order){
+      const popover = ensureOrderActionsPopover();
+
+      if(activeOrderActionsTrigger === trigger && !popover.hidden){
+        closeOrderActionsPopover(true);
+        return;
+      }
+
+      closeOrderActionsPopover(false);
+      activeOrderActionsTrigger = trigger;
+      trigger.classList.add('is-open');
+      trigger.setAttribute('aria-expanded', 'true');
+      popover.replaceChildren();
+
+      const urls = String(order.photoUrls || '').trim();
+      if(urls){
+        appendOrderActionMenuItem(popover, {
+          icon: '📎',
+          label: '查看附件',
+          className: 'is-neutral',
+          onClick: async ()=>{
+            fillForm(order);
+            try { renderPhotoUrlLinks(order.photoUrls || ''); } catch(e) {}
+            try {
+              const acc = document.getElementById('orderAccordion');
+              if(acc) acc.open = true;
+            } catch(e) {}
+            try {
+              setTimeout(() => {
+                let target = document.getElementById('photoUrlContainer');
+                if(!target) target = document.getElementById('photoUrlViewer') || document.querySelector('.photo-url-input');
+                if(target){
+                  const row = target.closest('.row') || target.closest('.col') || target;
+                  row.scrollIntoView({ behavior:'smooth', block:'center' });
+                  const firstInput = row.querySelector('.photo-url-input');
+                  if(firstInput) firstInput.focus();
+                }
+              }, 30);
+            } catch(e) {}
+          }
+        });
+      }
+
+      const hasCalendarEvent = !!String(order.googleCalendarEventId || '').trim();
+      appendOrderActionMenuItem(popover, {
+        icon: hasCalendarEvent ? '🔄' : '📅',
+        label: hasCalendarEvent ? '更新 Google Calendar' : '新增 Google Calendar',
+        className: 'is-calendar',
+        onClick: async ()=>handleUploadWithAuth(order)
+      });
+
+      if(hasCalendarEvent){
+        appendOrderActionMenuItem(popover, {
+          icon: '📅',
+          label: '刪除 Google Calendar',
+          className: 'is-calendar-delete',
+          onClick: async ()=>handleDeleteCalendarWithAuth(order)
+        });
+      }
+
+      const divider = document.createElement('div');
+      divider.className = 'order-actions-popover__divider';
+      divider.setAttribute('role', 'separator');
+      popover.appendChild(divider);
+
+      appendOrderActionMenuItem(popover, {
+        icon: '🗑️',
+        label: '刪除訂單',
+        className: 'is-danger',
+        onClick: async ()=>{
+          const msg = '確定要刪除此訂單嗎？';
+          const ok = (typeof showConfirm === 'function')
+            ? await showConfirm('刪除訂單', msg, '刪除', '取消', { danger:true })
+            : confirm(msg);
+          if(ok){
+            orders = orders.filter(x => x.id !== order.id);
+            save(KEY, orders);
+            refreshTable();
+          }
+        }
+      });
+
+      positionOrderActionsPopover(trigger, popover);
+      requestAnimationFrame(()=>{
+        const firstItem = popover.querySelector('.order-actions-popover__item');
+        if(firstItem){
+          try { firstItem.focus({ preventScroll:true }); } catch(e) { firstItem.focus(); }
+        }
+      });
+    }
+
     function nextStatus(s){ const i=STATUS_FLOW.indexOf(s); return STATUS_FLOW[(i+1)%STATUS_FLOW.length]; }
     function refreshTable(){
+      closeOrderActionsPopover(false);
       // Enhanced search: tokens -> filter every token across fields, score by relevance
       const y = +$('yearSel').value, m = +$('monthSel').value, staffF = $('staffFilter').value, statusF = $('statusFilter').value, showUndated = $('showUndated').checked;
       const tbody = $('ordersTable')?.querySelector('tbody');
@@ -119,43 +305,8 @@
           <td class="right-align" data-label="總金額">${fmtCurrency(o.total||0)}</td>
           <td class="right-align" data-label="折後">${fmtCurrency(o.netTotal||0)}</td>
           <td data-label="來源">${escapeHtml(o.contactMethod||'')}</td>
-          <td class="op-cell" data-label="操作"></td>
+          <td class="op-cell" data-label="操作"><div class="order-actions" role="group" aria-label="訂單操作"></div></td>
         `;
-
-        // 附加照片按鈕
-        const opCell = tr.querySelector('.op-cell');
-        if (opCell) {
-          const urls = (o.photoUrls || '').trim();
-          if (urls) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'icon-btn';
-            btn.textContent = '📎';
-            btn.title = '查看附加照片 / 檔案連結';
-            btn.addEventListener('click', (ev)=>{
-              ev.stopPropagation();
-              fillForm(o);
-              try { renderPhotoUrlLinks(o.photoUrls || ''); } catch(e) {}
-              try {
-                const acc = document.getElementById('orderAccordion');
-                if (acc) acc.open = true;
-              } catch(e) {}
-              try {
-                setTimeout(() => {
-                  let target = document.getElementById('photoUrlContainer');
-                  if (!target) target = document.getElementById('photoUrlViewer') || document.querySelector('.photo-url-input');
-                  if (target) {
-                    const row = target.closest('.row') || target.closest('.col') || target;
-                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    const firstInput = row.querySelector('.photo-url-input');
-                    if (firstInput) firstInput.focus();
-                  }
-                }, 30);
-              } catch(e) {}
-            });
-            opCell.appendChild(btn);
-          }
-        }
 
         // status pill
         const st = o.status || '排定';
@@ -200,26 +351,23 @@
         cspan.addEventListener('click', (ev)=>{ ev.stopPropagation(); const i=orders.findIndex(x=>x.id===o.id); if(i>=0){ orders[i].confirmed = !orders[i].confirmed; save(KEY, orders); refreshTable(); }});
         qspan.addEventListener('click', (ev)=>{ ev.stopPropagation(); const i=orders.findIndex(x=>x.id===o.id); if(i>=0){ orders[i].quotationOk = !orders[i].quotationOk; save(KEY, orders); refreshTable(); }});
 
-        // op buttons
-        const op = tr.querySelector('.op-cell');
-        const hasCalendarEvent = !!String(o.googleCalendarEventId || '').trim();
-        const calBtn2 = document.createElement('button'); calBtn2.className='icon-btn'; calBtn2.textContent = hasCalendarEvent ? '📅↻' : '📅＋';
-        calBtn2.title = hasCalendarEvent ? '更新 Google Calendar 行程' : '新增 Google Calendar 行程';
-        calBtn2.setAttribute('aria-label', calBtn2.title);
-        calBtn2.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleUploadWithAuth(o); });
-        op.appendChild(calBtn2);
-        if (hasCalendarEvent) {
-          const calDeleteBtn = document.createElement('button');
-          calDeleteBtn.className = 'icon-btn danger calendar-delete-btn';
-          calDeleteBtn.textContent = '📅✕';
-          calDeleteBtn.title = '刪除 Google Calendar 行程（訂單會保留）';
-          calDeleteBtn.setAttribute('aria-label', calDeleteBtn.title);
-          calDeleteBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); handleDeleteCalendarWithAuth(o); });
-          op.appendChild(calDeleteBtn);
-        }
-        const delBtn = document.createElement('button'); delBtn.className='icon-btn danger'; delBtn.textContent='刪';
-        delBtn.addEventListener('click', async (ev)=>{ ev.stopPropagation(); const msg='確定要刪除此訂單嗎？'; const ok = (typeof showConfirm === 'function') ? await showConfirm('刪除訂單', msg, '刪除', '取消', { danger:true }) : confirm(msg); if(ok) { orders = orders.filter(x=>x.id!==o.id); save(KEY, orders); refreshTable(); }});
-        op.appendChild(delBtn);
+        // 訂單操作：平時只顯示單一圖示，點擊後以浮動小視窗呈現完整操作
+        const op = tr.querySelector('.order-actions');
+        const actionTrigger = document.createElement('button');
+        actionTrigger.type = 'button';
+        actionTrigger.className = 'icon-btn order-actions-trigger';
+        actionTrigger.innerHTML = '<span aria-hidden="true">⋮</span>';
+        actionTrigger.title = '開啟訂單操作選單';
+        actionTrigger.setAttribute('aria-label', '開啟訂單操作選單');
+        actionTrigger.setAttribute('aria-haspopup', 'menu');
+        actionTrigger.setAttribute('aria-expanded', 'false');
+        actionTrigger.setAttribute('aria-controls', 'orderActionsPopover');
+        actionTrigger.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          openOrderActionsPopover(actionTrigger, o);
+        });
+        op.appendChild(actionTrigger);
 
         // mobile classes
         try {

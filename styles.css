@@ -3032,7 +3032,167 @@ label.pill input[type="radio"]:checked + span{
 
 /* Google Calendar 行程操作 */
 .calendar-action-btn{white-space:nowrap;}
-.op-cell .calendar-delete-btn{margin-left:4px;}
-@media (max-width: 760px){
-  .toolbar .right .calendar-action-btn{padding-left:9px;padding-right:9px;}
+
+/*
+ * 訂單列表操作選單
+ * 表格內平時只顯示一顆按鈕，完整操作以 fixed 浮動選單顯示，
+ * 不會被表格的 overflow 裁切，也不會增加訂單列高度。
+ */
+#ordersTable td.op-cell{
+  width:48px;
+  min-width:48px;
+  padding:6px 5px;
+  vertical-align:middle;
+  text-align:center;
 }
+
+#ordersTable .order-actions{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:38px;
+  margin:0 auto;
+}
+
+#ordersTable .order-actions-trigger{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:34px;
+  height:34px;
+  min-width:34px;
+  padding:0;
+  margin:0;
+  border:1px solid #cbd5e1;
+  border-radius:11px;
+  background:#fff;
+  color:#475569;
+  box-shadow:none;
+  font-size:22px;
+  font-weight:800;
+  line-height:1;
+  letter-spacing:0;
+  transition:background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+#ordersTable .order-actions-trigger:hover,
+#ordersTable .order-actions-trigger:focus-visible,
+#ordersTable .order-actions-trigger.is-open{
+  background:#f0fdf4;
+  border-color:#86efac;
+  color:#15803d;
+  box-shadow:0 4px 12px rgba(15,23,42,.13);
+  transform:translateY(-1px);
+}
+
+.order-actions-popover{
+  position:fixed;
+  z-index:10050;
+  width:218px;
+  padding:7px;
+  border:1px solid #dbe3ec;
+  border-radius:14px;
+  background:rgba(255,255,255,.98);
+  box-shadow:0 16px 42px rgba(15,23,42,.22), 0 3px 10px rgba(15,23,42,.08);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  transform-origin:top right;
+  animation:orderActionsPopoverIn .14s ease-out;
+}
+
+.order-actions-popover[hidden]{display:none !important;}
+
+@keyframes orderActionsPopoverIn{
+  from{opacity:0;transform:translateY(-4px) scale(.97);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+
+.order-actions-popover__item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  min-height:42px;
+  padding:8px 10px;
+  margin:0;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:#263244;
+  box-shadow:none;
+  font-size:14px;
+  font-weight:650;
+  line-height:1.35;
+  text-align:left;
+  cursor:pointer;
+}
+
+.order-actions-popover__item:hover,
+.order-actions-popover__item:focus-visible{
+  background:#f1f5f9;
+  outline:none;
+  transform:none;
+  box-shadow:none;
+}
+
+.order-actions-popover__icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 28px;
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  background:#f1f5f9;
+  font-size:15px;
+  line-height:1;
+}
+
+.order-actions-popover__item.is-calendar{color:#1d4ed8;}
+.order-actions-popover__item.is-calendar .order-actions-popover__icon{background:#eff6ff;}
+
+.order-actions-popover__item.is-calendar-delete{color:#c2410c;}
+.order-actions-popover__item.is-calendar-delete .order-actions-popover__icon{background:#fff7ed;}
+
+.order-actions-popover__item.is-danger{color:#b91c1c;}
+.order-actions-popover__item.is-danger .order-actions-popover__icon{background:#fef2f2;}
+.order-actions-popover__item.is-danger:hover,
+.order-actions-popover__item.is-danger:focus-visible{background:#fef2f2;}
+
+.order-actions-popover__divider{
+  height:1px;
+  margin:6px 4px;
+  background:#e2e8f0;
+}
+
+@media (max-width:760px){
+  .toolbar .right .calendar-action-btn{padding-left:9px;padding-right:9px;}
+
+  #ordersTable td.keep-mobile[data-label="操作"]{
+    align-items:center;
+  }
+
+  #ordersTable .order-actions{
+    justify-content:flex-start;
+    width:auto;
+    margin:0;
+  }
+
+  #ordersTable .order-actions-trigger{
+    width:42px;
+    height:42px;
+    min-width:42px;
+    border-radius:13px;
+    font-size:24px;
+  }
+
+  .order-actions-popover{
+    width:min(230px, calc(100vw - 16px));
+  }
+
+  .order-actions-popover__item{
+    min-height:46px;
+    font-size:15px;
+  }
+}
+

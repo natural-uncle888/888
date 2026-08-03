@@ -63,7 +63,7 @@
 <div class="header-item" data-header-id="search">
 <div class="pill">
 <strong>搜尋</strong>
-<input id="searchInput" placeholder="姓名 / 電話 / 地址" style="width:220px" type="text"/>
+<input id="searchInput" placeholder="姓名 / 電話 / 地址 / LINE・Facebook ID" style="width:220px" type="text"/>
 </div>
 </div>
 <div class="header-item header-item--action" data-header-id="newOrder">
@@ -307,6 +307,21 @@
     <div class="muted small">請針對每一台填寫位置（客廳 / 房間 / 手動）與樓層（1F~4F / 手動）。</div>
     <div class="long-split-loc-list" id="onePieceTrayLocationList"></div>
   </div></div>
+</div>
+<div class="row">
+<div class="col" style="grid-column:span 6"><label><b>室外機清洗</b></label><input id="outdoorUnitCleaning" min="0" step="1" type="number" value="0"/></div>
+</div>
+<div class="custom-service-editor">
+  <div class="custom-service-editor__header">
+    <div>
+      <label class="custom-service-editor__title">其他項目</label>
+      <div class="muted small">手動輸入服務內容、數量與單價，可不限次數新增；也可從「系統設定 → 價格設定」建立不同服務的價格範本。</div>
+    </div>
+    <button class="btn-small" id="addCustomServiceItemBtn" type="button">＋新增其他項目</button>
+  </div>
+  <datalist id="customServicePresetOptions"></datalist>
+  <div class="custom-service-items" id="customServiceItemsContainer"></div>
+  <div class="muted small custom-service-empty" id="customServiceItemsEmpty">尚未新增其他項目</div>
 </div>
 </div>
 </details>
@@ -897,6 +912,18 @@
 <label>臭氧殺菌 (每間) <input class="form-input" id="price_ozone_unit" type="number"/></label>
 <label>變形金剛 (每台) <input class="form-input" id="price_transformerCount_unit" type="number"/></label>
 <label>一體式水盤 (每台) <input class="form-input" id="price_onePieceTray_unit" type="number"/></label>
+<label>室外機清洗 (每台) <input class="form-input" id="price_outdoorUnitCleaning_unit" min="0" type="number"/></label>
+</div>
+<div style="grid-column: span 2;">
+<div class="pricing-preset-header">
+  <div>
+    <h4 style="margin:0 0 4px;border-bottom:1px solid #eee;padding-bottom:4px">其他項目價格範本</h4>
+    <div class="muted small">每個服務可設定不同單價。訂單選到同名範本時會自動帶入，仍可在訂單內個別修改。</div>
+  </div>
+  <button class="btn-small" id="addCustomServicePricePresetBtn" type="button">＋新增價格範本</button>
+</div>
+<div class="pricing-preset-labels"><span>服務名稱</span><span>每項單價</span><span></span></div>
+<div class="pricing-preset-list" id="customServicePricePresetsContainer"></div>
 </div>
 <div style="grid-column: span 2;">
 <h4 style="margin:0 0 8px;border-bottom:1px solid #eee;padding-bottom:4px">防霉噴劑</h4>

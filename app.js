@@ -22,10 +22,74 @@ function initPricingLogic(){
     ozone_unit: ['ozone','unit'],
     transformerCount_unit: ['transformerCount','unit'],
     onePieceTray_unit: ['onePieceTray','unit'],
+    outdoorUnitCleaning_unit: ['outdoorUnitCleaning','unit'],
     antiMold_unit: ['antiMold','unit'],
     antiMold_bulk5plus: ['antiMold','bulk5plus'],
     longSplitCount_unit: ['longSplitCount','unit']
   };
+
+  const presetContainer = document.getElementById('customServicePricePresetsContainer');
+  const addPresetBtn = document.getElementById('addCustomServicePricePresetBtn');
+
+  function createCustomServicePricePresetRow(item){
+    const row = document.createElement('div');
+    row.className = 'pricing-preset-row';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'form-input pricing-preset-name';
+    nameInput.placeholder = '服務名稱';
+    nameInput.value = String((item && item.name) || '');
+
+    const unitInput = document.createElement('input');
+    unitInput.type = 'number';
+    unitInput.className = 'form-input pricing-preset-unit';
+    unitInput.min = '0';
+    unitInput.step = '1';
+    const rawUnit = Number(item && (item.unitPrice ?? item.price ?? item.unit));
+    unitInput.value = String(Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : 0);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-small danger';
+    removeBtn.textContent = '移除';
+    removeBtn.addEventListener('click', () => row.remove());
+
+    row.append(nameInput, unitInput, removeBtn);
+    return row;
+  }
+
+  function renderCustomServicePricePresets(items){
+    if(!presetContainer) return;
+    presetContainer.innerHTML = '';
+    (Array.isArray(items) ? items : []).forEach(item => presetContainer.appendChild(createCustomServicePricePresetRow(item)));
+  }
+
+  function gatherCustomServicePricePresets(){
+    if(!presetContainer) return [];
+    const result = [];
+    const seen = new Set();
+    Array.from(presetContainer.querySelectorAll('.pricing-preset-row')).forEach(row => {
+      const name = String(row.querySelector('.pricing-preset-name')?.value || '').trim();
+      const rawUnit = Number(row.querySelector('.pricing-preset-unit')?.value || 0);
+      if(!name) return;
+      const key = name.toLocaleLowerCase('zh-TW');
+      if(seen.has(key)) return;
+      seen.add(key);
+      result.push({ name, unitPrice: Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : 0 });
+    });
+    return result;
+  }
+
+  if(addPresetBtn && addPresetBtn.dataset.bound !== '1'){
+    addPresetBtn.addEventListener('click', () => {
+      if(!presetContainer) return;
+      const row = createCustomServicePricePresetRow({ name:'', unitPrice:0 });
+      presetContainer.appendChild(row);
+      row.querySelector('.pricing-preset-name')?.focus();
+    });
+    addPresetBtn.dataset.bound = '1';
+  }
 
   function deepGet(obj, path, fallback){
     let cur = obj;
@@ -56,10 +120,11 @@ function initPricingLogic(){
       const val = deepGet(cfg, path, defVal);
       input.value = val != null ? val : '';
     });
+    renderCustomServicePricePresets(Array.isArray(cfg.customServicePresets) ? cfg.customServicePresets : []);
   }
 
   function buildConfigFromForm(){
-    const base = JSON.parse(JSON.stringify(DEFAULT_PRICING));
+    const base = normalizePricingConfig(JSON.parse(JSON.stringify(pricingConfig || DEFAULT_PRICING)));
     Object.keys(fieldMap).forEach(key => {
       const input = document.getElementById('price_' + key);
       if (!input) return;
@@ -67,9 +132,10 @@ function initPricingLogic(){
       const path = fieldMap[key];
       const defVal = deepGet(DEFAULT_PRICING, path, 0);
       let num = Number(raw);
-      if (!Number.isFinite(num) || num <= 0) num = defVal;
+      if (!Number.isFinite(num) || num < 0) num = defVal;
       deepSet(base, path, num);
     });
+    base.customServicePresets = gatherCustomServicePricePresets();
     return base;
   }
 
@@ -91,6 +157,10 @@ function initPricingLogic(){
       pricingConfig = JSON.parse(JSON.stringify(DEFAULT_PRICING));
       save(PRICING_KEY, pricingConfig);
       syncFormFromConfig();
+      try{
+        if (typeof recalcTotals === 'function') recalcTotals();
+        if (typeof refreshCustomServicePriceHints === 'function') refreshCustomServicePriceHints();
+      }catch(e){}
     });
   }
 
@@ -101,6 +171,7 @@ function initPricingLogic(){
       closeModal();
       try{
         recalcTotals();
+        if (typeof refreshCustomServicePriceHints === 'function') refreshCustomServicePriceHints();
       }catch(e){}
     });
   }
@@ -334,7 +405,7 @@ function initPricingLogic(){
       '安排時段(多選)','日期/時段備註','地址',
       '居住地型態','居住地型態(其他)','方便聯繫時間(多選)','方便聯繫備註',
       '冷氣樓層(多選)','洗衣機樓層(多選)','聯繫方式','狀況','完成時間','金額鎖定',
-      '分離式室內機','吊隱式','直立式洗衣機','水塔','自來水管金額','防霉噴劑','臭氧殺菌','變形金剛加價','長度>182cm加價','一體式水盤',
+      '分離式室內機','吊隱式','直立式洗衣機','水塔','自來水管金額','防霉噴劑','臭氧殺菌','變形金剛加價','長度>182cm加價','一體式水盤','室外機清洗','其他項目',
       '備註','總金額','折扣金額','折後總金額','建立時間'
     ];
     const orderRows = (typeof orders!=='undefined' && Array.isArray(orders)?orders:[])
@@ -350,7 +421,8 @@ function initPricingLogic(){
         (o.acFloors||[]).join('|')||'', (o.washerFloors||[]).join('|')||'',
         o.contactMethod||'', o.status||'', o.completedAt||'', o.locked?'是':'否',
         +o.acSplit||0, +o.acDuct||0, +o.washerTop||0, +o.waterTank||0, +o.pipesAmount||0,
-        +o.antiMold||0, +o.ozone||0, +o.transformerCount||0, +o.longSplitCount||0, +o.onePieceTray||0,
+        +o.antiMold||0, +o.ozone||0, +o.transformerCount||0, +o.longSplitCount||0, +o.onePieceTray||0, +o.outdoorUnitCleaning||0,
+        (typeof formatCustomServiceItemsForExport === 'function' ? formatCustomServiceItemsForExport(o.customServiceItems) : ''),
         (o.note||'').replace(/\n/g,' '), +o.total||0, +o.discount||0, +o.netTotal||0, o.createdAt||''
       ]);
 
@@ -2299,7 +2371,8 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
     { key:'ozone',            label:'臭氧殺菌' },
     { key:'transformerCount', label:'變形金剛機型' },
     { key:'longSplitCount',   label:'長室內機加價' },
-    { key:'onePieceTray',     label:'一體式水盤' }
+    { key:'onePieceTray',     label:'一體式水盤' },
+    { key:'outdoorUnitCleaning', label:'室外機清洗' }
   ];
 
   function parseDateOnly(str){
@@ -2353,6 +2426,8 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
       const trans   = +o.transformerCount || 0;
       const longSp  = +o.longSplitCount || 0;
       const oneTray = +o.onePieceTray || 0;
+      const outdoor  = +o.outdoorUnitCleaning || 0;
+      const customItems = Array.isArray(o.customServiceItems) ? o.customServiceItems : [];
 
       // 冷氣：分離式
       if (acSplit > 0){
@@ -2451,6 +2526,38 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
         const item   = ensureItem(map, 'onePieceTray', '一體式水盤');
         item.orders += 1;
         item.revenue += total;
+      }
+
+      // 室外機清洗
+      if (outdoor > 0){
+        const base = (cfg.outdoorUnitCleaning || {});
+        const unit = Number(base.unit || 0);
+        const item = ensureItem(map, 'outdoorUnitCleaning', '室外機清洗');
+        item.orders += 1;
+        item.revenue += outdoor * unit;
+      }
+
+      // 其他項目：每筆明細可有不同單價；同名項目在單張訂單內合併營業額。
+      if (customItems.length){
+        const perOrder = new Map();
+        const legacyUnit = Number((cfg.customServiceItem || {}).unit || 0);
+        customItems.forEach(raw => {
+          const name = String((raw && (raw.name || raw.label || raw.service)) || '').trim();
+          const qty = Number(raw && (raw.quantity ?? raw.qty ?? raw.count));
+          if(!name || !Number.isFinite(qty) || qty <= 0) return;
+          const rawUnit = Number(raw && (raw.unitPrice ?? raw.price ?? raw.unit));
+          const unitPrice = Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : legacyUnit;
+          const current = perOrder.get(name) || { qty:0, revenue:0 };
+          current.qty += qty;
+          current.revenue += qty * unitPrice;
+          perOrder.set(name, current);
+        });
+        perOrder.forEach((summary, name) => {
+          const key = 'customService:' + name;
+          const item = ensureItem(map, key, '其他項目：' + name);
+          item.orders += 1;
+          item.revenue += summary.revenue;
+        });
       }
     });
 

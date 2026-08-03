@@ -3276,3 +3276,102 @@ label.pill input[type="radio"]:checked + span{
 @media (any-hover: none) and (any-pointer: coarse){
   .order-hover-preview{display:none !important;}
 }
+
+
+/* === 其他服務：可重複新增項目 === */
+.custom-service-editor{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid var(--border, #dfe3e8);
+  border-radius:10px;
+  background:rgba(248, 250, 252, .72);
+}
+.custom-service-editor__header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:10px;
+}
+.custom-service-editor__title{
+  display:block;
+  margin:0 0 3px;
+  font-weight:700;
+}
+.custom-service-items{
+  display:grid;
+  gap:10px;
+}
+.custom-service-item-row{
+  display:grid;
+  grid-template-columns:minmax(220px, 1fr) minmax(80px, 110px) minmax(110px, 140px) auto;
+  gap:10px;
+  align-items:end;
+  padding:10px;
+  border:1px solid #e5e7eb;
+  border-radius:8px;
+  background:#fff;
+}
+.custom-service-item-row label{
+  display:grid;
+  gap:5px;
+}
+.custom-service-item-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  min-height:42px;
+}
+.custom-service-empty[hidden]{ display:none !important; }
+.custom-service-empty{ padding:7px 2px 2px; }
+@media (max-width:720px){
+  .custom-service-editor__header{
+    flex-direction:column;
+  }
+  .custom-service-item-row{
+    grid-template-columns:1fr 90px 120px;
+  }
+  .custom-service-item-actions{
+    grid-column:1 / -1;
+    justify-content:space-between;
+  }
+}
+
+
+/* === 價格設定：其他項目多筆價格範本 === */
+.pricing-preset-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:10px;
+}
+.pricing-preset-labels,
+.pricing-preset-row{
+  display:grid;
+  grid-template-columns:minmax(180px, 1fr) minmax(120px, 160px) auto;
+  gap:10px;
+  align-items:center;
+}
+.pricing-preset-labels{
+  padding:0 2px 5px;
+  font-size:12px;
+  color:var(--muted, #64748b);
+}
+.pricing-preset-list{
+  display:grid;
+  gap:8px;
+}
+@media (max-width:720px){
+  .pricing-preset-header{ flex-direction:column; }
+  .pricing-preset-labels{ display:none; }
+  .pricing-preset-row{ grid-template-columns:1fr 110px auto; }
+}
+@media (max-width:480px){
+  .custom-service-item-row{ grid-template-columns:1fr 1fr; }
+  .custom-service-item-name{ grid-column:1 / -1; }
+  .custom-service-item-actions{ grid-column:1 / -1; }
+  .pricing-preset-row{ grid-template-columns:1fr 100px; }
+  .pricing-preset-row .btn-small{ grid-column:1 / -1; justify-self:end; }
+}

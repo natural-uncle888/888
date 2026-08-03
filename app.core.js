@@ -541,7 +541,7 @@ window.mergeOrdersByBundle = function mergeOrdersByBundle(input){
     const numericKeys = [
       'total','netTotal','discount','extraCharge',
       'acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone',
-      'transformerCount','longSplitCount','onePieceTray','durationMinutes','duration','duration'
+      'transformerCount','longSplitCount','onePieceTray','outdoorUnitCleaning','durationMinutes','duration','duration'
     ];
     const statusRank = (s)=>{
       if (s === '未完成') return 3;
@@ -575,6 +575,13 @@ window.mergeOrdersByBundle = function mergeOrdersByBundle(input){
           const a = Number(m[k] || 0);
           const v = Number(o[k] || 0);
           if(!Number.isNaN(v)) m[k] = a + v;
+        }
+        // 可重複其他項目：合併時保留所有明細
+        if(Array.isArray(o.customServiceItems) && o.customServiceItems.length){
+          m.customServiceItems = [
+            ...(Array.isArray(m.customServiceItems) ? m.customServiceItems : []),
+            ...o.customServiceItems.map(item => Object.assign({}, item))
+          ];
         }
         // status: choose worse
         const s1 = statusRank(m.status);

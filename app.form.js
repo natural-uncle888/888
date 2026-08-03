@@ -40,6 +40,8 @@ durationMinutes: +$('durationMinutes').value,
         // 長度>182cm 室內機位置（依台數）
         longSplitLocations: (typeof window.gatherLongSplitLocations === 'function') ? window.gatherLongSplitLocations() : [],
         onePieceTray:+$('onePieceTray').value||0,
+        outdoorUnitCleaning:+$('outdoorUnitCleaning').value||0,
+        customServiceItems: (typeof gatherCustomServiceItems === 'function') ? gatherCustomServiceItems() : [],
         // 一體式水盤：室內機位置（依台數）
         onePieceTrayLocations: (typeof window.gatherOnePieceTrayLocations === 'function') ? window.gatherOnePieceTrayLocations() : [],
         note:$('note').value.trim(),
@@ -84,7 +86,8 @@ durationMinutes: +$('durationMinutes').value,
         if (typeof window.updateWaterTankLadderSummary === 'function') window.updateWaterTankLadderSummary();
       }catch(e){}
       $('pipesAmount').value=o.pipesAmount||0; $('antiMold').value=o.antiMold||0; $('ozone').value=o.ozone||0;
-      $('transformerCount').value=o.transformerCount||0; $('longSplitCount').value=o.longSplitCount||0; $('onePieceTray').value=o.onePieceTray||0;
+      $('transformerCount').value=o.transformerCount||0; $('longSplitCount').value=o.longSplitCount||0; $('onePieceTray').value=o.onePieceTray||0; $('outdoorUnitCleaning').value=o.outdoorUnitCleaning||0;
+      try{ if (typeof renderCustomServiceItems === 'function') renderCustomServiceItems(o.customServiceItems||[]); }catch(e){}
       // restore 變形金剛機型室內機位置
       try{ if (typeof window.syncTransformerLocationUI === 'function') window.syncTransformerLocationUI(o.transformerLocations||[]); }catch(e){}
       // restore 長度>182cm 室內機位置
@@ -172,10 +175,12 @@ durationMinutes: +$('durationMinutes').value,
     }
 
     function setFormLock(lock){
-      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','recalc','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate'];
+      const ids=['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','outdoorUnitCleaning','extraCharge','discount','recalc','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate'];
       ids.forEach(id=>{ const el=$(id); if(el){ el.disabled = !!lock; el.readOnly = !!lock; }});
 
       // 長度>182cm 室內機位置子表單（跟著鎖定）
+      try{ if (typeof setCustomServiceItemsLocked === 'function') setCustomServiceItemsLocked(!!lock); }catch(e){}
+
       try{
         const wrap = document.getElementById('longSplitLocationWrap');
         if(wrap){
@@ -624,3 +629,209 @@ window.addEventListener('load', ()=>{
 });
 
 
+
+
+// ---------------- 其他項目：可重複新增、每列獨立單價 ----------------
+function getLegacyCustomServiceUnitPrice(){
+  try{
+    const cfg = (typeof pricingConfig !== 'undefined' && pricingConfig) || DEFAULT_PRICING || {};
+    const value = Number(cfg.customServiceItem && cfg.customServiceItem.unit);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+  }catch(e){
+    return 0;
+  }
+}
+
+function normalizeCustomServiceItem(item){
+  const name = String((item && (item.name || item.label || item.service)) || '').trim();
+  const rawQty = Number(item && (item.quantity ?? item.qty ?? item.count));
+  const quantity = Number.isFinite(rawQty) && rawQty >= 0 ? rawQty : 1;
+  const rawUnit = Number(item && (item.unitPrice ?? item.price ?? item.unit));
+  const unitPrice = Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : getLegacyCustomServiceUnitPrice();
+  return { name, quantity, unitPrice };
+}
+
+function getCustomServicePricePresets(){
+  try{
+    const cfg = (typeof pricingConfig !== 'undefined' && pricingConfig) || DEFAULT_PRICING || {};
+    return (Array.isArray(cfg.customServicePresets) ? cfg.customServicePresets : []).map(item => {
+      const name = String((item && (item.name || item.label || item.service)) || '').trim();
+      const rawUnit = Number(item && (item.unitPrice ?? item.price ?? item.unit));
+      const unitPrice = Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : 0;
+      return { name, unitPrice };
+    }).filter(item => item.name);
+  }catch(e){
+    return [];
+  }
+}
+
+function findCustomServicePricePreset(name){
+  const target = String(name || '').trim().toLocaleLowerCase('zh-TW');
+  if(!target) return null;
+  return getCustomServicePricePresets().find(item => item.name.toLocaleLowerCase('zh-TW') === target) || null;
+}
+
+function refreshCustomServicePresetOptions(){
+  const list = document.getElementById('customServicePresetOptions');
+  if(!list) return;
+  list.innerHTML = '';
+  getCustomServicePricePresets().forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.name;
+    option.label = `${item.name}（NT$ ${Math.round(item.unitPrice).toLocaleString('zh-TW')}）`;
+    list.appendChild(option);
+  });
+}
+
+function updateCustomServiceEmptyState(){
+  const container = document.getElementById('customServiceItemsContainer');
+  const empty = document.getElementById('customServiceItemsEmpty');
+  if(empty) empty.hidden = !!(container && container.children.length);
+}
+
+function updateCustomServiceRowSubtotal(row){
+  if(!row) return;
+  const qty = Number(row.querySelector('.custom-service-qty')?.value || 0);
+  const unitPrice = Number(row.querySelector('.custom-service-unit-price')?.value || 0);
+  const total = (Number.isFinite(qty) && qty > 0 ? qty : 0) * (Number.isFinite(unitPrice) && unitPrice >= 0 ? unitPrice : 0);
+  const hint = row.querySelector('.custom-service-price-hint');
+  if(hint) hint.textContent = `小計：NT$ ${Math.round(total).toLocaleString('zh-TW')}`;
+}
+
+function refreshCustomServicePriceHints(){
+  refreshCustomServicePresetOptions();
+  document.querySelectorAll('.custom-service-item-row').forEach(updateCustomServiceRowSubtotal);
+}
+
+function createCustomServiceItemRow(item){
+  const value = normalizeCustomServiceItem(item);
+  const row = document.createElement('div');
+  row.className = 'custom-service-item-row';
+
+  const nameWrap = document.createElement('div');
+  nameWrap.className = 'custom-service-item-name';
+  const nameLabel = document.createElement('label');
+  nameLabel.textContent = '服務內容';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'custom-service-name';
+  nameInput.setAttribute('list', 'customServicePresetOptions');
+  nameInput.placeholder = '例如：冷氣濾網更換、特殊拆裝';
+  nameInput.value = value.name;
+  nameLabel.appendChild(nameInput);
+  nameWrap.appendChild(nameLabel);
+
+  const qtyWrap = document.createElement('div');
+  qtyWrap.className = 'custom-service-item-qty';
+  const qtyLabel = document.createElement('label');
+  qtyLabel.textContent = '數量';
+  const qtyInput = document.createElement('input');
+  qtyInput.type = 'number';
+  qtyInput.className = 'custom-service-qty';
+  qtyInput.min = '0';
+  qtyInput.step = '1';
+  qtyInput.value = String(value.quantity || 1);
+  qtyLabel.appendChild(qtyInput);
+  qtyWrap.appendChild(qtyLabel);
+
+  const priceWrap = document.createElement('div');
+  priceWrap.className = 'custom-service-item-price';
+  const priceLabel = document.createElement('label');
+  priceLabel.textContent = '單價';
+  const priceInput = document.createElement('input');
+  priceInput.type = 'number';
+  priceInput.className = 'custom-service-unit-price';
+  priceInput.min = '0';
+  priceInput.step = '1';
+  priceInput.value = String(value.unitPrice || 0);
+  priceLabel.appendChild(priceInput);
+  priceWrap.appendChild(priceLabel);
+
+  const actions = document.createElement('div');
+  actions.className = 'custom-service-item-actions';
+  const priceHint = document.createElement('span');
+  priceHint.className = 'muted small custom-service-price-hint';
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn-small danger custom-service-remove';
+  removeBtn.textContent = '移除';
+  actions.append(priceHint, removeBtn);
+
+  const onChanged = () => {
+    updateCustomServiceRowSubtotal(row);
+    try{ if (typeof recalcTotals === 'function') recalcTotals(); }catch(e){}
+  };
+  nameInput.addEventListener('input', onChanged);
+  nameInput.addEventListener('change', () => {
+    const preset = findCustomServicePricePreset(nameInput.value);
+    if(preset) priceInput.value = String(preset.unitPrice);
+    onChanged();
+  });
+  qtyInput.addEventListener('input', onChanged);
+  priceInput.addEventListener('input', onChanged);
+  removeBtn.addEventListener('click', () => {
+    row.remove();
+    updateCustomServiceEmptyState();
+    onChanged();
+  });
+
+  row.append(nameWrap, qtyWrap, priceWrap, actions);
+  updateCustomServiceRowSubtotal(row);
+  return row;
+}
+
+function addCustomServiceItem(item, options){
+  const container = document.getElementById('customServiceItemsContainer');
+  if(!container) return null;
+  const row = createCustomServiceItemRow(item || { name:'', quantity:1, unitPrice:0 });
+  container.appendChild(row);
+  updateCustomServiceEmptyState();
+  refreshCustomServicePriceHints();
+  if(!options || options.focus !== false){
+    const input = row.querySelector('.custom-service-name');
+    if(input) input.focus();
+  }
+  return row;
+}
+
+function renderCustomServiceItems(items){
+  const container = document.getElementById('customServiceItemsContainer');
+  if(!container) return;
+  container.innerHTML = '';
+  (Array.isArray(items) ? items : []).forEach(item => addCustomServiceItem(item, { focus:false }));
+  updateCustomServiceEmptyState();
+  refreshCustomServicePriceHints();
+}
+
+function gatherCustomServiceItems(){
+  const container = document.getElementById('customServiceItemsContainer');
+  if(!container) return [];
+  return Array.from(container.querySelectorAll('.custom-service-item-row')).map(row => {
+    const name = String(row.querySelector('.custom-service-name')?.value || '').trim();
+    const rawQty = Number(row.querySelector('.custom-service-qty')?.value || 0);
+    const rawUnit = Number(row.querySelector('.custom-service-unit-price')?.value || 0);
+    const quantity = Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 0;
+    const unitPrice = Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : 0;
+    return { name, quantity, unitPrice };
+  }).filter(item => item.name && item.quantity > 0);
+}
+
+function formatCustomServiceItemsForExport(items){
+  return (Array.isArray(items) ? items : []).map(item => {
+    const normalized = normalizeCustomServiceItem(item);
+    if(!normalized.name || normalized.quantity <= 0) return '';
+    const qty = Number.isInteger(normalized.quantity) ? normalized.quantity : String(normalized.quantity);
+    const unit = Math.round(normalized.unitPrice).toLocaleString('zh-TW');
+    const subtotal = Math.round(normalized.quantity * normalized.unitPrice).toLocaleString('zh-TW');
+    return `${normalized.name} x ${qty} @ ${unit}元 = ${subtotal}元`;
+  }).filter(Boolean).join('｜');
+}
+
+function setCustomServiceItemsLocked(lock){
+  const container = document.getElementById('customServiceItemsContainer');
+  if(container){
+    container.querySelectorAll('input, button').forEach(el => { el.disabled = !!lock; });
+  }
+  const addBtn = document.getElementById('addCustomServiceItemBtn');
+  if(addBtn) addBtn.disabled = !!lock;
+}

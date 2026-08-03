@@ -108,6 +108,16 @@ function getOrderItems(o) {
   if (+o.transformerCount > 0) items.push(`變形金剛${o.transformerCount}台`);
   if (+o.longSplitCount > 0) items.push(`分離式>182cm ${o.longSplitCount}台`);
   if (+o.onePieceTray > 0) items.push(`一體式水盤${o.onePieceTray}台`);
+  if (+o.outdoorUnitCleaning > 0) items.push(`室外機清洗${o.outdoorUnitCleaning}台`);
+  (Array.isArray(o.customServiceItems) ? o.customServiceItems : []).forEach(item => {
+    const name = String((item && (item.name || item.label || item.service)) || '').trim();
+    const qty = Number(item && (item.quantity ?? item.qty ?? item.count));
+    if(name && Number.isFinite(qty) && qty > 0){
+      const rawUnit = Number(item && (item.unitPrice ?? item.price ?? item.unit));
+      const unitPrice = Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : (typeof getLegacyCustomServiceUnitPrice === 'function' ? getLegacyCustomServiceUnitPrice() : 0);
+      items.push(`其他項目－${name}${qty}項（單價 NT$${Math.round(unitPrice).toLocaleString('zh-TW')}）`);
+    }
+  });
   return items.join('、');
 }
 

@@ -878,8 +878,12 @@ function initViewTabs(){
       $('deleteBtn').addEventListener('click', deleteOrder);
       $('resetBtn').addEventListener('click', resetForm);
       $('recalc').addEventListener('click', recalcTotals);
-      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','extraCharge','discount','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate']
+      ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone','transformerCount','longSplitCount','onePieceTray','outdoorUnitCleaning','extraCharge','discount','helperEnabled','helperCount','helperDailyWage','taxIncluded','taxRate']
         .forEach(id => $(id).addEventListener('input', recalcTotals));
+
+      $('addCustomServiceItemBtn')?.addEventListener('click', ()=>{
+        if (typeof addCustomServiceItem === 'function') addCustomServiceItem({ name:'', quantity:1, unitPrice:0 });
+      });
 
       // 變形金剛機型：台數變更時同步位置子表單
       try{

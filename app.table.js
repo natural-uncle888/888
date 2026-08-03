@@ -222,7 +222,8 @@
         ['ozone', '臭氧殺菌', ''],
         ['transformerCount', '變形金剛機型', '台'],
         ['longSplitCount', '分離式室內機長度 > 182cm', '台'],
-        ['onePieceTray', '一體式水盤', '台']
+        ['onePieceTray', '一體式水盤', '台'],
+        ['outdoorUnitCleaning', '室外機清洗', '台']
       ];
 
       const items = [];
@@ -233,6 +234,12 @@
 
       // 自來水管欄位儲存的是金額；有填值時只顯示已預約，不在預覽洩漏金額。
       if(positivePreviewNumber(order && order.pipesAmount)) items.push('自來水管');
+
+      (Array.isArray(order && order.customServiceItems) ? order.customServiceItems : []).forEach(item => {
+        const name = String((item && (item.name || item.label || item.service)) || '').trim();
+        const qty = formatPreviewQty(item && (item.quantity ?? item.qty ?? item.count), '');
+        if(name && qty) items.push(`其他項目－${name}：${qty}`);
+      });
 
       // 相容舊資料：若沒有新版數量欄位，才採用既有 items 快照。
       if(items.length === 0 && Array.isArray(order && order.items)){
@@ -432,11 +439,40 @@
       const range = $('completedRange')?.value || '';
       const now = Date.now();
 
-      function normalizeForMatch(s){ return (s||'').toLowerCase(); }
+      function normalizeForMatch(s){ return (s||'').toString().toLowerCase(); }
+      function normalizeSocialIdForMatch(s){
+        return normalizeForMatch(s).replace(/\s|-/g, '');
+      }
+      function getOrderSocialIdsForSearch(o){
+        const values = [];
+        const add = value => {
+          if(Array.isArray(value)){
+            value.forEach(add);
+            return;
+          }
+          const text = (value == null ? '' : String(value)).trim();
+          if(text) values.push(text);
+        };
+
+        // 現行欄位與舊版欄位都納入，lineIds 內可同時存 LINE／Facebook ID。
+        add(o.lineIds);
+        add(o.facebookIds);
+        add(o.lineId);
+        add(o.facebookId);
+        if(o.contact){
+          add(o.contact.lineIds);
+          add(o.contact.facebookIds);
+          add(o.contact.lineId);
+          add(o.contact.facebookId);
+        }
+
+        return values.map(normalizeSocialIdForMatch).filter(Boolean);
+      }
       function scoreForOrder(o){
         const customer = normalizeForMatch(o.customer||'');
         const address = normalizeForMatch(o.address||'');
         const phone = normalizePhone(o.phone || '');
+        const socialIds = getOrderSocialIdsForSearch(o);
         let score = 0;
         for(let i=0;i<tokens.length;i++){
           const t = tokens[i];
@@ -452,6 +488,10 @@
           if(dt && phone.includes(dt)){
             score += 12;
           }
+          if(socialIds.some(id => id.includes(t))){
+            score += 10;
+            if(socialIds.some(id => id === t)) score += 6;
+          }
           if((o.customer||'').toLowerCase() === t) score += 8;
         }
         return score;
@@ -462,12 +502,14 @@
         const customer = normalizeForMatch(o.customer||'');
         const address = normalizeForMatch(o.address||'');
         const phone = normalizePhone(o.phone || '');
+        const socialIds = getOrderSocialIdsForSearch(o);
         return tokens.every((t,i) => {
           const dt = digitTokens[i];
+          const socialMatch = socialIds.some(id => id.includes(t));
           if(dt){
-            return customer.includes(t) || address.includes(t) || phone.includes(dt);
+            return customer.includes(t) || address.includes(t) || phone.includes(dt) || socialMatch;
           } else {
-            return customer.includes(t) || address.includes(t);
+            return customer.includes(t) || address.includes(t) || socialMatch;
           }
         });
       }
@@ -797,7 +839,7 @@ const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='b
         '安排時段(多選)','日期/時段備註','地址',
         '居住地型態','居住地型態(其他)','方便聯繫時間(多選)','方便聯繫備註',
         '冷氣樓層(多選)','洗衣機樓層(多選)','聯繫方式','狀況','完成時間','金額鎖定',
-        '分離式室內機','吊隱式','直立式洗衣機','水塔','自來水管金額','防霉噴劑','臭氧殺菌','變形金剛加價','長度>182cm加價','一體式水盤',
+        '分離式室內機','吊隱式','直立式洗衣機','水塔','自來水管金額','防霉噴劑','臭氧殺菌','變形金剛加價','長度>182cm加價','一體式水盤','室外機清洗','其他項目',
         '備註','總金額','折扣金額','折後總金額','車資','建立時間'
       ];
 
@@ -839,6 +881,8 @@ const mk = (t,v,h='')=>{const box=document.createElement('div');box.className='b
           +o.transformerCount||0,
           +o.longSplitCount||0,
           +o.onePieceTray||0,
+          +o.outdoorUnitCleaning||0,
+          (typeof formatCustomServiceItemsForExport === 'function' ? formatCustomServiceItemsForExport(o.customServiceItems) : ''),
           (o.note||'').replace(/\n/g,' '),
           +o.total||0,
           +o.discount||0,
@@ -996,6 +1040,18 @@ recalcTotals();
               if (+o2.transformerCount) arr.push('變壓器 ' + o2.transformerCount);
               if (+o2.longSplitCount) arr.push('長聯接 ' + o2.longSplitCount);
               if (+o2.onePieceTray) arr.push('一件托盤 ' + o2.onePieceTray);
+              if (+o2.outdoorUnitCleaning) arr.push('室外機清洗 ' + o2.outdoorUnitCleaning + ' 台');
+              if (Array.isArray(o2.customServiceItems)) {
+                o2.customServiceItems.forEach(function(item){
+                  const name = String((item && (item.name || item.label || item.service)) || '').trim();
+                  const qty = Number(item && (item.quantity ?? item.qty ?? item.count));
+                  if(name && Number.isFinite(qty) && qty > 0){
+                    const rawUnit = Number(item && (item.unitPrice ?? item.price ?? item.unit));
+                    const unitPrice = Number.isFinite(rawUnit) && rawUnit >= 0 ? rawUnit : (typeof getLegacyCustomServiceUnitPrice === 'function' ? getLegacyCustomServiceUnitPrice() : 0);
+                    arr.push('其他項目－' + name + ' ' + qty + '（單價 NT$' + Math.round(unitPrice).toLocaleString('zh-TW') + '）');
+                  }
+                });
+              }
               if (Array.isArray(o2.items) && o2.items.length) {
                 o2.items.forEach(function(it){ if (it && arr.indexOf(it) === -1) arr.push(it); });
               }
@@ -1257,8 +1313,8 @@ async function deleteOrder(){
     function resetForm(){ fillForm({}); }
     function download(filename, text){ const blob=new Blob([text],{type:'application/octet-stream'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); }
     function exportCSV(){
-      const headers=['id','作業人員','日期','時間','確認','報價單','姓名','LINE_ID','電話','安排時段(多選)','地址','冷氣樓屯(多選)','洗衣機樓層(多選)','聯繫方式','狀況','完成時間','金額鎖定','分離式室內機','吊隱式','直立式洗衣機','水塔','自來水管金額','防霉噴劑','臭氧殺菌','變形金剛加價','長度>182cm加價','一體式水盤','備註','總金額','折扣金額','折後總金額','車資(花費)','日薪助手','助手人數','每人日薪','日薪成本(花費)','建立時間'];
-      const rows=orders.map(o=>[o.id,o.staff,o.date||'',o.time,o.confirmed?'是':'否',o.quotationOk?'是':'否',o.customer,o.lineId,o.phone,(o.slots||[]).join('|'),o.address,(o.acFloors||[]).join('|'),(o.washerFloors||[]).join('|'),o.contactMethod,o.status,o.completedAt||'',o.locked?'是':'否',o.acSplit,o.acDuct,o.washerTop,o.waterTank,o.pipesAmount,o.antiMold,o.ozone,o.transformerCount,o.longSplitCount,o.onePieceTray,(o.note||'').replace(/\n/g,' '),o.total,o.discount,o.netTotal,(o.transportFee||0),(o.helperEnabled?'是':'否'),(o.helperCount||0),(o.helperDailyWage||0),(o.helperCost||0),o.createdAt||'']);
+      const headers=['id','作業人員','日期','時間','確認','報價單','姓名','LINE_ID','電話','安排時段(多選)','地址','冷氣樓屯(多選)','洗衣機樓層(多選)','聯繫方式','狀況','完成時間','金額鎖定','分離式室內機','吊隱式','直立式洗衣機','水塔','自來水管金額','防霉噴劑','臭氧殺菌','變形金剛加價','長度>182cm加價','一體式水盤','室外機清洗','其他項目','備註','總金額','折扣金額','折後總金額','車資(花費)','日薪助手','助手人數','每人日薪','日薪成本(花費)','建立時間'];
+      const rows=orders.map(o=>[o.id,o.staff,o.date||'',o.time,o.confirmed?'是':'否',o.quotationOk?'是':'否',o.customer,o.lineId,o.phone,(o.slots||[]).join('|'),o.address,(o.acFloors||[]).join('|'),(o.washerFloors||[]).join('|'),o.contactMethod,o.status,o.completedAt||'',o.locked?'是':'否',o.acSplit,o.acDuct,o.washerTop,o.waterTank,o.pipesAmount,o.antiMold,o.ozone,o.transformerCount,o.longSplitCount,o.onePieceTray,o.outdoorUnitCleaning,(typeof formatCustomServiceItemsForExport === 'function' ? formatCustomServiceItemsForExport(o.customServiceItems) : ''),(o.note||'').replace(/\n/g,' '),o.total,o.discount,o.netTotal,(o.transportFee||0),(o.helperEnabled?'是':'否'),(o.helperCount||0),(o.helperDailyWage||0),(o.helperCost||0),o.createdAt||'']);
       const csv=[headers.join(','),...rows.map(r=>r.map(x=>{const s=(x??'').toString();return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}).join(','))].join('\n');
       download(`訂單_${$('yearSel').value}-${pad2($('monthSel').value)}.csv`, csv);
     }

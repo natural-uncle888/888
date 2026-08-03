@@ -185,8 +185,235 @@
     }
 
     function nextStatus(s){ const i=STATUS_FLOW.indexOf(s); return STATUS_FLOW[(i+1)%STATUS_FLOW.length]; }
+
+    // ---------- 訂單列：滑鼠停留 2 秒顯示「清洗項目與備註」預覽 ----------
+    const ORDER_HOVER_PREVIEW_DELAY = 2000;
+    let orderHoverPreviewTimer = null;
+    let orderHoverPreviewEl = null;
+    let orderHoverPreviewRow = null;
+    let orderHoverPreviewPoint = { x: 0, y: 0 };
+    let orderHoverPreviewEventsBound = false;
+
+    function canUseOrderHoverPreview(){
+      // 使用 any-* 可涵蓋接上滑鼠的平板；觸控裝置不會因手指滑動而觸發。
+      if(!window.matchMedia) return true;
+      return window.matchMedia('(any-hover: hover) and (any-pointer: fine)').matches;
+    }
+
+    function positivePreviewNumber(value){
+      const n = Number(value);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    function formatPreviewQty(value, unit){
+      const n = positivePreviewNumber(value);
+      if(!n) return '';
+      const shown = Number.isInteger(n) ? String(n) : String(n).replace(/\.?0+$/, '');
+      return unit ? `${shown} ${unit}` : shown;
+    }
+
+    function getOrderHoverPreviewItems(order){
+      const defs = [
+        ['acSplit', '分離式冷氣室內機', '台'],
+        ['acDuct', '吊隱式冷氣', '台'],
+        ['washerTop', '直立式洗衣機', '台'],
+        ['waterTank', '水塔', '個'],
+        ['antiMold', '防霉噴劑', ''],
+        ['ozone', '臭氧殺菌', ''],
+        ['transformerCount', '變形金剛機型', '台'],
+        ['longSplitCount', '分離式室內機長度 > 182cm', '台'],
+        ['onePieceTray', '一體式水盤', '台']
+      ];
+
+      const items = [];
+      defs.forEach(([key, label, unit])=>{
+        const qty = formatPreviewQty(order && order[key], unit);
+        if(qty) items.push(`${label}：${qty}`);
+      });
+
+      // 自來水管欄位儲存的是金額；有填值時只顯示已預約，不在預覽洩漏金額。
+      if(positivePreviewNumber(order && order.pipesAmount)) items.push('自來水管');
+
+      // 相容舊資料：若沒有新版數量欄位，才採用既有 items 快照。
+      if(items.length === 0 && Array.isArray(order && order.items)){
+        order.items.forEach(item=>{
+          const text = String(item || '').trim();
+          if(text && !items.includes(text)) items.push(text);
+        });
+      }
+      return items;
+    }
+
+    function getOrderHoverPreviewBrands(order){
+      const raw = Array.isArray(order && order.acBrands) ? order.acBrands : [];
+      const other = String((order && order.acBrandOther) || '').trim();
+      const brands = [];
+
+      raw.forEach(value=>{
+        const brand = String(value || '').trim();
+        if(!brand) return;
+        const display = (brand === '其他' && other) ? `其他（${other}）` : brand;
+        if(!brands.includes(display)) brands.push(display);
+      });
+
+      if(other && !raw.some(value => String(value || '').trim() === '其他')){
+        const display = `其他（${other}）`;
+        if(!brands.includes(display)) brands.push(display);
+      }
+      return brands;
+    }
+
+    function ensureOrderHoverPreview(){
+      if(orderHoverPreviewEl && document.body.contains(orderHoverPreviewEl)) return orderHoverPreviewEl;
+
+      orderHoverPreviewEl = document.createElement('aside');
+      orderHoverPreviewEl.id = 'orderHoverPreview';
+      orderHoverPreviewEl.className = 'order-hover-preview';
+      orderHoverPreviewEl.setAttribute('role', 'status');
+      orderHoverPreviewEl.setAttribute('aria-live', 'polite');
+      orderHoverPreviewEl.hidden = true;
+      document.body.appendChild(orderHoverPreviewEl);
+
+      if(!orderHoverPreviewEventsBound){
+        orderHoverPreviewEventsBound = true;
+        window.addEventListener('resize', hideOrderHoverPreview);
+        window.addEventListener('blur', hideOrderHoverPreview);
+        window.addEventListener('scroll', hideOrderHoverPreview, true);
+        document.addEventListener('keydown', (ev)=>{
+          if(ev.key === 'Escape') hideOrderHoverPreview();
+        });
+        document.addEventListener('visibilitychange', ()=>{
+          if(document.hidden) hideOrderHoverPreview();
+        });
+      }
+
+      return orderHoverPreviewEl;
+    }
+
+    function addOrderHoverPreviewSection(card, label, values, options = {}){
+      if(!values || (Array.isArray(values) && values.length === 0)) return;
+
+      const section = document.createElement('section');
+      section.className = 'order-hover-preview__section';
+
+      const heading = document.createElement('div');
+      heading.className = 'order-hover-preview__label';
+      heading.textContent = label;
+      section.appendChild(heading);
+
+      if(options.note){
+        const note = document.createElement('div');
+        note.className = 'order-hover-preview__note';
+        note.textContent = String(values || '');
+        section.appendChild(note);
+      } else if(options.inline){
+        const value = document.createElement('div');
+        value.className = 'order-hover-preview__brands';
+        value.textContent = values.join('、');
+        section.appendChild(value);
+      } else {
+        const list = document.createElement('ul');
+        list.className = 'order-hover-preview__items';
+        values.forEach(text=>{
+          const li = document.createElement('li');
+          li.textContent = text;
+          list.appendChild(li);
+        });
+        section.appendChild(list);
+      }
+
+      card.appendChild(section);
+    }
+
+    function positionOrderHoverPreview(x, y){
+      if(!orderHoverPreviewEl || orderHoverPreviewEl.hidden) return;
+      const gap = 14;
+      const edge = 10;
+      const rect = orderHoverPreviewEl.getBoundingClientRect();
+
+      let left = x + gap;
+      let top = y + gap;
+      if(left + rect.width > window.innerWidth - edge) left = x - rect.width - gap;
+      if(top + rect.height > window.innerHeight - edge) top = y - rect.height - gap;
+
+      left = Math.max(edge, Math.min(left, window.innerWidth - rect.width - edge));
+      top = Math.max(edge, Math.min(top, window.innerHeight - rect.height - edge));
+      orderHoverPreviewEl.style.left = `${Math.round(left)}px`;
+      orderHoverPreviewEl.style.top = `${Math.round(top)}px`;
+      orderHoverPreviewEl.style.visibility = '';
+    }
+
+    function showOrderHoverPreview(order, point){
+      const items = getOrderHoverPreviewItems(order);
+      const brands = getOrderHoverPreviewBrands(order);
+      const note = String((order && order.note) || '').trim();
+      if(items.length === 0 && brands.length === 0 && !note){
+        hideOrderHoverPreview();
+        return;
+      }
+
+      const card = ensureOrderHoverPreview();
+      card.replaceChildren();
+
+      const title = document.createElement('div');
+      title.className = 'order-hover-preview__title';
+      title.textContent = '清洗項目與備註';
+      card.appendChild(title);
+
+      addOrderHoverPreviewSection(card, '預約項目', items);
+      addOrderHoverPreviewSection(card, '冷氣品牌', brands, { inline:true });
+      if(note) addOrderHoverPreviewSection(card, '備註', note, { note:true });
+
+      card.style.left = '0px';
+      card.style.top = '0px';
+      card.style.visibility = 'hidden';
+      card.hidden = false;
+      positionOrderHoverPreview(point.x, point.y);
+    }
+
+    function hideOrderHoverPreview(){
+      if(orderHoverPreviewTimer){
+        clearTimeout(orderHoverPreviewTimer);
+        orderHoverPreviewTimer = null;
+      }
+      orderHoverPreviewRow = null;
+      if(orderHoverPreviewEl){
+        orderHoverPreviewEl.hidden = true;
+        orderHoverPreviewEl.style.visibility = '';
+      }
+    }
+
+    function bindOrderHoverPreview(row, order){
+      row.addEventListener('pointerenter', (ev)=>{
+        if(!canUseOrderHoverPreview()) return;
+        if(ev.pointerType && ev.pointerType !== 'mouse') return;
+
+        hideOrderHoverPreview();
+        orderHoverPreviewRow = row;
+        orderHoverPreviewPoint = { x: ev.clientX, y: ev.clientY };
+        orderHoverPreviewTimer = window.setTimeout(()=>{
+          orderHoverPreviewTimer = null;
+          if(orderHoverPreviewRow !== row || !document.body.contains(row) || !row.matches(':hover')) return;
+          showOrderHoverPreview(order, orderHoverPreviewPoint);
+        }, ORDER_HOVER_PREVIEW_DELAY);
+      });
+
+      row.addEventListener('pointermove', (ev)=>{
+        if(ev.pointerType && ev.pointerType !== 'mouse') return;
+        if(orderHoverPreviewRow === row && (!orderHoverPreviewEl || orderHoverPreviewEl.hidden)){
+          orderHoverPreviewPoint = { x: ev.clientX, y: ev.clientY };
+        }
+      });
+
+      row.addEventListener('pointerleave', ()=>{
+        if(orderHoverPreviewRow === row) hideOrderHoverPreview();
+      });
+      row.addEventListener('pointerdown', hideOrderHoverPreview);
+    }
+
     function refreshTable(){
       closeOrderActionsPopover(false);
+      hideOrderHoverPreview();
       // Enhanced search: tokens -> filter every token across fields, score by relevance
       const y = +$('yearSel').value, m = +$('monthSel').value, staffF = $('staffFilter').value, statusF = $('statusFilter').value, showUndated = $('showUndated').checked;
       const tbody = $('ordersTable')?.querySelector('tbody');
@@ -413,6 +640,7 @@
         } catch(err) { /* noop */ }
 
         tr.dataset.orderId = o.id || o._id || '';
+        bindOrderHoverPreview(tr, o);
         tbody.appendChild(tr);
       });
 

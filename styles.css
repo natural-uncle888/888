@@ -3196,3 +3196,83 @@ label.pill input[type="radio"]:checked + span{
   }
 }
 
+
+/* ---------- 訂單列表：滑鼠停留 2 秒清洗項目預覽 ---------- */
+.order-hover-preview{
+  position:fixed;
+  z-index:10040;
+  width:min(340px, calc(100vw - 20px));
+  max-height:min(520px, calc(100vh - 20px));
+  overflow:auto;
+  padding:14px 15px;
+  border:1px solid rgba(148,163,184,.52);
+  border-radius:14px;
+  background:rgba(255,255,255,.98);
+  color:#172033;
+  box-shadow:0 18px 48px rgba(15,23,42,.22), 0 4px 12px rgba(15,23,42,.09);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  pointer-events:none;
+  animation:orderHoverPreviewIn .16s ease-out;
+}
+
+.order-hover-preview[hidden]{display:none !important;}
+
+@keyframes orderHoverPreviewIn{
+  from{opacity:0;transform:translateY(4px) scale(.985);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+
+.order-hover-preview__title{
+  margin:0 0 10px;
+  padding:0 0 9px;
+  border-bottom:1px solid #e2e8f0;
+  font-size:15px;
+  font-weight:800;
+  line-height:1.35;
+  letter-spacing:.01em;
+}
+
+.order-hover-preview__section + .order-hover-preview__section{
+  margin-top:11px;
+  padding-top:10px;
+  border-top:1px dashed #dbe3ec;
+}
+
+.order-hover-preview__label{
+  margin-bottom:5px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:750;
+  line-height:1.35;
+}
+
+.order-hover-preview__items{
+  display:grid;
+  gap:4px;
+  margin:0;
+  padding:0 0 0 18px;
+  font-size:14px;
+  line-height:1.5;
+}
+
+.order-hover-preview__brands,
+.order-hover-preview__note{
+  font-size:14px;
+  line-height:1.55;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+
+.order-hover-preview__note{
+  white-space:pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .order-hover-preview{animation:none;}
+}
+
+/* 觸控專用裝置不顯示滑鼠預覽元件。 */
+@media (any-hover: none) and (any-pointer: coarse){
+  .order-hover-preview{display:none !important;}
+}

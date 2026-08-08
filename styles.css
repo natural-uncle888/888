@@ -61,11 +61,21 @@
     tbody td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top}
     tbody tr:hover{background:#fafafa}
 
-    /* 未排期訂單：用底色區隔，避免跟一般訂單混在一起 */
+    /* 未排期訂單：用暖色底區隔，避免跟一般訂單混在一起 */
     tbody tr.undated-row{background:#fff7ed}
     tbody tr.undated-row:hover{background:#ffedd5}
     tbody tr.undated-row td.editable:hover{background:#ffedd5}
     tbody tr.undated-row .badge-soft{background:#fed7aa;color:#9a3412}
+
+    /* 已完成訂單：用淡綠底色區隔，讓完成案件在列表中一眼可辨識 */
+    tbody tr.completed-row{background:#ecfdf5}
+    tbody tr.completed-row:hover{background:#d1fae5}
+    tbody tr.completed-row td.editable:hover{background:#d1fae5}
+
+    /* 若特殊情況同時是「未排期 + 已完成」，以完成狀態的綠色為主 */
+    tbody tr.undated-row.completed-row{background:#ecfdf5}
+    tbody tr.undated-row.completed-row:hover,
+    tbody tr.undated-row.completed-row td.editable:hover{background:#d1fae5}
 
     .status{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid;cursor:pointer;user-select:none}
     .status.P排定{color:#2563eb;border-color:#93c5fd;background:#eff6ff}
@@ -2690,15 +2700,23 @@ label.pill input[type="radio"]:checked + span{
 }
 
 .auth-logo{
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  letter-spacing: .5px;
-  background: #111827;
-  color: #fff;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.auth-logo img{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
 }
 
 .auth-title{
@@ -3374,4 +3392,103 @@ label.pill input[type="radio"]:checked + span{
   .custom-service-item-actions{ grid-column:1 / -1; }
   .pricing-preset-row{ grid-template-columns:1fr 100px; }
   .pricing-preset-row .btn-small{ grid-column:1 / -1; justify-self:end; }
+}
+
+
+/* 訂單列表：來源欄只顯示首字，固定為緊湊寬度 */
+#orderTable td.source-initial-cell{
+  width: 1%;
+  min-width: 38px;
+  max-width: 48px;
+  white-space: nowrap;
+  text-align: center;
+  font-weight: 700;
+}
+
+
+/* 訂單列表來源品牌圖示 */
+.source-brand-icon{
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.source-facebook{
+  border-radius: 50%;
+  background: #1877F2;
+  color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
+  padding-top: 3px;
+  box-sizing: border-box;
+}
+
+.source-line{
+  border-radius: 7px;
+  background: #06C755;
+  position: relative;
+}
+
+.source-line .line-bubble{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 15px;
+  border-radius: 8px;
+  background: #fff;
+  color: #06C755;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 5.7px;
+  font-weight: 800;
+  letter-spacing: -0.25px;
+  line-height: 1;
+}
+
+.source-line .line-bubble::after{
+  content: "";
+  position: absolute;
+  left: 4px;
+  bottom: -3px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid #fff;
+  border-right: 4px solid transparent;
+  transform: rotate(12deg);
+}
+
+
+/* v6 報表效能：固定 Chart.js 容器高度，避免 resize 連鎖；明細採分批載入 */
+#reportPanel .chart-card .body{
+  min-width:0;
+  overflow:hidden;
+}
+#reportPanel .chart-card canvas{
+  display:block;
+  width:100% !important;
+  height:260px !important;
+  max-height:260px;
+}
+.report-detail-load-more{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:14px 8px 4px;
+}
+.report-detail-load-more button{
+  min-height:36px;
+  padding:6px 14px;
+  border:1px solid #cbd5e1;
+  border-radius:9px;
+  background:#fff;
+  cursor:pointer;
 }

@@ -639,12 +639,12 @@ function setActiveView(view){
   } else if (view === 'report'){
     if (reportSection) reportSection.style.display = '';
     if (header) header.style.display = '';
-    if (typeof refreshYearStatSelect === 'function') {
-      refreshYearStatSelect();
-    }
-    // 報表明細（訂單）改為懶載入：只在切到報表分頁時初始化，避免進站就渲染大量明細
-    if (typeof initReportOrderDetail === 'function') {
-      initReportOrderDetail();
+    // v6：先讓隱藏的報表 DOM 真正取得尺寸，再透過單一入口建立/更新圖表。
+    if (typeof refreshReportView === 'function') {
+      refreshReportView();
+    } else {
+      if (typeof refreshYearStatSelect === 'function') refreshYearStatSelect();
+      if (typeof initReportOrderDetail === 'function') initReportOrderDetail();
     }
   } else {
     // 預設為排程頁

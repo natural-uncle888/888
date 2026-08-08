@@ -553,10 +553,21 @@
         const o = item.order;
         const tr = document.createElement('tr');
 
-        // 未排期（沒有日期）的訂單：加上醒目底色，避免與一般訂單混在一起難辨識
+        // 訂單列視覺狀態：未排期用暖色；已完成用淡綠色，方便快速辨識
         if(!o.date) tr.classList.add('undated-row');
+        if((o.status || '排定') === '完成') tr.classList.add('completed-row');
 
         const dateCell = o.date ? escapeHtml(o.date) : '<span class="badge-soft">未排期</span>';
+        // 訂單列表來源：LINE / Facebook 使用品牌圖示，其他來源僅顯示首字
+        const sourceName = String(o.contactMethod || '').trim();
+        const sourceInitial = Array.from(sourceName)[0] || '';
+        const sourceKey = sourceName.toLowerCase();
+        let sourceDisplay = escapeHtml(sourceInitial);
+        if (/\bline\b/i.test(sourceName) || sourceKey === 'line') {
+          sourceDisplay = '<span class="source-brand-icon source-line" aria-label="LINE"><span class="line-bubble">LINE</span></span>';
+        } else if (/facebook/i.test(sourceName) || sourceKey === 'fb' || sourceKey.startsWith('fb ')) {
+          sourceDisplay = '<span class="source-brand-icon source-facebook" aria-label="Facebook">f</span>';
+        }
         tr.innerHTML = `
           <td class="small muted" data-label="#">${idx+1}</td>
           <td class="editable" data-label="日期">${dateCell}</td>
@@ -573,9 +584,13 @@
           <td class="toggle-quote vtext" data-label="報價單"></td>
           <td class="right-align" data-label="總金額">${fmtCurrency(o.total||0)}</td>
           <td class="right-align" data-label="折後">${fmtCurrency(o.netTotal||0)}</td>
-          <td data-label="來源">${escapeHtml(o.contactMethod||'')}</td>
+          <td class="source-initial-cell" data-label="來源">${sourceDisplay}</td>
           <td class="op-cell" data-label="操作"><div class="order-actions" role="group" aria-label="訂單操作"></div></td>
         `;
+
+        // 來源欄位只顯示首字，但滑鼠停留仍可看到完整來源名稱
+        const sourceCell = tr.querySelector('.source-initial-cell');
+        if(sourceCell && sourceName) sourceCell.title = sourceName;
 
         // status pill
         const st = o.status || '排定';

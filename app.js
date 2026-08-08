@@ -1460,6 +1460,195 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
 
 
 
+// === 報表效能共用層：快取 / 延後繪製 / 資料彙總 ===
+(function(){
+  if (window.ReportPerf) return;
+
+  let version = 0;
+  const memoCache = new Map();
+  const scheduled = new Map();
+
+  function rawOrders(){
+    if (Array.isArray(window.orders)) return window.orders;
+    if (typeof orders !== 'undefined' && Array.isArray(orders)) return orders;
+    return [];
+  }
+  function rawExpenses(){
+    if (Array.isArray(window.expenses)) return window.expenses;
+    if (typeof expenses !== 'undefined' && Array.isArray(expenses)) return expenses;
+    return [];
+  }
+  function isReportVisible(){
+    const panel = document.getElementById('reportPanel');
+    if (!panel) return false;
+    return panel.style.display !== 'none' && !panel.hidden;
+  }
+  function invalidate(){
+    version += 1;
+    memoCache.clear();
+  }
+  function memo(key, builder){
+    const fullKey = version + '|' + key;
+    if (memoCache.has(fullKey)) return memoCache.get(fullKey);
+    const value = builder();
+    memoCache.set(fullKey, value);
+    return value;
+  }
+  function reportOrders(mergeOn){
+    return memo('reportOrders|' + (mergeOn ? '1' : '0'), function(){
+      const arr = rawOrders();
+      if (mergeOn && typeof mergeOrdersByBundle === 'function'){
+        try{ return mergeOrdersByBundle(arr); }catch(e){}
+      }
+      return arr;
+    });
+  }
+  function years(includeExpenses){
+    return memo('years|' + (includeExpenses ? '1' : '0'), function(){
+      const set = new Set();
+      rawOrders().forEach(function(o){
+        if (!o || !o.date) return;
+        const d = new Date(o.date);
+        if (!isNaN(d)) set.add(d.getFullYear());
+      });
+      if (includeExpenses){
+        rawExpenses().forEach(function(e){
+          if (!e || !e.date) return;
+          const d = new Date(e.date);
+          if (!isNaN(d)) set.add(d.getFullYear());
+        });
+      }
+      return Array.from(set).sort(function(a,b){ return b-a; });
+    });
+  }
+  function makeDaily(year){
+    const out = {};
+    if (!Number.isFinite(year)) return out;
+    for (let m=1; m<=12; m++){
+      const days = new Date(year, m, 0).getDate();
+      out[m] = {
+        count: new Array(days).fill(0),
+        revenue: new Array(days).fill(0),
+        income: new Array(days).fill(0),
+        expense: new Array(days).fill(0)
+      };
+    }
+    return out;
+  }
+  function getYearAggregate(targetYear, mergeOn){
+    const yearNum = targetYear === 'all' ? null : Number(targetYear);
+    const key = 'yearAgg|' + String(targetYear) + '|' + (mergeOn ? '1' : '0');
+    return memo(key, function(){
+      const monthly = {
+        count: new Array(12).fill(0),
+        revenue: new Array(12).fill(0), // 自訂圖表沿用 netTotal 語意
+        income: new Array(12).fill(0),  // 年度圖表沿用 netTotal -> total fallback
+        expense: new Array(12).fill(0)
+      };
+      const daily = makeDaily(yearNum);
+      const result = {
+        totalCount: 0,
+        totalAmount: 0,
+        netAmount: 0,
+        completed: 0,
+        expenseTotal: 0,
+        monthly,
+        daily
+      };
+
+      reportOrders(mergeOn).forEach(function(o){
+        if (!o || !o.date) return;
+        const d = new Date(o.date);
+        if (isNaN(d)) return;
+        const y = d.getFullYear();
+        if (yearNum !== null && y !== yearNum) return;
+        const m = d.getMonth();
+        const dayIdx = d.getDate() - 1;
+        const total = Number(o.total) || 0;
+        const netOnly = Number(o.netTotal) || 0;
+        const income = Number(o.netTotal) || Number(o.total) || 0;
+
+        result.totalCount += 1;
+        result.totalAmount += total;
+        result.netAmount += netOnly;
+        if (o.status === '完成') result.completed += 1;
+        monthly.count[m] += 1;
+        monthly.revenue[m] += netOnly;
+        monthly.income[m] += income;
+        if (yearNum !== null && daily[m+1] && daily[m+1].count[dayIdx] !== undefined){
+          daily[m+1].count[dayIdx] += 1;
+          daily[m+1].revenue[dayIdx] += netOnly;
+          daily[m+1].income[dayIdx] += income;
+        }
+      });
+
+      rawExpenses().forEach(function(e){
+        if (!e || !e.date) return;
+        const d = new Date(e.date);
+        if (isNaN(d)) return;
+        const y = d.getFullYear();
+        if (yearNum !== null && y !== yearNum) return;
+        const m = d.getMonth();
+        const dayIdx = d.getDate() - 1;
+        const amount = Number(e.amount) || 0;
+        monthly.expense[m] += amount;
+        result.expenseTotal += amount;
+        if (yearNum !== null && daily[m+1] && daily[m+1].expense[dayIdx] !== undefined){
+          daily[m+1].expense[dayIdx] += amount;
+        }
+      });
+
+      // 訂單內花費（車資 + 日薪助手）以原始訂單計，不受「合併同單」影響。
+      rawOrders().forEach(function(o){
+        if (!o || !o.date) return;
+        const d = new Date(o.date);
+        if (isNaN(d)) return;
+        const y = d.getFullYear();
+        if (yearNum !== null && y !== yearNum) return;
+        const m = d.getMonth();
+        const dayIdx = d.getDate() - 1;
+        const amount = (typeof orderExpenseAmount === 'function')
+          ? orderExpenseAmount(o)
+          : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
+        monthly.expense[m] += amount;
+        result.expenseTotal += amount;
+        if (yearNum !== null && daily[m+1] && daily[m+1].expense[dayIdx] !== undefined){
+          daily[m+1].expense[dayIdx] += amount;
+        }
+      });
+
+      return result;
+    });
+  }
+  function schedule(key, fn){
+    if (scheduled.has(key)) return;
+    scheduled.set(key, true);
+    const run = function(){
+      scheduled.delete(key);
+      try{ fn(); }catch(e){ console.error('[report]', e); }
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function(){ setTimeout(run, 0); });
+    else setTimeout(run, 0);
+  }
+
+  window.ReportPerf = {
+    invalidate,
+    memo,
+    schedule,
+    isReportVisible,
+    rawOrders,
+    rawExpenses,
+    reportOrders,
+    getYears: years,
+    getYearAggregate,
+    get version(){ return version; }
+  };
+
+  document.addEventListener('ordersUpdated', invalidate);
+  document.addEventListener('expensesUpdated', invalidate);
+  window.addEventListener('storage', invalidate);
+})();
+
 // === 年度統計：獨立年份下拉選單 (可選單一年或全部) ===
 (function(){
   // Wait until core variables (orders, expenses) are available
@@ -1474,12 +1663,9 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
 
     function getYearsFromOrders(){
       try {
-        const _ordForYear = (document.getElementById("mergeBundleReport")?.checked && typeof mergeOrdersByBundle==="function") ? mergeOrdersByBundle(orders||[]) : (orders||[]);
-          const yrs = Array.from(new Set(
-          (_ordForYear).map(o => o.date ? new Date(o.date).getFullYear() : null).filter(Boolean)
-        ));
-        yrs.sort((a,b)=>b-a); // desc
-        return yrs;
+        if (window.ReportPerf) return window.ReportPerf.getYears(false);
+        const arr = (typeof orders !== 'undefined' && Array.isArray(orders)) ? orders : [];
+        return Array.from(new Set(arr.map(o => o.date ? new Date(o.date).getFullYear() : null).filter(Boolean))).sort((a,b)=>b-a);
       } catch(e){ return []; }
     }
 
@@ -1496,40 +1682,22 @@ document.addEventListener('DOMContentLoaded', function(){ if (typeof initYearTog
     }
 
     function renderYearStats(targetYear){
-      const ord = (document.getElementById('mergeBundleReport')?.checked && typeof mergeOrdersByBundle === 'function') ? mergeOrdersByBundle(orders || []) : (orders || []);
-      const exp = expenses || [];
+      if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
+      const mergeOn = !!document.getElementById('mergeBundleReport')?.checked;
+      const agg = window.ReportPerf
+        ? window.ReportPerf.getYearAggregate(targetYear, mergeOn)
+        : null;
+      if (!agg) return;
 
-      // ---- 數字統計 ----
-      const filtered = ord.filter(o=> {
-        if(!o.date) return false;
-        const y = new Date(o.date).getFullYear();
-        return targetYear === 'all' ? true : (y == targetYear);
-      });
-      const totalCount = filtered.length;
-      const totalAmount = filtered.reduce((s,o)=> s + (+o.total||0), 0);
-      const netAmount   = filtered.reduce((s,o)=> s + (+o.netTotal||0), 0);
-      const expenseTotalBase = (exp || []).filter(e => {
-  if(!e.date) return false;
-  const y = new Date(e.date).getFullYear();
-  return targetYear === 'all' ? true : (y == targetYear);
-}).reduce((s,e)=> s + (+e.amount||0), 0);
-
-// 訂單內花費：車資 + 日薪助手（依訂單日期計）
-const expenseTotalOrders = (orders || []).filter(o => {
-  if(!o.date) return false;
-  const d = new Date(o.date);
-  if (isNaN(d)) return false;
-  const y = d.getFullYear();
-  return targetYear === 'all' ? true : (y == targetYear);
-}).reduce((s,o)=> s + (typeof orderExpenseAmount === 'function' ? orderExpenseAmount(o) : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0))), 0);
-
-const expenseTotal = expenseTotalBase + expenseTotalOrders;
-      const completed = filtered.filter(o=> o.status === '完成').length;
-      const doneRate = totalCount ? ((completed/totalCount*100).toFixed(1) + '%') : '—';
+      const totalCount = agg.totalCount;
+      const totalAmount = agg.totalAmount;
+      const netAmount = agg.netAmount;
+      const expenseTotal = agg.expenseTotal;
+      const completed = agg.completed;
+      const doneRate = totalCount ? ((completed / totalCount * 100).toFixed(1) + '%') : '—';
       const netIncome = netAmount - expenseTotal;
 
       if (typeof fmtCurrency !== 'function'){
-        // 後備：避免某些情況 fmtCurrency 未定義
         window.fmtCurrency = window.fmtCurrency || (n => (n||0).toLocaleString('zh-TW', {minimumFractionDigits:0}));
       }
 
@@ -1543,93 +1711,59 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
         <div class="box"><div class="small">完成率</div><div class="number">${doneRate}</div></div>
       `;
 
-      // ---- 圖表資料（每月） ----
       const labels = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-      const ordersByMonth  = new Array(12).fill(0);
-      const incomeByMonth  = new Array(12).fill(0);
-      const expenseByMonth = new Array(12).fill(0);
+      const ordersByMonth = agg.monthly.count.slice();
+      const incomeByMonth = agg.monthly.income.slice();
+      const expenseByMonth = agg.monthly.expense.slice();
 
-      (ord || []).forEach(o => {
-        if (!o.date) return;
-        const d = new Date(o.date);
-        if (isNaN(d)) return;
-        const y = d.getFullYear();
-        const m = d.getMonth(); // 0~11
-        if (targetYear !== 'all' && y !== +targetYear) return;
-        ordersByMonth[m] += 1;
-        const income = +o.netTotal || +o.total || 0;
-        incomeByMonth[m] += income;
-      });
-
-      (exp || []).forEach(e => {
-        if (!e.date) return;
-        const d = new Date(e.date);
-        if (isNaN(d)) return;
-        const y = d.getFullYear();
-        const m = d.getMonth();
-        if (targetYear !== 'all' && y !== +targetYear) return;
-        expenseByMonth[m] += (+e.amount || 0);
-      });
-
-// 加上訂單內花費（車資 + 日薪助手）
-(orders || []).forEach(o => {
-  if (!o.date) return;
-  const d = new Date(o.date);
-  if (isNaN(d)) return;
-  const y = d.getFullYear();
-  const m = d.getMonth(); // 0~11
-  if (targetYear !== 'all' && y !== +targetYear) return;
-  const amt = (typeof orderExpenseAmount === 'function')
-    ? orderExpenseAmount(o)
-    : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
-  expenseByMonth[m] += amt;
-});
-
-
-      // ---- Chart.js 繪製 ----
       if (window.Chart){
         const ordersCanvas = document.getElementById('chartOrdersByMonth');
         if (ordersCanvas){
-          if (yearOrdersChart) yearOrdersChart.destroy();
-          yearOrdersChart = new Chart(ordersCanvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-              labels,
-              datasets: [{
-                label: '訂單數',
-                data: ordersByMonth
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: { beginAtZero: true, ticks: { precision:0 } }
+          if (!yearOrdersChart){
+            yearOrdersChart = new Chart(ordersCanvas.getContext('2d'), {
+              type: 'bar',
+              data: { labels, datasets: [{ label:'訂單數', data:ordersByMonth }] },
+              options: {
+                responsive:true,
+                maintainAspectRatio:false,
+                animation:false,
+                resizeDelay:120,
+                scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }
               }
-            }
-          });
+            });
+          } else {
+            yearOrdersChart.data.labels = labels;
+            yearOrdersChart.data.datasets[0].data = ordersByMonth;
+            yearOrdersChart.update('none');
+          }
         }
 
         const incomeCanvas = document.getElementById('chartIncomeVsExpense');
         if (incomeCanvas){
-          if (yearIncomeChart) yearIncomeChart.destroy();
-          yearIncomeChart = new Chart(incomeCanvas.getContext('2d'), {
-            type: 'bar',
-            data: {
-              labels,
-              datasets: [
-                { label: '淨收入', data: incomeByMonth },
-                { label: '花費',   data: expenseByMonth }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: { beginAtZero: true }
+          if (!yearIncomeChart){
+            yearIncomeChart = new Chart(incomeCanvas.getContext('2d'), {
+              type:'bar',
+              data:{
+                labels,
+                datasets:[
+                  { label:'淨收入', data:incomeByMonth },
+                  { label:'花費', data:expenseByMonth }
+                ]
+              },
+              options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                animation:false,
+                resizeDelay:120,
+                scales:{ y:{ beginAtZero:true } }
               }
-            }
-          });
+            });
+          } else {
+            yearIncomeChart.data.labels = labels;
+            yearIncomeChart.data.datasets[0].data = incomeByMonth;
+            yearIncomeChart.data.datasets[1].data = expenseByMonth;
+            yearIncomeChart.update('none');
+          }
         }
       }
     }
@@ -1643,10 +1777,11 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
       renderYearStats(sel.value);
     };
 
-    populateYearOptions();
-    renderYearStats(sel.value);
-
-    sel.addEventListener('change', function(){ renderYearStats(this.value); });
+    // v6：只綁定事件，不在首頁載入時建立隱藏中的 Chart。
+    sel.addEventListener('change', function(){
+      if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
+      renderYearStats(this.value);
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function(){
@@ -1680,22 +1815,11 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
   }
 
   function getAvailableYears(){
-    const ord = ensureOrdersArray();
-    const exp = ensureExpensesArray();
+    if (window.ReportPerf) return window.ReportPerf.getYears(true);
     const set = new Set();
-    ord.forEach(o => {
-      if (!o || !o.date) return;
-      const d = new Date(o.date);
-      if (!isNaN(d)) set.add(d.getFullYear());
-    });
-    exp.forEach(e => {
-      if (!e || !e.date) return;
-      const d = new Date(e.date);
-      if (!isNaN(d)) set.add(d.getFullYear());
-    });
-    const arr = Array.from(set);
-    arr.sort((a,b)=>b-a);
-    return arr;
+    ensureOrdersArray().forEach(o => { if(o?.date){ const d=new Date(o.date); if(!isNaN(d)) set.add(d.getFullYear()); } });
+    ensureExpensesArray().forEach(e => { if(e?.date){ const d=new Date(e.date); if(!isNaN(d)) set.add(d.getFullYear()); } });
+    return Array.from(set).sort((a,b)=>b-a);
   }
 
   function daysInMonth(year, month){ // month: 1-12
@@ -1703,133 +1827,39 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
   }
 
   function aggregateByMonth(year, metric){
-    const ord = ensureOrdersArray();
-    const exp = ensureExpensesArray();
-    const labels = [];
-    for (let m=1; m<=12; m++){
-      labels.push(m + '月');
+    const labels = Array.from({length:12}, (_,i)=>(i+1) + '月');
+    const mergeOn = !!document.getElementById('mergeBundleReport')?.checked;
+    if (window.ReportPerf){
+      const agg = window.ReportPerf.getYearAggregate(year, mergeOn);
+      let data;
+      if (metric === 'count') data = agg.monthly.count.slice();
+      else if (metric === 'revenue') data = agg.monthly.revenue.slice();
+      else if (metric === 'expense') data = agg.monthly.expense.slice();
+      else if (metric === 'net') data = agg.monthly.revenue.map((v,i)=>v - agg.monthly.expense[i]);
+      else data = agg.monthly.revenue.slice();
+      return { labels, data };
     }
-    const count   = new Array(12).fill(0);
-    const income  = new Array(12).fill(0);
-    const expense = new Array(12).fill(0);
-
-    ord.forEach(o => {
-      if (!o || !o.date) return;
-      const d = new Date(o.date);
-      if (isNaN(d)) return;
-      if (d.getFullYear() !== year) return;
-      const m = d.getMonth(); // 0-11
-      if (metric === 'count'){
-        count[m] += 1;
-      } else {
-        const net = +o.netTotal || 0;
-        income[m] += net;
-      }
-    });
-
-    exp.forEach(e => {
-      if (!e || !e.date) return;
-      const d = new Date(e.date);
-      if (isNaN(d)) return;
-      if (d.getFullYear() !== year) return;
-      const m = d.getMonth();
-      expense[m] += (+e.amount || 0);
-    });
-
-// 加上訂單內花費（車資 + 日薪助手）
-(orders || []).forEach(o => {
-  if (!o || !o.date) return;
-  const d = new Date(o.date);
-  if (isNaN(d)) return;
-  if (d.getFullYear() !== year) return;
-  const m = d.getMonth();
-  const amt = (typeof orderExpenseAmount === 'function')
-    ? orderExpenseAmount(o)
-    : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
-  expense[m] += amt;
-});
-
-    if (metric === 'count'){
-      return { labels, data: count };
-    } else if (metric === 'revenue'){
-      return { labels, data: income };
-    } else if (metric === 'net'){
-      const net = income.map((v,i)=> v - expense[i]);
-      return { labels, data: net };
-    } else if (metric === 'expense'){
-      return { labels, data: expense };
-    }
-    return { labels, data: income };
+    return { labels, data:new Array(12).fill(0) };
   }
 
   function aggregateByDay(year, month, metric){
-    const ord = ensureOrdersArray();
-    const exp = ensureExpensesArray();
     const days = daysInMonth(year, month);
-    const labels = [];
-    for (let d=1; d<=days; d++){
-      labels.push(d + '日');
+    const labels = Array.from({length:days}, (_,i)=>(i+1) + '日');
+    const mergeOn = !!document.getElementById('mergeBundleReport')?.checked;
+    if (window.ReportPerf){
+      const agg = window.ReportPerf.getYearAggregate(year, mergeOn);
+      const day = agg.daily[month] || {
+        count:new Array(days).fill(0), revenue:new Array(days).fill(0), expense:new Array(days).fill(0)
+      };
+      let data;
+      if (metric === 'count') data = day.count.slice();
+      else if (metric === 'revenue') data = day.revenue.slice();
+      else if (metric === 'expense') data = day.expense.slice();
+      else if (metric === 'net') data = day.revenue.map((v,i)=>v - day.expense[i]);
+      else data = day.revenue.slice();
+      return { labels, data };
     }
-    const count   = new Array(days).fill(0);
-    const income  = new Array(days).fill(0);
-    const expense = new Array(days).fill(0);
-
-    ord.forEach(o => {
-      if (!o || !o.date) return;
-      const dt = new Date(o.date);
-      if (isNaN(dt)) return;
-      if (dt.getFullYear() !== year) return;
-      if ((dt.getMonth()+1) !== month) return;
-      const day = dt.getDate();
-      const idx = day - 1;
-      if (idx < 0 || idx >= days) return;
-      if (metric === 'count'){
-        count[idx] += 1;
-      } else {
-        const net = +o.netTotal || 0;
-        income[idx] += net;
-      }
-    });
-
-    exp.forEach(e => {
-      if (!e || !e.date) return;
-      const dt = new Date(e.date);
-      if (isNaN(dt)) return;
-      if (dt.getFullYear() !== year) return;
-      if ((dt.getMonth()+1) !== month) return;
-      const day = dt.getDate();
-      const idx = day - 1;
-      if (idx < 0 || idx >= days) return;
-      expense[idx] += (+e.amount || 0);
-    });
-
-// 加上訂單內花費（車資 + 日薪助手）
-(orders || []).forEach(o => {
-  if (!o || !o.date) return;
-  const dt = new Date(o.date);
-  if (isNaN(dt)) return;
-  if (dt.getFullYear() !== year) return;
-  if ((dt.getMonth()+1) !== month) return;
-  const day = dt.getDate();
-  const idx = day - 1;
-  if (idx < 0 || idx >= days) return;
-  const amt = (typeof orderExpenseAmount === 'function')
-    ? orderExpenseAmount(o)
-    : ((Number(o.transportFee)||0) + (Number(o.helperCost)||0));
-  expense[idx] += amt;
-});
-
-    if (metric === 'count'){
-      return { labels, data: count };
-    } else if (metric === 'revenue'){
-      return { labels, data: income };
-    } else if (metric === 'net'){
-      const net = income.map((v,i)=> v - expense[i]);
-      return { labels, data: net };
-    } else if (metric === 'expense'){
-      return { labels, data: expense };
-    }
-    return { labels, data: income };
+    return { labels, data:new Array(days).fill(0) };
   }
 
   function buildSingleSeries(year, monthValue, metric){
@@ -1966,6 +1996,7 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
     }
 
     function updateChart(){
+      if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
       if (!window.Chart) return;
       const cfg = getConfig();
       if (!cfg.yearA) return;
@@ -2003,6 +2034,8 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,
+            resizeDelay: 120,
             plugins: {
               legend: { display: true },
               title: { display: false }
@@ -2016,7 +2049,7 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
       } else {
         chart.data.labels = result.labels;
         chart.data.datasets = datasets;
-        chart.update();
+        chart.update('none');
       }
     }
 
@@ -2062,6 +2095,7 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
     }
 
     function updateExpenseCategoryChart(){
+      if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
       if (!expCatCanvas || !yearStatSel || !window.Chart) return;
       const yearVal = yearStatSel.value;
       if (!yearVal || yearVal === 'all') return;
@@ -2139,27 +2173,23 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
         });
       }
 
-      if (expenseCatChart){
-        expenseCatChart.destroy();
-      }
-
-      expenseCatChart = new Chart(expCatCanvas.getContext('2d'), {
-        type: 'doughnut',
-        data: {
-          labels,
-          datasets
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true },
-            title: {
-              display: false
-            }
+      if (!expenseCatChart){
+        expenseCatChart = new Chart(expCatCanvas.getContext('2d'), {
+          type: 'doughnut',
+          data: { labels, datasets },
+          options: {
+            responsive:true,
+            maintainAspectRatio:false,
+            animation:false,
+            resizeDelay:120,
+            plugins:{ legend:{ display:true }, title:{ display:false } }
           }
-        }
-      });
+        });
+      } else {
+        expenseCatChart.data.labels = labels;
+        expenseCatChart.data.datasets = datasets;
+        expenseCatChart.update('none');
+      }
     }
 
     if (expCatCanvas && expMonthSelA && expMonthSelB && yearStatSel){
@@ -2169,22 +2199,17 @@ const expenseTotal = expenseTotalBase + expenseTotalOrders;
       });
     }
 
-populateYearSelects();
-    updateVisibility();
-    updateChart();
-
-    // 若核心資料尚未準備好，等 appCoreReady 再刷新一次
-    if (typeof orders === 'undefined' || typeof expenses === 'undefined'){
-      document.addEventListener('appCoreReady', function(){
-        populateYearSelects();
-        updateVisibility();
-        updateChart();
-        if (expCatCanvas && expMonthSelA && expMonthSelB && yearStatSel){
-          populateExpenseMonthSelects();
-          updateExpenseCategoryChart();
-        }
-      }, { once:true });
-    }
+    // v6：報表真正顯示時才建立圖表，避免首頁載入時在 display:none 容器中建立 Chart。
+    window.refreshCustomReportCharts = function(){
+      if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
+      populateYearSelects();
+      updateVisibility();
+      updateChart();
+      if (expCatCanvas && expMonthSelA && expMonthSelB && yearStatSel){
+        if (!expMonthSelA.options.length) populateExpenseMonthSelects();
+        updateExpenseCategoryChart();
+      }
+    };
   });
 })();
 
@@ -2295,6 +2320,7 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
   }
 
   function renderKpi(range){
+    if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
     const container = document.getElementById('kpiCards');
     if (!container) return;
     const data = calcKpi(range);
@@ -2326,13 +2352,6 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
     if (!container) return;
 
     let currentRange = 'today';
-    renderKpi(currentRange);
-
-    const mergeEl = document.getElementById('mergeBundleReport');
-    if (mergeEl && mergeEl.dataset.boundKpiMerge !== '1'){
-      mergeEl.addEventListener('change', function(){ renderKpi(currentRange); });
-      mergeEl.dataset.boundKpiMerge = '1';
-    }
 
     const btns = document.querySelectorAll('.kpi-range-btn');
     btns.forEach(btn => {
@@ -2574,6 +2593,7 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
   }
 
   function renderServiceStats(targetYear){
+    if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
     const tbody = document.querySelector('#tableByService tbody');
     const canvas = document.getElementById('chartByService');
     if (!tbody || !canvas) return;
@@ -2606,49 +2626,42 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    if (renderServiceStats._chart){
-      renderServiceStats._chart.destroy();
-      renderServiceStats._chart = null;
-    }
-
     if (data.length === 0){
+      if (renderServiceStats._chart){
+        renderServiceStats._chart.data.labels = [];
+        renderServiceStats._chart.data.datasets.forEach(ds => { ds.data = []; });
+        renderServiceStats._chart.update('none');
+      }
       return;
     }
 
-    renderServiceStats._chart = new Chart(ctx, {
-      type:'bar',
-      data:{
-        labels: labels,
-        datasets:[
-          {
-            label:'營業額',
-            data: revenueData,
-            yAxisID:'y'
-          },
-          {
-            label:'案件數',
-            data: countData,
-            yAxisID:'y1'
-          }
-        ]
-      },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        scales:{
-          y:{
-            beginAtZero:true,
-            title:{ display:true, text:'金額（元）' }
-          },
-          y1:{
-            beginAtZero:true,
-            position:'right',
-            grid:{ drawOnChartArea:false },
-            title:{ display:true, text:'案件數' }
+    if (!renderServiceStats._chart){
+      renderServiceStats._chart = new Chart(ctx, {
+        type:'bar',
+        data:{
+          labels: labels,
+          datasets:[
+            { label:'營業額', data:revenueData, yAxisID:'y' },
+            { label:'案件數', data:countData, yAxisID:'y1' }
+          ]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          animation:false,
+          resizeDelay:120,
+          scales:{
+            y:{ beginAtZero:true, title:{ display:true, text:'金額（元）' } },
+            y1:{ beginAtZero:true, position:'right', grid:{ drawOnChartArea:false }, title:{ display:true, text:'案件數' } }
           }
         }
-      }
-    });
+      });
+    } else {
+      renderServiceStats._chart.data.labels = labels;
+      renderServiceStats._chart.data.datasets[0].data = revenueData;
+      renderServiceStats._chart.data.datasets[1].data = countData;
+      renderServiceStats._chart.update('none');
+    }
   }
 
   function setupServiceStats(){
@@ -2656,27 +2669,12 @@ const ordRaw = Array.isArray(window.orders) ? window.orders
     if (!yearSelect) return;
 
     const getYear = () => yearSelect.value || 'all';
-    renderServiceStats(getYear());
 
-    // 年度切換時更新
+    // 年度切換時更新；不再包裝 refreshYearStatSelect，避免一次切換重複 render。
     yearSelect.addEventListener('change', () => {
+      if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
       renderServiceStats(getYear());
     });
-
-    const mergeEl = document.getElementById('mergeBundleReport');
-    if (mergeEl && mergeEl.dataset.boundServiceMerge !== '1'){
-      mergeEl.addEventListener('change', function(){ renderServiceStats(getYear()); });
-      mergeEl.dataset.boundServiceMerge = '1';
-    }
-
-    // 如果有既有的 refreshYearStatSelect，包一層一併更新
-    if (typeof window.refreshYearStatSelect === 'function'){
-      const original = window.refreshYearStatSelect;
-      window.refreshYearStatSelect = function(){
-        original.apply(this, arguments);
-        renderServiceStats(getYear());
-      };
-    }
 
     window.refreshServiceStats = function(){
       renderServiceStats(getYear());
@@ -4457,6 +4455,21 @@ function getLineIds(){
 (function(){
   function safeArr(v){ return Array.isArray(v) ? v : []; }
 
+  const REPORT_DETAIL_PAGE_SIZE = 100;
+  let reportDetailVisibleLimit = REPORT_DETAIL_PAGE_SIZE;
+  let reportDetailRenderKey = '';
+
+  function updateDetailLoadMore(shown, total, mergeOn){
+    const wrap = document.getElementById('reportDetailLoadMoreWrap');
+    const status = document.getElementById('reportDetailLoadStatus');
+    const btn = document.getElementById('reportDetailLoadMore');
+    if (!wrap || !status || !btn) return;
+    if (!total){ wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    status.textContent = '目前顯示 ' + shown + ' / ' + total + ' 筆' + (mergeOn ? '（合併同單以一筆計）' : '');
+    btn.style.display = shown < total ? '' : 'none';
+  }
+
   function getRawOrders(){
     if (Array.isArray(window.orders)) return window.orders;
     if (typeof orders !== 'undefined' && Array.isArray(orders)) return orders;
@@ -4678,23 +4691,17 @@ function getLineIds(){
   }
 
   function sortByDateTime(arr){
-    return safeArr(arr).slice().sort((a,b)=>{
-      const da = parseDateStr(a?.date);
-      const db = parseDateStr(b?.date);
-      const ta = (a?.time||'').trim();
-      const tb = (b?.time||'').trim();
-      const toDT = (d,t)=>{
-        if(!d) return 0;
-        if(t && /^\d{1,2}:\d{2}$/.test(t)){
-          const [hh,mm]=t.split(':').map(x=>parseInt(x,10));
-          return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hh||0, mm||0).getTime();
-        }
-        return d.getTime();
-      };
-      const va = toDT(da, ta);
-      const vb = toDT(db, tb);
-      return va - vb;
-    });
+    // v6：日期時間只解析一次；避免 sort comparator 對大量訂單反覆 new Date。
+    return safeArr(arr).map((o, index)=>{
+      const d = parseDateStr(o?.date);
+      let key = d ? d.getTime() : 0;
+      const t = (o?.time||'').trim();
+      if(d && t && /^\d{1,2}:\d{2}$/.test(t)){
+        const [hh,mm] = t.split(':').map(x=>parseInt(x,10));
+        key = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hh||0, mm||0).getTime();
+      }
+      return { o, index, key };
+    }).sort((a,b)=> (a.key - b.key) || (a.index - b.index)).map(x=>x.o);
   }
 
   function buildMonthOptionsForYear(raw, year){
@@ -4773,10 +4780,16 @@ function getLineIds(){
     const year = getSelectedYear();
     const month = getSelectedMonth();
     const mergeOn = !!document.getElementById('mergeBundleReport')?.checked;
+    const renderKey = [year, month, mergeOn ? '1' : '0', raw.length].join('|');
+    if (renderKey !== reportDetailRenderKey){
+      reportDetailRenderKey = renderKey;
+      reportDetailVisibleLimit = REPORT_DETAIL_PAGE_SIZE;
+    }
 
     const filtered = sortByDateTime(filterOrdersByYearMonth(raw, year, month));
     if(filtered.length === 0){
       tbody.innerHTML = '<tr><td colspan="8">目前沒有符合條件的訂單</td></tr>';
+      updateDetailLoadMore(0, 0, mergeOn);
       return;
     }
 
@@ -4870,7 +4883,8 @@ function getLineIds(){
 
     const htmlRows = [];
     const bundleChildrenMap = new Map(); // bundleId -> children orders
-    for(const item of groups){
+    const visibleGroups = groups.slice(0, reportDetailVisibleLimit);
+    for(const item of visibleGroups){
       if(item.type==='single'){
         htmlRows.push(rowHtmlSingle(item.order));
       } else if(item.type==='bundle'){
@@ -4880,6 +4894,7 @@ function getLineIds(){
       }
     }
     tbody.innerHTML = htmlRows.join('');
+    updateDetailLoadMore(visibleGroups.length, groups.length, mergeOn);
 
     // click to expand/collapse
     tbody.onclick = function(ev){
@@ -4946,7 +4961,16 @@ function getLineIds(){
     const monthSel = document.getElementById('reportDetailMonth');
     const yearSelDetail = document.getElementById('reportDetailYear');
     const yearSelGlobal = document.getElementById('yearStatSelect');
+    const loadMoreBtn = document.getElementById('reportDetailLoadMore');
     if(!monthSel) return;
+
+    if (loadMoreBtn && loadMoreBtn.dataset.boundReportMore !== '1'){
+      loadMoreBtn.addEventListener('click', function(){
+        reportDetailVisibleLimit += REPORT_DETAIL_PAGE_SIZE;
+        renderTable();
+      });
+      loadMoreBtn.dataset.boundReportMore = '1';
+    }
 
     // 月份選擇：標記使用者已手動選擇，避免自動覆蓋
     if(!monthSel.dataset.boundDetailMonth){
@@ -4960,13 +4984,16 @@ function getLineIds(){
     // 明細區塊內「年份」選擇：同步到 yearStatSelect（讓上方年度統計/圖表也跟著切換）
     if(yearSelDetail && !yearSelDetail.dataset.boundDetailYear){
       yearSelDetail.addEventListener('change', function(){
+        let mirroredToGlobal = false;
         try{
           if(yearSelGlobal && yearSelGlobal.value !== yearSelDetail.value){
             yearSelGlobal.value = yearSelDetail.value;
+            mirroredToGlobal = true;
             yearSelGlobal.dispatchEvent(new Event('change', { bubbles:true }));
           }
         }catch(e){}
-        // 年份變更後，若使用者尚未手動選月，改以本月/最新月份為預設
+        // dispatchEvent 是同步的；全域年份 listener 已完成月份/表格刷新，不再重做一次。
+        if (mirroredToGlobal) return;
         if(monthSel) monthSel.dataset.userChanged = '';
         renderMonthSelect(getRawOrders());
         autoDefaultMonthIfNeeded();
@@ -4993,16 +5020,9 @@ function getLineIds(){
       yearSelGlobal.dataset.boundDetailYearMirror = '1';
     }
 
-    const mergeEl = document.getElementById('mergeBundleReport');
-    if(mergeEl && mergeEl.dataset.boundDetailMerge !== '1'){
-      mergeEl.addEventListener('change', function(){
-        renderTable();
-      });
-      mergeEl.dataset.boundDetailMerge = '1';
-    }
-
     // 訂單變更（新增/刪除/匯入）後刷新月份清單與表格
     document.addEventListener('ordersUpdated', function(){
+      reportDetailRenderKey = '';
       syncDetailYearOptions();
       renderMonthSelect(getRawOrders());
       autoDefaultMonthIfNeeded();
@@ -5029,6 +5049,32 @@ function getLineIds(){
   };
 })();
 
+
+// === v6：報表單一刷新入口 ===
+window.refreshReportView = function refreshReportView(){
+  const run = function(){
+    if (window.ReportPerf && !window.ReportPerf.isReportVisible()) return;
+    // 每次重新進入報表只失效一次；同一次刷新內的各區塊共用快取。
+    if (window.ReportPerf) window.ReportPerf.invalidate();
+    if (typeof window.refreshYearStatSelect === 'function') window.refreshYearStatSelect();
+    if (typeof window.refreshKpiCards === 'function') window.refreshKpiCards();
+    if (typeof window.refreshCustomReportCharts === 'function') window.refreshCustomReportCharts();
+    if (typeof window.refreshServiceStats === 'function') window.refreshServiceStats();
+    if (typeof window.initReportOrderDetail === 'function') window.initReportOrderDetail();
+  };
+  if (window.ReportPerf) window.ReportPerf.schedule('full-report-refresh', run);
+  else setTimeout(run, 0);
+};
+
+document.addEventListener('DOMContentLoaded', function(){
+  const mergeEl = document.getElementById('mergeBundleReport');
+  if (mergeEl && mergeEl.dataset.boundReportRefresh !== '1'){
+    mergeEl.addEventListener('change', function(){
+      if (typeof window.refreshReportView === 'function') window.refreshReportView();
+    });
+    mergeEl.dataset.boundReportRefresh = '1';
+  }
+});
 
 // 快捷操作：手機/平板底部固定欄、桌機右下角浮動按鈕
 (function(){

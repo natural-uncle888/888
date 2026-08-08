@@ -1084,11 +1084,11 @@ recalcTotals();
     }
 function quickCreateNextOrder(){
   try {
-    const base = gatherForm ? gatherForm() : {};
-    const name = (base.customer || '').trim();
+    const base = (typeof gatherForm === 'function') ? gatherForm() : {};
+    const name = String(base.customer || '').trim();
     if (!name){
       if (typeof Swal !== 'undefined' && Swal.fire){
-        Swal.fire('無法建立下一次', '請先填寫客戶姓名，或從訂單列表選擇一筆訂單再使用此功能。', 'info');
+        Swal.fire('無法建立新訂單', '請先填寫客戶姓名，或從訂單列表選擇一筆訂單再使用此功能。', 'info');
       } else {
         alert('請先填寫客戶姓名，或從訂單列表選擇一筆訂單再使用此功能。');
       }
@@ -1096,90 +1096,140 @@ function quickCreateNextOrder(){
       return;
     }
 
-    // 推算週期（優先使用表單上的提醒月份，其次使用客戶歷史設定，最後預設 12 個月）
-    let months = 0;
-    if (+base.reminderMonths > 0){
-      months = +base.reminderMonths;
-    } else {
-      try {
-        if (typeof reminderMonthsForCustomer === 'function'){
-          const m2 = reminderMonthsForCustomer(name);
-          if (m2) months = m2;
-        }
-      } catch (e){}
-    }
-    if (!months) months = 12;
+    // 「快速新增下一次」改為只沿用客戶基本資料。
+    // 不再整筆複製舊訂單，避免上次的日期、時間、清洗內容、備註、金額等誤帶到新訂單。
+    const next = {
+      // 新訂單識別資料：保持空白，儲存時才產生新的 ID。
+      id: '',
+      bundleId: '',
 
-    // 決定基準日期：優先用目前訂單日期，否則用最後完成日期
-    let baseDateStr = base.date || '';
-    if (!baseDateStr){
-      try {
-        if (typeof lastCompletedDateForCustomer === 'function'){
-          const last = lastCompletedDateForCustomer(name);
-          if (last) baseDateStr = last;
-        }
-      } catch (e){}
-    }
+      // 客戶基本資料：只保留這些欄位。
+      customer: name,
+      lineId: String(base.lineId || '').trim(),
+      lineIds: Array.isArray(base.lineIds) ? base.lineIds.slice() : [],
+      phone: String(base.phone || '').trim(),
+      addressId: String(base.addressId || '').trim(),
+      address: String(base.address || '').trim(),
+      residenceType: String(base.residenceType || ''),
+      residenceOther: String(base.residenceOther || '').trim(),
 
-    let nextDateStr = '';
-    if (baseDateStr && typeof addMonths === 'function' && typeof fmtDate === 'function'){
-      const d = addMonths(baseDateStr, months);
-      if (d) nextDateStr = fmtDate(d);
-    }
+      // 新訂單排程：日期、時間與排程偏好重新填寫。
+      date: '',
+      time: '',
+      slots: [],
+      slotNote: '',
+      contactTimes: [],
+      contactTimeNote: '',
+      durationMinutes: '',
+      duration: '',
+      status: '排定',
 
-    const next = Object.assign({}, base);
-    // 如果該客戶有多個地址：複製新增下一筆時自動切換到「下一個地址」
-    try{
-      let c = null;
-      const phone0 = (base.phone||'').toString().split('/')[0].trim();
-      if(phone0 && typeof findContactByPhone==='function') c = findContactByPhone(phone0);
-      if(!c && typeof findContactByName==='function') c = findContactByName(name);
-      if(c && typeof ensureContactAddressesSchema==='function') ensureContactAddressesSchema(c);
-      if(c && Array.isArray(c.addresses)){
-        const list = c.addresses.filter(a => a && a.active !== false && (a.address||'').trim());
-        if(list.length > 1){
-          let idx = -1;
-          if(base.addressId) idx = list.findIndex(a => a.id === base.addressId);
-          if(idx < 0 && base.address){
-            const key = (typeof normalizeAddressKey==='function') ? normalizeAddressKey(base.address) : (base.address||'').toString().trim().toLowerCase().replace(/\s+/g,'');
-            idx = list.findIndex(a => ((typeof normalizeAddressKey==='function') ? normalizeAddressKey(a.address) : (a.address||'').toString().trim().toLowerCase().replace(/\s+/g,'')) === key);
-          }
-          if(idx < 0) idx = 0;
-          const nx = list[(idx + 1) % list.length];
-          next.addressId = nx.id;
-          if(nx.address) next.address = nx.address;
-        }
-      }
-    }catch(e){}
-    // 新訂單應該有新的 ID 與狀態
-    next.id = '';
-    next.date = nextDateStr || '';
-    // 預設下一次為「排定」、尚未確認 / 報價 / 提醒
-    next.status = '排定';
-    next.confirmed = false;
-    next.quotationOk = false;
-    next.reminderNotified = false;
-    // 清掉可能存在的時間戳記欄位
-    delete next.createdAt;
-    delete next.completedAt;
+      // 確認 / 提醒狀態一律視為新訂單。
+      confirmed: false,
+      quotationOk: false,
+      reminderNotified: false,
+      reminderMuted: false,
+
+      // 清洗項目與備註：全部清空，不沿用上一次服務內容。
+      acFloors: [],
+      washerFloors: [],
+      acFloorAbove: '',
+      washerFloorAbove: '',
+      acSplit: 0,
+      acDuct: 0,
+      washerTop: 0,
+      waterTank: 0,
+      waterTankLadderRequired: '',
+      waterTankLadderType: '',
+      waterTankLadderHeightRange: '',
+      waterTankLadderHeightFt: '',
+      waterTankLadderNotes: '',
+      waterTankLadderOnsiteFlags: '',
+      pipesAmount: 0,
+      antiMold: 0,
+      ozone: 0,
+      transformerCount: 0,
+      transformerLocations: [],
+      longSplitCount: 0,
+      longSplitLocations: [],
+      onePieceTray: 0,
+      onePieceTrayLocations: [],
+      outdoorUnitCleaning: 0,
+      customServiceItems: [],
+      note: '',
+      acBrands: [],
+      acBrandOther: '',
+      photoUrls: '',
+
+      // 金額與額外成本：新訂單重新計算 / 輸入。
+      total: 0,
+      extraCharge: 0,
+      discount: 0,
+      transportFee: 0,
+      helperEnabled: false,
+      helperCount: 1,
+      helperCost: 0,
+      taxIncluded: false,
+      taxAmount: 0,
+      netBeforeTax: 0,
+      netTotal: 0
+    };
 
     fillForm(next);
 
+    // 讓清洗數量欄位在畫面上真正呈現空白，而不是顯示 0。
+    // gatherForm() 儲存時仍會把未填欄位視為 0，不影響既有資料格式。
+    ['acSplit','acDuct','washerTop','waterTank','pipesAmount','antiMold','ozone',
+     'transformerCount','longSplitCount','onePieceTray','outdoorUnitCleaning'].forEach(function(id){
+      const el = $(id);
+      if (el) el.value = '';
+    });
+
+    // 「快速新增下一次」完成後，一律停在新訂單最上方的 Step 1「排程與客戶資料」。
+    // quickNextBtn 本身位於 Step 3 底部；SweetAlert 預設關閉後會把焦點還給該按鈕，
+    // 瀏覽器因此可能再次捲回「金額與確認」。這裡關閉 returnFocus，並在提示關閉後重新定位。
+    const scrollQuickNextToStep1 = function(){
+      try{
+        const accordion = $('orderAccordion');
+        if (accordion) accordion.open = true;
+
+        const form = document.getElementById('orderForm');
+        const step1 = form ? form.querySelector('details.order-section') : null;
+        if (step1){
+          step1.open = true;
+          step1.scrollIntoView({ behavior:'smooth', block:'start' });
+        } else if (accordion){
+          accordion.scrollIntoView({ behavior:'smooth', block:'start' });
+        }
+
+        // 焦點放到 Step 1 的日期欄位，方便直接開始安排新訂單，且不會跳回底部按鈕。
+        window.setTimeout(function(){
+          try{ $('date')?.focus({ preventScroll:true }); }catch(e){}
+        }, 350);
+      }catch(e){}
+    };
+
+    // 先移到 Step 1；提示關閉後再定位一次，確保最終視窗位置正確。
+    scrollQuickNextToStep1();
+
     if (typeof Swal !== 'undefined' && Swal.fire){
-      Swal.fire(
-        '已建立下一次訂單草稿',
-        nextDateStr
-          ? ('已根據目前資料建立下一次預約（預設日期：' + nextDateStr + '），請確認時間與內容後儲存。')
-          : '已根據目前資料建立下一次預約，請設定日期與時間後儲存。',
-        'success'
-      );
+      Swal.fire({
+        title: '已建立新訂單草稿',
+        text: '已帶入客戶基本資料；日期、時間、排程、清洗項目、備註與金額均已清空，請重新填寫後儲存。',
+        icon: 'success',
+        returnFocus: false
+      }).then(function(){
+        scrollQuickNextToStep1();
+      });
+    } else {
+      scrollQuickNextToStep1();
     }
   } catch (err){
     console.error(err);
     if (typeof Swal !== 'undefined' && Swal.fire){
-      Swal.fire('發生錯誤', '建立下一次訂單時發生錯誤，請稍後再試。', 'error');
+      Swal.fire('發生錯誤', '建立新訂單時發生錯誤，請稍後再試。', 'error');
     } else {
-      alert('建立下一次訂單時發生錯誤。');
+      alert('建立新訂單時發生錯誤。');
     }
   }
 }

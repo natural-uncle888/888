@@ -1049,8 +1049,9 @@ try{
       });
     
     
-      // auto-open orderAccordion when主要按鈕被點擊
-      ;['saveBtn','resetBtn','quickNextBtn'].forEach(id=>{
+      // auto-open orderAccordion when主要按鈕被點擊。
+      // quickNextBtn 由 quickCreateNextOrder() 自行精準定位到 Step 1，避免提示關閉後焦點把畫面拉回 Step 3。
+      ;['saveBtn','resetBtn'].forEach(id=>{
         $(id)?.addEventListener('click', ()=>{ $('orderAccordion').open = true; $('orderAccordion').scrollIntoView({behavior:'smooth', block:'start'}); });
       });
     
